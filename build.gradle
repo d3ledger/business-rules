@@ -1,0 +1,74 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.1'
+    }
+}
+
+group = 'business-rules'
+version = '0.1-SNAPSHOT'
+
+apply plugin: "jacoco"
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'java'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+sourceCompatibility = 1.8
+
+// ------------------| Test dependencies |------------------
+
+allprojects {
+    dependencies {
+        // unit tests
+        testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
+        testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')
+        // https://mvnrepository.com/artifact/org.mockito/mockito-all
+        testCompile group: 'org.mockito', name: 'mockito-all', version: '2.0.2-beta'
+
+        // for setting env variables in tests
+        testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version: '1.18.0'
+    }
+}
+
+wrapper {
+    gradleVersion = 4.10
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': ''
+    }
+}
+
+// -------------------------| JaCoCo code coverage |-------------------------
+
+task codeCoverageReport(type: JacocoReport) {
+
+    // Gather execution data from all subprojects
+    // (change this if you e.g. want to calculate unit test/integration test coverage separately)
+    executionData fileTree(project.rootDir.absolutePath).include("**/build/jacoco/*.exec")
+
+    // Add all relevant sourcesets from the subprojects
+    subprojects.each {
+        sourceSets it.sourceSets.main
+    }
+
+    reports {
+        xml.enabled true
+        html.enabled true
+        html.destination "${buildDir}/reports/jacoco"
+        csv.enabled false
+    }
+}
+
+// always run the tests before generating the report
+codeCoverageReport.dependsOn {
+    subprojects*.test
+}
