@@ -1,5 +1,5 @@
-package iroha.validation.storage;
+package iroha.validation.storage.impl;
 
-public class GroupingService {
+public class MQTransactionProvider {
 
 }
