@@ -22,10 +22,13 @@ repositories {
 
 sourceCompatibility = 1.8
 
-// ------------------| Test dependencies |------------------
+// ------------------| Dependencies |------------------
 
 allprojects {
     dependencies {
+        // IPJ
+        compile "com.github.hyperledger.iroha-java:client:master-SNAPSHOT"
+
         // unit tests
         testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
         testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')

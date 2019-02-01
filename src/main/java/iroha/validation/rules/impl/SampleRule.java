@@ -1,5 +1,15 @@
 package iroha.validation.rules.impl;
 
-public class SampleRule {
+import iroha.protocol.TransactionOuterClass.Transaction;
+import iroha.validation.rules.Rule;
 
+public class SampleRule implements Rule {
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Boolean isSatisfiedBy(Transaction transaction) {
+    return true;
+  }
 }
