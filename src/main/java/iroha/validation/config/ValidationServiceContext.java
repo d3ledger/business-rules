@@ -21,7 +21,7 @@ public class ValidationServiceContext {
       KeyPair keyPair) {
     Objects.requireNonNull(validators, "Validators collection must not be null");
     // TODO rework isEmpty check during springify task
-    if(validators.isEmpty()) throw new RuntimeException("Validators collection must not be empty");
+    if(validators.isEmpty()) throw new IllegalArgumentException("Validators collection must not be empty");
     Objects.requireNonNull(transactionProvider, "Transaction provider must not be null");
     Objects.requireNonNull(transactionSigner, "Transaction signer must not be null");
     Objects.requireNonNull(keyPair, "Keypair must not be null");

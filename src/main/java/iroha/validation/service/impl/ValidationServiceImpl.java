@@ -18,7 +18,7 @@ public class ValidationServiceImpl implements ValidationService {
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
-    
+
     this.validators = validationServiceContext.getValidators();
     this.transactionProvider = validationServiceContext.getTransactionProvider();
     this.transactionSigner = validationServiceContext.getTransactionSigner();
