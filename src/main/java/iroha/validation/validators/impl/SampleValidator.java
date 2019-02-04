@@ -12,14 +12,22 @@ public class SampleValidator implements Validator {
   private Collection<Rule> rules;
 
   public SampleValidator() {
-    this.rules = Collections.singletonList(new SampleRule());
+    this(new SampleRule());
+  }
+
+  public SampleValidator(Rule rule) {
+    this(Collections.singletonList(rule));
+  }
+
+  public SampleValidator(Collection<Rule> rules) {
+    this.rules = rules;
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public Boolean validate(Transaction transaction) {
+  public boolean validate(Transaction transaction) {
     return rules.stream().allMatch(rule -> rule.isSatisfiedBy(transaction));
   }
 }

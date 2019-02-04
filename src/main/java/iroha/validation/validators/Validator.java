@@ -15,5 +15,5 @@ public interface Validator {
    * @return <code>true</code> if the transaction satisfies all described rules by validator;
    * <code>false</code> otherwise
    */
-  Boolean validate(TransactionOuterClass.Transaction transaction);
+  boolean validate(TransactionOuterClass.Transaction transaction);
 }

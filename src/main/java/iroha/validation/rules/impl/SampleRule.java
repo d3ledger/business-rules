@@ -9,7 +9,7 @@ public class SampleRule implements Rule {
    * {@inheritDoc}
    */
   @Override
-  public Boolean isSatisfiedBy(Transaction transaction) {
+  public boolean isSatisfiedBy(Transaction transaction) {
     return true;
   }
 }

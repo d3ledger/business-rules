@@ -7,6 +7,7 @@ import iroha.validation.transactions.storage.TransactionProvider;
 import iroha.validation.validators.Validator;
 import java.security.KeyPair;
 import java.util.Collection;
+import java.util.Objects;
 
 public class ValidationServiceImpl implements ValidationService {
 
@@ -16,6 +17,8 @@ public class ValidationServiceImpl implements ValidationService {
   private KeyPair keyPair;
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
+    Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
+    
     this.validators = validationServiceContext.getValidators();
     this.transactionProvider = validationServiceContext.getTransactionProvider();
     this.transactionSigner = validationServiceContext.getTransactionSigner();

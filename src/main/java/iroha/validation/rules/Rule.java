@@ -14,5 +14,5 @@ public interface Rule {
    * @return <code>true</code> if the transaction satisfies rule;
    * <code>false</code> otherwise
    */
-  Boolean isSatisfiedBy(TransactionOuterClass.Transaction transaction);
+  boolean isSatisfiedBy(TransactionOuterClass.Transaction transaction);
 }
