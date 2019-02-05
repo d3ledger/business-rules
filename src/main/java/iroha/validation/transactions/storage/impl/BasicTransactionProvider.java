@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 
 public class BasicTransactionProvider implements TransactionProvider {
 
-  private static final Logger logger = LoggerFactory.getLogger(MQTransactionProvider.class);
+  private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
 
   private final IrohaAPI irohaAPI;
   private final String accountId;
