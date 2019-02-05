@@ -33,8 +33,12 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final KeyPair keyPair;
   private final Set<String> hashesKnown = new HashSet<>();
   private final ObservableRxList<Transaction> cache = new ObservableRxList<>();
+  private boolean isStarted;
 
-  public BasicTransactionProvider(IrohaAPI irohaAPI, String accountId, KeyPair keyPair) {
+  public BasicTransactionProvider(IrohaAPI irohaAPI,
+      String accountId,
+      KeyPair keyPair,
+      boolean startImmediately) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null or empty");
@@ -44,12 +48,31 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
-    Executors.newScheduledThreadPool(1)
-        .scheduleAtFixedRate(this::monitorIroha, 5, 2, TimeUnit.SECONDS);
+    this.isStarted = startImmediately;
+    if (startImmediately) {
+      start();
+    }
   }
 
-  public BasicTransactionProvider(String host, int port, String accountId, KeyPair keyPair) {
-    this(new IrohaAPI(host, port), accountId, keyPair);
+  public BasicTransactionProvider(String host,
+      int port,
+      String accountId,
+      KeyPair keyPair,
+      boolean startImmediately) {
+    this(new IrohaAPI(host, port), accountId, keyPair, startImmediately);
+  }
+
+  public BasicTransactionProvider(IrohaAPI irohaAPI,
+      String accountId,
+      KeyPair keyPair) {
+    this(irohaAPI, accountId, keyPair, true);
+  }
+
+  public BasicTransactionProvider(String host,
+      int port,
+      String accountId,
+      KeyPair keyPair) {
+    this(new IrohaAPI(host, port), accountId, keyPair, true);
   }
 
   /**
@@ -74,6 +97,14 @@ public class BasicTransactionProvider implements TransactionProvider {
           return response.getBlockResponse().getBlock();
         }
     );
+  }
+
+  @Override
+  public void start() {
+    if (!isStarted) {
+      Executors.newScheduledThreadPool(1)
+          .scheduleAtFixedRate(this::monitorIroha, 5, 2, TimeUnit.SECONDS);
+    }
   }
 
   private void monitorIroha() {
