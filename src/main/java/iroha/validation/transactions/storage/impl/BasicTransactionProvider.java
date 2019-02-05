@@ -48,7 +48,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
-    this.isStarted = startImmediately;
     if (startImmediately) {
       start();
     }
@@ -102,6 +101,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   @Override
   public void start() {
     if (!isStarted) {
+      isStarted = true;
       Executors.newScheduledThreadPool(1)
           .scheduleAtFixedRate(this::monitorIroha, 5, 2, TimeUnit.SECONDS);
     }
