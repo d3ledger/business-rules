@@ -28,4 +28,10 @@ public class MQTransactionProvider implements TransactionProvider {
     // TODO
     throw new NotImplementedException();
   }
+
+  @Override
+  public void close() {
+    // TODO
+    throw new NotImplementedException();
+  }
 }

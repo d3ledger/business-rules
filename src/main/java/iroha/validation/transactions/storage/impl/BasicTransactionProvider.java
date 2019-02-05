@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.BlocksQueryBuilder;
@@ -34,6 +35,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final Set<String> hashesKnown = new HashSet<>();
   private final ObservableRxList<Transaction> cache = new ObservableRxList<>();
   private boolean isStarted;
+  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
   public BasicTransactionProvider(IrohaAPI irohaAPI,
       String accountId,
@@ -60,11 +62,10 @@ public class BasicTransactionProvider implements TransactionProvider {
    * {@inheritDoc}
    */
   @Override
-  public Observable<Transaction> getPendingTransactionsStreaming() {
+  public synchronized Observable<Transaction> getPendingTransactionsStreaming() {
     if (!isStarted) {
       isStarted = true;
-      Executors.newScheduledThreadPool(1)
-          .scheduleAtFixedRate(this::monitorIroha, 0, 2, TimeUnit.SECONDS);
+      executorService.scheduleAtFixedRate(this::monitorIroha, 0, 2, TimeUnit.SECONDS);
     }
     return cache.getObservable();
   }
@@ -111,5 +112,10 @@ public class BasicTransactionProvider implements TransactionProvider {
         i--;
       }
     }
+  }
+
+  @Override
+  public void close() {
+    executorService.shutdownNow();
   }
 }
