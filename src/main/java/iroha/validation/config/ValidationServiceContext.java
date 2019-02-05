@@ -12,7 +12,6 @@ public class ValidationServiceContext {
   private final Collection<Validator> validators;
   private final TransactionProvider transactionProvider;
   private final TransactionSigner transactionSigner;
-  private final KeyPair keyPair;
 
   public ValidationServiceContext(
       Collection<Validator> validators,
@@ -29,7 +28,6 @@ public class ValidationServiceContext {
     this.validators = validators;
     this.transactionProvider = transactionProvider;
     this.transactionSigner = transactionSigner;
-    this.keyPair = keyPair;
   }
 
   public Collection<Validator> getValidators() {
@@ -42,9 +40,5 @@ public class ValidationServiceContext {
 
   public TransactionSigner getTransactionSigner() {
     return transactionSigner;
-  }
-
-  public KeyPair getKeyPair() {
-    return keyPair;
   }
 }

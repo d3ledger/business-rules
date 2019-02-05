@@ -1,6 +1,7 @@
 package iroha.validation.transactions.storage;
 
 import io.reactivex.Observable;
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.QryResponses;
 import iroha.protocol.TransactionOuterClass;
 
@@ -21,5 +22,5 @@ public interface TransactionProvider {
    *
    * @return {@link Observable} of Iroha proto {@link QryResponses.BlockQueryResponse} block
    */
-  Observable<QryResponses.BlockQueryResponse> getBlockStreaming();
+  Observable<Block> getBlockStreaming();
 }

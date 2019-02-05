@@ -1,7 +1,7 @@
 package iroha.validation.transactions.storage.impl;
 
 import io.reactivex.Observable;
-import iroha.protocol.QryResponses.BlockQueryResponse;
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.storage.TransactionProvider;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -24,7 +24,7 @@ public class MQTransactionProvider implements TransactionProvider {
    * {@inheritDoc}
    */
   @Override
-  public Observable<BlockQueryResponse> getBlockStreaming() {
+  public Observable<Block> getBlockStreaming() {
     // TODO
     throw new NotImplementedException();
   }
