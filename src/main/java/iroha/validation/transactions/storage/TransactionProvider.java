@@ -23,9 +23,4 @@ public interface TransactionProvider {
    * @return {@link Observable} of Iroha proto {@link QryResponses.BlockQueryResponse} block
    */
   Observable<Block> getBlockStreaming();
-
-  /**
-   * Method for starting Iroha interacting mechanism
-   */
-  void start();
 }

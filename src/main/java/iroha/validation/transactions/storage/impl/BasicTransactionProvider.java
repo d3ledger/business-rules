@@ -37,8 +37,7 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   public BasicTransactionProvider(IrohaAPI irohaAPI,
       String accountId,
-      KeyPair keyPair,
-      boolean startImmediately) {
+      KeyPair keyPair) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null or empty");
@@ -48,30 +47,13 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
-    if (startImmediately) {
-      start();
-    }
-  }
-
-  public BasicTransactionProvider(String host,
-      int port,
-      String accountId,
-      KeyPair keyPair,
-      boolean startImmediately) {
-    this(new IrohaAPI(host, port), accountId, keyPair, startImmediately);
-  }
-
-  public BasicTransactionProvider(IrohaAPI irohaAPI,
-      String accountId,
-      KeyPair keyPair) {
-    this(irohaAPI, accountId, keyPair, true);
   }
 
   public BasicTransactionProvider(String host,
       int port,
       String accountId,
       KeyPair keyPair) {
-    this(new IrohaAPI(host, port), accountId, keyPair, true);
+    this(new IrohaAPI(host, port), accountId, keyPair);
   }
 
   /**
@@ -79,6 +61,11 @@ public class BasicTransactionProvider implements TransactionProvider {
    */
   @Override
   public Observable<Transaction> getPendingTransactionsStreaming() {
+    if (!isStarted) {
+      isStarted = true;
+      Executors.newScheduledThreadPool(1)
+          .scheduleAtFixedRate(this::monitorIroha, 0, 2, TimeUnit.SECONDS);
+    }
     return cache.getObservable();
   }
 
@@ -96,15 +83,6 @@ public class BasicTransactionProvider implements TransactionProvider {
           return response.getBlockResponse().getBlock();
         }
     );
-  }
-
-  @Override
-  public void start() {
-    if (!isStarted) {
-      isStarted = true;
-      Executors.newScheduledThreadPool(1)
-          .scheduleAtFixedRate(this::monitorIroha, 5, 2, TimeUnit.SECONDS);
-    }
   }
 
   private void monitorIroha() {
