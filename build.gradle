@@ -34,7 +34,8 @@ allprojects {
         testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')
         // https://mvnrepository.com/artifact/org.mockito/mockito-all
         testCompile group: 'org.mockito', name: 'mockito-all', version: '2.0.2-beta'
-
+        // Test containers iroha
+        testCompile "com.github.hyperledger.iroha-java:testcontainers:master-SNAPSHOT"
         // for setting env variables in tests
         testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version: '1.18.0'
     }
