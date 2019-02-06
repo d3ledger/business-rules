@@ -7,13 +7,19 @@ import iroha.validation.transactions.storage.TransactionProvider;
 import iroha.validation.validators.Validator;
 import java.util.Collection;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.stereotype.Component;
 
+@Component
+@ComponentScan("iroha.validation")
 public class ValidationServiceImpl implements ValidationService {
 
   private Collection<Validator> validators;
   private TransactionProvider transactionProvider;
   private TransactionSigner transactionSigner;
 
+  @Autowired
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
 

@@ -24,7 +24,10 @@ import jp.co.soramitsu.iroha.java.Query;
 import jp.co.soramitsu.iroha.java.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class BasicTransactionProvider implements TransactionProvider {
 
   private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
@@ -37,6 +40,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
+  @Autowired
   public BasicTransactionProvider(IrohaAPI irohaAPI,
       String accountId,
       KeyPair keyPair) {
@@ -49,13 +53,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
-  }
-
-  public BasicTransactionProvider(String host,
-      int port,
-      String accountId,
-      KeyPair keyPair) {
-    this(new IrohaAPI(host, port), accountId, keyPair);
   }
 
   /**

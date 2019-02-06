@@ -2,19 +2,18 @@ package iroha.validation.validators.impl;
 
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
-import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.validators.Validator;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
+import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
+@Component
 public class SampleValidator implements Validator {
 
   private Collection<Rule> rules;
 
-  public SampleValidator() {
-    this(new SampleRule());
-  }
 
   public SampleValidator(Rule rule) {
     Objects.requireNonNull(rule, "Rule must not be null");
@@ -22,9 +21,9 @@ public class SampleValidator implements Validator {
   }
 
   public SampleValidator(Collection<Rule> rules) {
-    Objects.requireNonNull(rules, "Rules collection must not be null");
-    // TODO rework isEmpty check during springify task
-    if(rules.isEmpty()) throw new IllegalArgumentException("Rules collection must not be empty");
+    if (CollectionUtils.isEmpty(rules)) {
+      throw new IllegalArgumentException("Rules collection must not be neither null nor empty");
+    }
 
     this.rules = rules;
   }
