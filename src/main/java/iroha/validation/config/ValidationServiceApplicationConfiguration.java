@@ -2,6 +2,8 @@ package iroha.validation.config;
 
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.SampleRule;
+import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.storage.impl.BasicTransactionProvider;
 import iroha.validation.validators.Validator;
 import iroha.validation.validators.impl.SampleValidator;
 import java.io.IOException;
@@ -44,8 +46,12 @@ public class ValidationServiceApplicationConfiguration {
 
   @Bean
   public KeyPair keyPair() throws IOException {
-    String pubKey = new String(Files.readAllBytes(Paths.get(pubkeyPath)));
-    String privKey = new String(Files.readAllBytes(Paths.get(privkeyPath)));
+    String pubKey = new String(
+        Files.readAllBytes(
+            Paths.get(System.getProperty("user.dir") + "/testdata/keys", pubkeyPath)));
+    String privKey = new String(
+        Files.readAllBytes(
+            Paths.get(System.getProperty("user.dir") + "/testdata/keys", privkeyPath)));
     return Utils.parseHexKeypair(pubKey, privKey);
   }
 
@@ -62,5 +68,10 @@ public class ValidationServiceApplicationConfiguration {
   @Bean
   public Collection<Validator> validators() {
     return Collections.singletonList(new SampleValidator(rules()));
+  }
+
+  @Bean
+  public TransactionProvider transactionProvider() throws IOException {
+    return new BasicTransactionProvider(irohaAPI(), accountId(), keyPair());
   }
 }

@@ -61,6 +61,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   @Override
   public synchronized Observable<Transaction> getPendingTransactionsStreaming() {
     if (!isStarted) {
+      logger.info("Starting pending transactions streaming");
       isStarted = true;
       executorService.scheduleAtFixedRate(this::monitorIroha, 0, 2, TimeUnit.SECONDS);
     }

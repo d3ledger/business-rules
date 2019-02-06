@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Transaction;
+import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.testcontainers.IrohaContainer;
 import jp.co.soramitsu.iroha.testcontainers.PeerConfig;
 import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
@@ -21,10 +22,14 @@ public class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
   private static final KeyPair peerKeypair = crypto.generateKeypair();
-  private static final KeyPair userKeypair = crypto.generateKeypair();
-  private static final String domainName = "domain";
+  private static final KeyPair firstUserKeypair = crypto.generateKeypair();
+  private static final KeyPair secondUserKeypair = Utils.parseHexKeypair(
+      "092e71b031a51adae924f7cd944f0371ae8b8502469e32693885334dedcc6001",
+      "e51123b78d658418d018e7d2486021209af3cff82714b4cb7925870fec6097dc"
+  );
+  private static final String domainName = "notary";
   private static final String roleName = "user";
-  private static final String userName = "user";
+  private static final String userName = "test";
   private static final String userId = String.format("%s@%s", userName, domainName);
 
   private static BlockOuterClass.Block getGenesisBlock() {
@@ -48,8 +53,8 @@ public class IrohaIntegrationTest {
                 )
                 .createDomain(domainName, roleName)
                 // create user
-                .createAccount(userName, domainName, userKeypair.getPublic())
-                .addSignatory(userId, crypto.generateKeypair().getPublic())
+                .createAccount(userName, domainName, firstUserKeypair.getPublic())
+                .addSignatory(userId, secondUserKeypair.getPublic())
                 .setAccountQuorum(userId, 1)
                 // transactions in genesis block can be unsigned
                 .build()
@@ -81,7 +86,7 @@ public class IrohaIntegrationTest {
           sendTx(irohaAPI);
         }, 1, 4, TimeUnit.SECONDS);
 
-    TransactionProvider provider = new BasicTransactionProvider(irohaAPI, userId, userKeypair);
+    TransactionProvider provider = new BasicTransactionProvider(irohaAPI, userId, firstUserKeypair);
 
     // Just print arriving pending transactions
     provider.getPendingTransactionsStreaming().subscribe(System.out::println);
@@ -95,7 +100,7 @@ public class IrohaIntegrationTest {
             crypto.generateKeypair().getPublic()
         )
         .setQuorum(2)
-        .sign(userKeypair).build();
+        .sign(firstUserKeypair).build();
     api.transactionSync(transaction);
   }
 }
