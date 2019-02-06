@@ -42,12 +42,11 @@ public class ValidationServiceImpl implements ValidationService {
         {
           logger.info("Got transaction to validate: " + Utils.toHex(Utils.hash(transaction)));
           boolean verdict = validators.stream().allMatch(validator -> validator.validate(transaction));
-          logger.info("Should I sign it? -" + verdict);
           if (verdict) {
             transactionSigner.signAndSend(transaction);
+            logger.info("Transaction has been successfully validated and signed");
           }
         }
-    ,
-        Throwable::printStackTrace);
+    );
   }
 }
