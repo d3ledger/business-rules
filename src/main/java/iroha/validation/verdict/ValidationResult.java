@@ -1,4 +1,4 @@
-package iroha.validation.transactions.storage.verdict;
+package iroha.validation.verdict;
 
 public class ValidationResult {
 

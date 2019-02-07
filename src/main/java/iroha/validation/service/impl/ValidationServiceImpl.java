@@ -3,7 +3,7 @@ package iroha.validation.service.impl;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.signatory.TransactionSigner;
-import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.validators.Validator;
 import java.util.Collection;
 import java.util.Objects;
@@ -46,7 +46,7 @@ public class ValidationServiceImpl implements ValidationService {
           for (Validator validator : validators) {
             if (!validator.validate(transaction)) {
               final String canonicalName = validator.getClass().getCanonicalName();
-              transactionProvider.markTransactionRejected(hex, canonicalName);
+              transactionSigner.reject(transaction, canonicalName);
               logger.info("Transaction has been rejected by the service. Failed validator: " + canonicalName);
               verdict = false;
               break;

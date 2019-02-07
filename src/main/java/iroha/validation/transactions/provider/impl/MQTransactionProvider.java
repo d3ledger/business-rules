@@ -1,9 +1,9 @@
-package iroha.validation.transactions.storage.impl;
+package iroha.validation.transactions.provider.impl;
 
 import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.TransactionOuterClass.Transaction;
-import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.provider.TransactionProvider;
 import org.springframework.stereotype.Component;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
@@ -31,22 +31,6 @@ public class MQTransactionProvider implements TransactionProvider {
     throw new NotImplementedException();
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void markTransactionValidated(String txHash) {
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void markTransactionRejected(String txHash, String reason) {
-
-  }
-  
   @Override
   public void close() {
     // TODO

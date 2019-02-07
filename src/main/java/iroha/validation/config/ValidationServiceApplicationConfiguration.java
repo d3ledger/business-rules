@@ -2,8 +2,10 @@ package iroha.validation.config;
 
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.SampleRule;
-import iroha.validation.transactions.storage.TransactionProvider;
-import iroha.validation.transactions.storage.impl.BasicTransactionProvider;
+import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
+import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage;
 import iroha.validation.validators.Validator;
 import iroha.validation.validators.impl.SampleValidator;
 import java.io.IOException;
@@ -71,7 +73,12 @@ public class ValidationServiceApplicationConfiguration {
   }
 
   @Bean
+  public TransactionVerdictStorage transactionVerdictStorage() {
+    return new DummyMemoryTransactionVerdictStorage();
+  }
+
+  @Bean
   public TransactionProvider transactionProvider() throws IOException {
-    return new BasicTransactionProvider(irohaAPI(), accountId(), keyPair());
+    return new BasicTransactionProvider(irohaAPI(), accountId(), keyPair(), transactionVerdictStorage());
   }
 }
