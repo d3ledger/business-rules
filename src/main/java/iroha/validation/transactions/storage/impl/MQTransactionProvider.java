@@ -31,6 +31,22 @@ public class MQTransactionProvider implements TransactionProvider {
     throw new NotImplementedException();
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void markTransactionValidated(String txHash) {
+
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void markTransactionRejected(String txHash, String reason) {
+
+  }
+  
   @Override
   public void close() {
     // TODO

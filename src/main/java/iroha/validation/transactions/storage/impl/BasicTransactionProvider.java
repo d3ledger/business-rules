@@ -7,13 +7,14 @@ import iroha.protocol.Queries;
 import iroha.protocol.Queries.BlocksQuery;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.storage.verdict.ValidationResult;
 import iroha.validation.util.ObservableRxList;
 import java.security.KeyPair;
 import java.time.Instant;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +36,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final IrohaAPI irohaAPI;
   private final String accountId;
   private final KeyPair keyPair;
-  private final Set<String> hashesKnown = new HashSet<>();
+  private final Map<String, ValidationResult> hashesKnown = new HashMap<>();
   private final ObservableRxList<Transaction> cache = new ObservableRxList<>();
   private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
@@ -84,6 +85,26 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void markTransactionValidated(String txHash) {
+    if (hashesKnown.containsKey(txHash)) {
+      hashesKnown.put(txHash, ValidationResult.VALIDATED);
+    }
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void markTransactionRejected(String txHash, String reason) {
+    if (hashesKnown.containsKey(txHash)) {
+      hashesKnown.put(txHash, ValidationResult.REJECTED(reason));
+    }
+  }
+
   private void monitorIroha() {
     Queries.Query query = Query.builder(accountId, 1).getPendingTransactions().buildSigned(keyPair);
     List<Transaction> pendingTransactions = irohaAPI.query(query).getTransactionsResponse()
@@ -91,8 +112,8 @@ public class BasicTransactionProvider implements TransactionProvider {
     // Add new
     pendingTransactions.forEach(transaction -> {
           String hex = Utils.toHex(Utils.hash(transaction));
-          if (!hashesKnown.contains(hex)) {
-            hashesKnown.add(hex);
+          if (!hashesKnown.containsKey(hex)) {
+            hashesKnown.put(hex, ValidationResult.PENDING);
             cache.add(transaction);
           }
         }
