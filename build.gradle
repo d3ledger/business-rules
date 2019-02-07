@@ -5,6 +5,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.1'
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:2.0.5.RELEASE")
     }
 }
 
@@ -14,6 +15,14 @@ version = '0.1-SNAPSHOT'
 apply plugin: "jacoco"
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+bootJar {
+    baseName = 'iroha-business-rules'
+    version =  '0.1.0'
+}
 
 repositories {
     mavenCentral()
@@ -27,11 +36,17 @@ sourceCompatibility = 1.8
 allprojects {
     dependencies {
         // IPJ
-        compile "com.github.hyperledger.iroha-java:client:master-SNAPSHOT"
+        compile('com.github.hyperledger.iroha-java:client:master-SNAPSHOT')
+        // Spring
+        compile('org.springframework.boot:spring-boot-starter-web') {
+            exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
+        }
 
         // unit tests
         testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
         testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')
+        // Spring Test
+        testCompile('org.springframework.boot:spring-boot-starter-test')
         // https://mvnrepository.com/artifact/org.mockito/mockito-all
         testCompile group: 'org.mockito', name: 'mockito-all', version: '2.0.2-beta'
         // Test containers iroha
@@ -43,12 +58,6 @@ allprojects {
 
 wrapper {
     gradleVersion = 4.10
-}
-
-jar {
-    manifest {
-        attributes 'Main-Class': ''
-    }
 }
 
 // -------------------------| JaCoCo code coverage |-------------------------

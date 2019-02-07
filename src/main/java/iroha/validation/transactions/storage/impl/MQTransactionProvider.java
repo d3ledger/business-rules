@@ -4,11 +4,13 @@ import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.storage.TransactionProvider;
+import org.springframework.stereotype.Component;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * {@link TransactionProvider} implementation on message queues
  */
+@Component
 public class MQTransactionProvider implements TransactionProvider {
 
   /**
