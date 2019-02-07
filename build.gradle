@@ -40,7 +40,6 @@ allprojects {
         // Spring
         compile('org.springframework.boot:spring-boot-starter-web') {
             exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
-            exclude group: 'org.hibernate'
         }
 
         // unit tests
