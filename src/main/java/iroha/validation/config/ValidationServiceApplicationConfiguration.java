@@ -19,11 +19,13 @@ import jp.co.soramitsu.iroha.java.Utils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 
 /**
  * Class representing initialization config for validator service
  */
 @Configuration
+@PropertySource("application.properties")
 public class ValidationServiceApplicationConfiguration {
 
   @Value("${credential.accountId}")

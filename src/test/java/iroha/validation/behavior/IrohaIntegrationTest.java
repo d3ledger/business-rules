@@ -29,10 +29,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 
-@SpringBootTest
 public class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();

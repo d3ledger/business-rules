@@ -1,16 +1,15 @@
 package iroha.validation;
 
 import iroha.validation.service.ValidationService;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.ComponentScan;
 
-@SpringBootApplication
+@ComponentScan("iroha.validation")
 public class Application {
 
   public static void main(String[] args) {
-    ConfigurableApplicationContext applicationContext = SpringApplication
-        .run(Application.class, args);
-    applicationContext.getBean(ValidationService.class).verifyTransactions();
+    new AnnotationConfigApplicationContext(Application.class)
+        .getBean(ValidationService.class)
+        .verifyTransactions();
   }
 }

@@ -15,14 +15,6 @@ version = '0.1-SNAPSHOT'
 apply plugin: "jacoco"
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'org.springframework.boot'
-apply plugin: 'io.spring.dependency-management'
-
-bootJar {
-    baseName = 'iroha-business-rules'
-    version =  '0.1.0'
-}
 
 repositories {
     mavenCentral()
@@ -38,21 +30,15 @@ allprojects {
         // IPJ
         compile('com.github.hyperledger.iroha-java:client:master-SNAPSHOT')
         // Spring
-        compile('org.springframework.boot:spring-boot-starter-web') {
-            exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
-        }
-
+        compile('org.springframework:spring-context:5.1.4.RELEASE')
+        //Logging
+        compile('org.slf4j:slf4j-api:1.7.25')
+        compile('org.slf4j:slf4j-simple:1.7.25')
         // unit tests
         testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
         testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')
-        // Spring Test
-        testCompile('org.springframework.boot:spring-boot-starter-test')
-        // https://mvnrepository.com/artifact/org.mockito/mockito-all
-        testCompile group: 'org.mockito', name: 'mockito-all', version: '2.0.2-beta'
         // Test containers iroha
         testCompile "com.github.hyperledger.iroha-java:testcontainers:master-SNAPSHOT"
-        // for setting env variables in tests
-        testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version: '1.18.0'
     }
 }
 
