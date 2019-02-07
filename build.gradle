@@ -38,7 +38,10 @@ allprojects {
         // IPJ
         compile('com.github.hyperledger.iroha-java:client:master-SNAPSHOT')
         // Spring
-        compile('org.springframework.boot:spring-boot-starter-web')
+        compile('org.springframework.boot:spring-boot-starter-web') {
+            exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
+            exclude group: 'org.hibernate'
+        }
 
         // unit tests
         testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
