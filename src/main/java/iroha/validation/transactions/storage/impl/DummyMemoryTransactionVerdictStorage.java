@@ -24,9 +24,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public void markTransactionPending(String txHash) {
-    if (!isHashPresentInStorage(txHash)) {
-      validationResultMap.put(txHash, ValidationResult.PENDING);
-    }
+    validationResultMap.put(txHash, ValidationResult.PENDING);
   }
 
   /**
@@ -34,9 +32,15 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public void markTransactionValidated(String txHash) {
-    if (isHashPresentInStorage(txHash)) {
-      validationResultMap.put(txHash, ValidationResult.VALIDATED);
-    }
+    validationResultMap.put(txHash, ValidationResult.VALIDATED);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void markTransactionIrrelevant(String txHash) {
+    validationResultMap.put(txHash, ValidationResult.IRRELEVANT);
   }
 
   /**
@@ -44,8 +48,14 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public void markTransactionRejected(String txHash, String reason) {
-    if (isHashPresentInStorage(txHash)) {
-      validationResultMap.put(txHash, ValidationResult.REJECTED(reason));
-    }
+    validationResultMap.put(txHash, ValidationResult.REJECTED(reason));
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public ValidationResult getTransactionVerdict(String txHash) {
+    return validationResultMap.get(txHash);
   }
 }

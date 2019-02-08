@@ -15,6 +15,10 @@ public class TransactionSignerImpl implements TransactionSigner {
 
   private final IrohaAPI irohaAPI;
   private final KeyPair keyPair;
+  private final KeyPair fakeKeyPair = Utils.parseHexKeypair(
+      "0000000000000000000000000000000000000000000000000000000000000000",
+      "0000000000000000000000000000000000000000000000000000000000000000"
+  );
   private final TransactionVerdictStorage transactionVerdictStorage;
 
   @Autowired
@@ -35,6 +39,7 @@ public class TransactionSignerImpl implements TransactionSigner {
    */
   @Override
   public void signAndSend(Transaction transaction) {
+    transactionVerdictStorage.markTransactionIrrelevant(Utils.toHex(Utils.hash(transaction)));
     Transaction validatedTx = jp.co.soramitsu.iroha.java.Transaction
         .parseFrom(transaction)
         .sign(keyPair)
@@ -48,7 +53,14 @@ public class TransactionSignerImpl implements TransactionSigner {
    * {@inheritDoc}
    */
   @Override
-  public void reject(Transaction transaction, String reason) {
+  public void rejectAndSend(Transaction transaction, String reason) {
     transactionVerdictStorage.markTransactionRejected(Utils.toHex(Utils.hash(transaction)), reason);
+    Transaction rejectedTx = jp.co.soramitsu.iroha.java.Transaction
+        .parseFrom(transaction)
+        .sign(fakeKeyPair)
+        .build();
+
+    irohaAPI.transactionSync(rejectedTx);
+    transactionVerdictStorage.markTransactionRejected(Utils.toHex(Utils.hash(rejectedTx)), reason);
   }
 }

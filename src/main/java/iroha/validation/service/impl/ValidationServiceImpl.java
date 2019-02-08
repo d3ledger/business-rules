@@ -46,7 +46,7 @@ public class ValidationServiceImpl implements ValidationService {
           for (Validator validator : validators) {
             if (!validator.validate(transaction)) {
               final String canonicalName = validator.getClass().getCanonicalName();
-              transactionSigner.reject(transaction, canonicalName);
+              transactionSigner.rejectAndSend(transaction, canonicalName);
               logger.info("Transaction has been rejected by the service. Failed validator: " + canonicalName);
               verdict = false;
               break;

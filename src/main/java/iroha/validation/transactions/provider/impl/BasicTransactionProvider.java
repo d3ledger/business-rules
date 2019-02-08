@@ -2,21 +2,27 @@ package iroha.validation.transactions.provider.impl;
 
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
+import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.BlockOuterClass.Block;
+import iroha.protocol.Commands.Command;
 import iroha.protocol.Queries;
 import iroha.protocol.Queries.BlocksQuery;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
-import iroha.validation.util.ObservableRxList;
 import java.security.KeyPair;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.BlocksQueryBuilder;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
@@ -25,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 @Component
 public class BasicTransactionProvider implements TransactionProvider {
@@ -32,12 +39,19 @@ public class BasicTransactionProvider implements TransactionProvider {
   private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
 
   private final IrohaAPI irohaAPI;
+  // BRVS account id to query Iroha
   private final String accountId;
+  // BRVS keypair to query Iroha
   private final KeyPair keyPair;
   private final TransactionVerdictStorage transactionVerdictStorage;
-  private final ObservableRxList<Transaction> cache = new ObservableRxList<>();
+  // Local BRVS cache
+  private final Map<String, List<Transaction>> cache = new HashMap<>();
+  // Iroha accounts awaiting for the previous transaction completion
+  private final Set<String> pendingAccounts = Collections.synchronizedSet(new HashSet<>());
+  // Observable
+  private final PublishSubject<Transaction> subject = PublishSubject.create();
   private boolean isStarted;
-  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
+  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
 
   @Autowired
   public BasicTransactionProvider(IrohaAPI irohaAPI,
@@ -65,9 +79,11 @@ public class BasicTransactionProvider implements TransactionProvider {
     if (!isStarted) {
       logger.info("Starting pending transactions streaming");
       isStarted = true;
-      executorService.scheduleAtFixedRate(this::monitorIroha, 0, 2, TimeUnit.SECONDS);
+      executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
+      executorService.schedule(this::monitorNewBlocks, 2, TimeUnit.SECONDS);
+      executorService.scheduleAtFixedRate(this::manageCache, 2, 2, TimeUnit.SECONDS);
     }
-    return cache.getObservable();
+    return subject;
   }
 
   /**
@@ -86,36 +102,84 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
   }
 
-  private void monitorIroha() {
+  private void monitorIrohaPending() {
     Queries.Query query = Query.builder(accountId, 1).getPendingTransactions().buildSigned(keyPair);
     List<Transaction> pendingTransactions = irohaAPI.query(query).getTransactionsResponse()
         .getTransactionsList();
-    // Add new
     pendingTransactions.forEach(transaction -> {
-          String hex = Utils.toHex(Utils.hash(transaction));
-          if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
-            transactionVerdictStorage.markTransactionPending(hex);
-            cache.add(transaction);
+          // if only BRVS signatory remains
+          if (transaction.getPayload().getReducedPayload().getQuorum() -
+              transaction.getSignaturesCount() == 1) {
+            String hex = Utils.toHex(Utils.hash(transaction));
+            if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
+              transactionVerdictStorage.markTransactionPending(hex);
+              put(transaction);
+            }
           }
         }
     );
-    // Remove irrelevant
-    List<String> pendingHashes = pendingTransactions
-        .stream()
-        .map(Utils::hash)
-        .map(Utils::toHex)
-        .collect(Collectors.toList());
-    for (int i = 0; i < cache.size(); i++) {
-      Transaction tx = cache.get(i);
-      if (!pendingHashes.contains(Utils.toHex(Utils.hash(tx)))) {
-        cache.remove(tx);
-        i--;
-      }
-    }
+  }
+
+  private void monitorNewBlocks() {
+    getBlockStreaming().subscribe(block -> {
+          final List<Transaction> blockTransactions = block
+              .getBlockV1()
+              .getPayload()
+              .getTransactionsList();
+
+          if (blockTransactions != null) {
+            // committed transfer transactions
+            blockTransactions.forEach(
+                transaction -> {
+                  if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
+                      .anyMatch(Command::hasTransferAsset)) {
+                    pendingAccounts.remove(getTxAccountId(transaction));
+                  }
+                }
+            );
+          }
+        }
+    );
+  }
+
+  private void manageCache() {
+    cache.keySet().forEach(account -> {
+          if (!pendingAccounts.contains(account)) {
+            List<Transaction> transactions = cache.get(account);
+            if (!CollectionUtils.isEmpty(transactions)) {
+              remove(transactions.get(0));
+            }
+          }
+        }
+    );
   }
 
   @Override
   public void close() {
     executorService.shutdownNow();
+  }
+
+  private void put(Transaction transaction) {
+    final String accountId = getTxAccountId(transaction);
+    if (!cache.containsKey(accountId)) {
+      cache.put(accountId, new ArrayList<>());
+    }
+    cache.get(accountId).add(transaction);
+  }
+
+  private void remove(Transaction transaction) {
+    final String accountId = getTxAccountId(transaction);
+    if (cache.containsKey(accountId)) {
+      cache.get(accountId).remove(transaction);
+      pendingAccounts.add(accountId);
+      subject.onNext(transaction);
+      if (cache.get(accountId).size() == 0) {
+        cache.remove(accountId);
+      }
+    }
+  }
+
+  private String getTxAccountId(final Transaction transaction) {
+    return transaction.getPayload().getReducedPayload().getCreatorAccountId();
   }
 }
