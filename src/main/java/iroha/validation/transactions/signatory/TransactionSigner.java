@@ -10,4 +10,12 @@ public interface TransactionSigner {
    * @param transaction Iroha proto transaction
    */
   void signAndSend(TransactionOuterClass.Transaction transaction);
+
+  /**
+   * Method for rejecting transaction with a reason
+   *
+   * @param transaction Iroha proto transaction
+   * @param reason reason
+   */
+  void reject(TransactionOuterClass.Transaction transaction, String reason);
 }

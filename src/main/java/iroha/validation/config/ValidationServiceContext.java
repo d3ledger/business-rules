@@ -1,7 +1,7 @@
 package iroha.validation.config;
 
 import iroha.validation.transactions.signatory.TransactionSigner;
-import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.validators.Validator;
 import java.util.Collection;
 import java.util.Objects;

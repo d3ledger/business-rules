@@ -1,4 +1,4 @@
-package iroha.validation.transactions.storage.impl;
+package iroha.validation.transactions.provider.impl;
 
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
@@ -6,14 +6,13 @@ import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Queries;
 import iroha.protocol.Queries.BlocksQuery;
 import iroha.protocol.TransactionOuterClass.Transaction;
-import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.util.ObservableRxList;
 import java.security.KeyPair;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +34,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final IrohaAPI irohaAPI;
   private final String accountId;
   private final KeyPair keyPair;
-  private final Set<String> hashesKnown = new HashSet<>();
+  private final TransactionVerdictStorage transactionVerdictStorage;
   private final ObservableRxList<Transaction> cache = new ObservableRxList<>();
   private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
@@ -43,16 +42,19 @@ public class BasicTransactionProvider implements TransactionProvider {
   @Autowired
   public BasicTransactionProvider(IrohaAPI irohaAPI,
       String accountId,
-      KeyPair keyPair) {
+      KeyPair keyPair,
+      TransactionVerdictStorage transactionVerdictStorage) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null or empty");
     }
     Objects.requireNonNull(keyPair, "Keypair must not be null");
+    Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
 
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
+    this.transactionVerdictStorage = transactionVerdictStorage;
   }
 
   /**
@@ -91,8 +93,8 @@ public class BasicTransactionProvider implements TransactionProvider {
     // Add new
     pendingTransactions.forEach(transaction -> {
           String hex = Utils.toHex(Utils.hash(transaction));
-          if (!hashesKnown.contains(hex)) {
-            hashesKnown.add(hex);
+          if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
+            transactionVerdictStorage.markTransactionPending(hex);
             cache.add(transaction);
           }
         }

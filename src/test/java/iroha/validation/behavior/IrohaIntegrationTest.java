@@ -7,8 +7,10 @@ import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
+import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
-import iroha.validation.transactions.storage.impl.BasicTransactionProvider;
+import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage;
 import iroha.validation.validators.impl.SampleValidator;
 import java.security.KeyPair;
 import java.util.Arrays;
@@ -27,10 +29,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 
-@SpringBootTest
 public class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
@@ -106,10 +106,11 @@ public class IrohaIntegrationTest {
   }
 
   public static ValidationService getService(IrohaAPI irohaAPI, String accountId, KeyPair keyPair) {
+    TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SampleValidator(Collections.singletonList(new SampleRule()))),
-        new BasicTransactionProvider(irohaAPI, accountId, keyPair),
-        new TransactionSignerImpl(irohaAPI, keyPair)
+        new BasicTransactionProvider(irohaAPI, accountId, keyPair, transactionVerdictStorage),
+        new TransactionSignerImpl(irohaAPI, keyPair, transactionVerdictStorage)
     ));
   }
 

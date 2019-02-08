@@ -1,9 +1,9 @@
-package iroha.validation.transactions.storage.impl;
+package iroha.validation.transactions.provider.impl;
 
 import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.TransactionOuterClass.Transaction;
-import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.provider.TransactionProvider;
 import org.springframework.stereotype.Component;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 

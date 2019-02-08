@@ -1,4 +1,4 @@
-package iroha.validation.transactions.storage;
+package iroha.validation.transactions.provider;
 
 import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;

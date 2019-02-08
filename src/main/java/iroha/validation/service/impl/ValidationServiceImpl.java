@@ -3,7 +3,7 @@ package iroha.validation.service.impl;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.signatory.TransactionSigner;
-import iroha.validation.transactions.storage.TransactionProvider;
+import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.validators.Validator;
 import java.util.Collection;
 import java.util.Objects;
@@ -40,9 +40,19 @@ public class ValidationServiceImpl implements ValidationService {
   public void verifyTransactions() {
     transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
         {
-          logger.info("Got transaction to validate: " + Utils.toHex(Utils.hash(transaction)));
-          boolean verdict = validators.stream().allMatch(validator -> validator.validate(transaction));
-          if (verdict) {
+          boolean verdict = true;
+          final String hex = Utils.toHex(Utils.hash(transaction));
+          logger.info("Got transaction to validate: " + hex);
+          for (Validator validator : validators) {
+            if (!validator.validate(transaction)) {
+              final String canonicalName = validator.getClass().getCanonicalName();
+              transactionSigner.reject(transaction, canonicalName);
+              logger.info("Transaction has been rejected by the service. Failed validator: " + canonicalName);
+              verdict = false;
+              break;
+            }
+          }
+          if(verdict) {
             transactionSigner.signAndSend(transaction);
             logger.info("Transaction has been successfully validated and signed");
           }
