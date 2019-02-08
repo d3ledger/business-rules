@@ -9,9 +9,9 @@ public class ValidationResult {
     return new ValidationResult(Verdict.REJECTED, reason);
   }
 
-  private Verdict status;
+  private final Verdict status;
 
-  private String reason;
+  private final String reason;
 
   private ValidationResult(Verdict status) {
     this(status, "");
