@@ -68,12 +68,16 @@ public class CacheProvider {
   public synchronized void manageCache() {
     getAccounts().forEach(account -> {
           if (!isPending(account)) {
-            List<Transaction> transactions = getAccountTransactions(account);
-            if (!CollectionUtils.isEmpty(transactions)) {
-              remove(transactions.get(0));
-            }
+            takeNextTx(account);
           }
         }
     );
+  }
+
+  private synchronized void takeNextTx(String account) {
+    List<Transaction> transactions = getAccountTransactions(account);
+    if (!CollectionUtils.isEmpty(transactions)) {
+      remove(transactions.get(0));
+    }
   }
 }

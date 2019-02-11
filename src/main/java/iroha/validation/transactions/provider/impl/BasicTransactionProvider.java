@@ -74,7 +74,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       isStarted = true;
       executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
       executorService.schedule(this::monitorNewBlocks, 0, TimeUnit.SECONDS);
-      executorService.scheduleAtFixedRate(cacheProvider::manageCache, 0, 2, TimeUnit.SECONDS);
+      executorService.scheduleAtFixedRate(cacheProvider::manageCache, 0, 1, TimeUnit.SECONDS);
     }
     return cacheProvider.getObservable();
   }
