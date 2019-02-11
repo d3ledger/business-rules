@@ -3,6 +3,7 @@ package iroha.validation.transactions.signatory.impl;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.utils.ValidationUtils;
 import java.security.KeyPair;
 import java.util.Objects;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
@@ -40,14 +41,14 @@ public class TransactionSignerImpl implements TransactionSigner {
    */
   @Override
   public void signAndSend(Transaction transaction) {
-    transactionVerdictStorage.markTransactionIrrelevant(Utils.toHex(Utils.hash(transaction)));
+    transactionVerdictStorage.markTransactionIrrelevant(ValidationUtils.hexHash(transaction));
     Transaction validatedTx = jp.co.soramitsu.iroha.java.Transaction
         .parseFrom(transaction)
         .sign(keyPair)
         .build();
 
     irohaAPI.transactionSync(validatedTx);
-    transactionVerdictStorage.markTransactionValidated(Utils.toHex(Utils.hash(validatedTx)));
+    transactionVerdictStorage.markTransactionValidated(ValidationUtils.hexHash(validatedTx));
   }
 
   /**
@@ -55,13 +56,13 @@ public class TransactionSignerImpl implements TransactionSigner {
    */
   @Override
   public void rejectAndSend(Transaction transaction, String reason) {
-    transactionVerdictStorage.markTransactionRejected(Utils.toHex(Utils.hash(transaction)), reason);
+    transactionVerdictStorage.markTransactionRejected(ValidationUtils.hexHash(transaction), reason);
     Transaction rejectedTx = jp.co.soramitsu.iroha.java.Transaction
         .parseFrom(transaction)
         .sign(fakeKeyPair)
         .build();
 
     irohaAPI.transactionSync(rejectedTx);
-    transactionVerdictStorage.markTransactionRejected(Utils.toHex(Utils.hash(rejectedTx)), reason);
+    transactionVerdictStorage.markTransactionRejected(ValidationUtils.hexHash(rejectedTx), reason);
   }
 }
