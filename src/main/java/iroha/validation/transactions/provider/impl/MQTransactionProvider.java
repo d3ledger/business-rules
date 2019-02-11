@@ -32,6 +32,12 @@ public class MQTransactionProvider implements TransactionProvider {
   }
 
   @Override
+  public void register(String accountId) {
+    // TODO
+    throw new NotImplementedException();
+  }
+
+  @Override
   public void close() {
     // TODO
     throw new NotImplementedException();

@@ -59,4 +59,9 @@ public class ValidationServiceImpl implements ValidationService {
         }
     );
   }
+
+  @Override
+  public void registerAccount(String accountId) {
+    transactionProvider.register(accountId);
+  }
 }

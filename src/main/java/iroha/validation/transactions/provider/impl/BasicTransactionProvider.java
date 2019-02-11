@@ -13,8 +13,10 @@ import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.security.KeyPair;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -26,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
 @Component
 public class BasicTransactionProvider implements TransactionProvider {
@@ -42,6 +43,8 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final CacheProvider cacheProvider = new CacheProvider();
   private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
+  // Accounts to monitor pending tx
+  private final Set<String> accountsToMonitor = new HashSet<>();
 
   @Autowired
   public BasicTransactionProvider(IrohaAPI irohaAPI,
@@ -71,7 +74,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       isStarted = true;
       executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
       executorService.schedule(this::monitorNewBlocks, 0, TimeUnit.SECONDS);
-      executorService.scheduleAtFixedRate(this::manageCache, 0, 2, TimeUnit.SECONDS);
+      executorService.scheduleAtFixedRate(cacheProvider::manageCache, 0, 2, TimeUnit.SECONDS);
     }
     return cacheProvider.getObservable();
   }
@@ -92,11 +95,24 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
   }
 
+  @Override
+  public synchronized void register(String accountId) {
+    accountsToMonitor.add(accountId);
+  }
+
+  private Set<Transaction> getAllPendingTransactions() {
+    Set<Transaction> pendingTransactions = new HashSet<>();
+    accountsToMonitor.forEach(account -> {
+          Queries.Query query = Query.builder(account, 1).getPendingTransactions().buildSigned(keyPair);
+          pendingTransactions
+              .addAll(irohaAPI.query(query).getTransactionsResponse().getTransactionsList());
+        }
+    );
+    return pendingTransactions;
+  }
+
   private void monitorIrohaPending() {
-    Queries.Query query = Query.builder(accountId, 1).getPendingTransactions().buildSigned(keyPair);
-    List<Transaction> pendingTransactions = irohaAPI.query(query).getTransactionsResponse()
-        .getTransactionsList();
-    pendingTransactions.forEach(transaction -> {
+    getAllPendingTransactions().forEach(transaction -> {
           // if only BRVS signatory remains
           if (transaction.getPayload().getReducedPayload().getQuorum() -
               transaction.getSignaturesCount() == 1) {
@@ -127,18 +143,6 @@ public class BasicTransactionProvider implements TransactionProvider {
                   }
                 }
             );
-          }
-        }
-    );
-  }
-
-  private void manageCache() {
-    cacheProvider.getAccounts().forEach(account -> {
-          if (!cacheProvider.isPending(account)) {
-            List<Transaction> transactions = cacheProvider.getAccountTransactions(account);
-            if (!CollectionUtils.isEmpty(transactions)) {
-              cacheProvider.remove(transactions.get(0));
-            }
           }
         }
     );

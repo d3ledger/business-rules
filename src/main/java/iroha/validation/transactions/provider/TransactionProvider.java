@@ -24,4 +24,11 @@ public interface TransactionProvider extends Closeable {
    * @return {@link Observable} of Iroha proto {@link QryResponses.BlockQueryResponse} block
    */
   Observable<Block> getBlockStreaming();
+
+  /**
+   * Method for registering account in order to monitor its pending transactions
+   *
+   * @param accountId account id in Iroha
+   */
+  void register(String accountId);
 }
