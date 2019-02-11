@@ -38,9 +38,6 @@ public class CacheProvider {
         pendingAccounts.add(accountId);
       }
       subject.onNext(transaction);
-      if (cache.get(accountId).size() == 0) {
-        cache.remove(accountId);
-      }
     }
   }
 
@@ -52,10 +49,6 @@ public class CacheProvider {
     return pendingAccounts.contains(account);
   }
 
-  public synchronized Set<String> getAccounts() {
-    return cache.keySet();
-  }
-
   public synchronized List<Transaction> getAccountTransactions(String account) {
     return cache.get(account);
   }
@@ -65,7 +58,7 @@ public class CacheProvider {
   }
 
   public synchronized void manageCache() {
-    getAccounts().forEach(account -> {
+    cache.keySet().forEach(account -> {
           if (!isPending(account)) {
             takeNextTx(account);
           }
