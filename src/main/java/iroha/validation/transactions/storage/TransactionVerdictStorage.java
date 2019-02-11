@@ -1,5 +1,7 @@
 package iroha.validation.transactions.storage;
 
+import iroha.validation.verdict.ValidationResult;
+
 public interface TransactionVerdictStorage {
 
   /**
@@ -23,6 +25,14 @@ public interface TransactionVerdictStorage {
    */
   void markTransactionValidated(String txHash);
 
+  /**
+   * Method for saving transaction verdict as irrelevant (i.e. hash changed due to signatory) to a
+   * storage
+   *
+   * @param txHash transaction hash
+   */
+  void markTransactionIrrelevant(String txHash);
+
 
   /**
    * Method for saving transaction verdict as rejected by a reason to a storage
@@ -31,4 +41,11 @@ public interface TransactionVerdictStorage {
    * @param reason reason
    */
   void markTransactionRejected(String txHash, String reason);
+
+  /**
+   * Method for retrieving transaction validation verdict
+   *
+   * @param txHash transaction hash
+   */
+  ValidationResult getTransactionVerdict(String txHash);
 }
