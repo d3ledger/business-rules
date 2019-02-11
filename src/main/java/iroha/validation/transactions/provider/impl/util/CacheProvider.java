@@ -30,8 +30,7 @@ public class CacheProvider {
     cache.get(accountId).add(transaction);
   }
 
-  public synchronized void remove(Transaction transaction) {
-    final String accountId = ValidationUtils.getTxAccountId(transaction);
+  private synchronized void removeAccountTransaction(String accountId, Transaction transaction) {
     if (cache.containsKey(accountId)) {
       cache.get(accountId).remove(transaction);
       if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
@@ -77,7 +76,7 @@ public class CacheProvider {
   private synchronized void takeNextTx(String account) {
     List<Transaction> transactions = getAccountTransactions(account);
     if (!CollectionUtils.isEmpty(transactions)) {
-      remove(transactions.get(0));
+      removeAccountTransaction(account, transactions.get(0));
     }
   }
 }

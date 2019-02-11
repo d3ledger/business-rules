@@ -152,8 +152,8 @@ public class IrohaIntegrationTest {
 
     irohaAPI = iroha.getApi();
 
-    threadPool.scheduleAtFixedRate(() -> spamPendingCreateAccTx(irohaAPI), 0, 3, TimeUnit.SECONDS);
-    threadPool.scheduleAtFixedRate(() -> spamPendingTransferTx(irohaAPI), 0, 1, TimeUnit.SECONDS);
+    threadPool.scheduleAtFixedRate(() -> spamPendingCreateAccTx(irohaAPI), 1, 2, TimeUnit.SECONDS);
+    threadPool.scheduleAtFixedRate(() -> spamPendingTransferTx(irohaAPI), 0, 2, TimeUnit.SECONDS);
   }
 
   @AfterEach
