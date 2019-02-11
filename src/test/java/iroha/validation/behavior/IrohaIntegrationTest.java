@@ -8,6 +8,7 @@ import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
+import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage;
@@ -138,8 +139,16 @@ public class IrohaIntegrationTest {
     TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SampleValidator(Collections.singletonList(new SampleRule()))),
-        new BasicTransactionProvider(irohaAPI, accountId, keyPair, transactionVerdictStorage),
-        new TransactionSignerImpl(irohaAPI, keyPair, transactionVerdictStorage)
+        new BasicTransactionProvider(irohaAPI,
+            accountId,
+            keyPair,
+            transactionVerdictStorage,
+            new CacheProvider()
+        ),
+        new TransactionSignerImpl(irohaAPI,
+            keyPair,
+            transactionVerdictStorage
+        )
     ));
   }
 

@@ -40,7 +40,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   // BRVS keypair to query Iroha
   private final KeyPair keyPair;
   private final TransactionVerdictStorage transactionVerdictStorage;
-  private final CacheProvider cacheProvider = new CacheProvider();
+  private final CacheProvider cacheProvider;
   private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   // Accounts to monitor pending tx
@@ -50,18 +50,21 @@ public class BasicTransactionProvider implements TransactionProvider {
   public BasicTransactionProvider(IrohaAPI irohaAPI,
       String accountId,
       KeyPair keyPair,
-      TransactionVerdictStorage transactionVerdictStorage) {
+      TransactionVerdictStorage transactionVerdictStorage,
+      CacheProvider cacheProvider) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null or empty");
     }
     Objects.requireNonNull(keyPair, "Keypair must not be null");
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
+    Objects.requireNonNull(cacheProvider, "CacheProvider must not be null");
 
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
     this.transactionVerdictStorage = transactionVerdictStorage;
+    this.cacheProvider = cacheProvider;
   }
 
   /**
