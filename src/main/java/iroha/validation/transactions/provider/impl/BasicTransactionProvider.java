@@ -137,18 +137,18 @@ public class BasicTransactionProvider implements TransactionProvider {
               .getTransactionsList();
 
           if (blockTransactions != null) {
-            // committed transfer transactions
-            blockTransactions.forEach(
-                transaction -> {
-                  if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
-                      .anyMatch(Command::hasTransferAsset)) {
-                    cacheProvider.removePending(ValidationUtils.getTxAccountId(transaction));
-                  }
-                }
-            );
+            blockTransactions.forEach(this::tryToRemoveLock);
           }
         }
     );
+  }
+
+  private void tryToRemoveLock(Transaction transaction) {
+    // committed transfer transactions
+    if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
+        .anyMatch(Command::hasTransferAsset)) {
+      cacheProvider.removePending(ValidationUtils.getTxAccountId(transaction));
+    }
   }
 
   @Override
