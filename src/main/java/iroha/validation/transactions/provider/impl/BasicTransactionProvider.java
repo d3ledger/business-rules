@@ -99,18 +99,27 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   @Override
-  public synchronized void register(String accountId) {
-    accountsToMonitor.add(accountId);
+  public void register(String accountId) {
+    synchronized (accountsToMonitor) {
+      accountsToMonitor.add(accountId);
+    }
   }
 
   private Set<Transaction> getAllPendingTransactions() {
     Set<Transaction> pendingTransactions = new HashSet<>();
-    accountsToMonitor.forEach(account -> {
-          Queries.Query query = Query.builder(account, 1).getPendingTransactions().buildSigned(keyPair);
-          pendingTransactions
-              .addAll(irohaAPI.query(query).getTransactionsResponse().getTransactionsList());
-        }
-    );
+    synchronized (accountsToMonitor) {
+      accountsToMonitor.forEach(account -> {
+            Queries.Query query = Query.builder(account, 1)
+                .getPendingTransactions()
+                .buildSigned(keyPair);
+            pendingTransactions
+                .addAll(irohaAPI.query(query)
+                    .getTransactionsResponse()
+                    .getTransactionsList()
+                );
+          }
+      );
+    }
     return pendingTransactions;
   }
 
