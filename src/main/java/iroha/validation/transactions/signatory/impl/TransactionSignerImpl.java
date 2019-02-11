@@ -13,12 +13,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class TransactionSignerImpl implements TransactionSigner {
 
-  private final IrohaAPI irohaAPI;
-  private final KeyPair keyPair;
-  private final KeyPair fakeKeyPair = Utils.parseHexKeypair(
+  private static final KeyPair fakeKeyPair = Utils.parseHexKeypair(
       "0000000000000000000000000000000000000000000000000000000000000000",
       "0000000000000000000000000000000000000000000000000000000000000000"
   );
+
+  private final IrohaAPI irohaAPI;
+  private final KeyPair keyPair;
   private final TransactionVerdictStorage transactionVerdictStorage;
 
   @Autowired
