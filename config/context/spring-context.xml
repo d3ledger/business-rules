@@ -1,0 +1,79 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:util="http://www.springframework.org/schema/util"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans
+  http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/util
+  http://www.springframework.org/schema/util/spring-util.xsd">
+
+  <!-- PATH TO THE PROPERTIES FILE -->
+  <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+    <property name="locations" value="file:config/context/application.properties"/>
+  </bean>
+
+  <!-- KEY PAIR DEFINITION -->
+  <bean id="keyPair" class="jp.co.soramitsu.iroha.java.Utils" factory-method="parseHexKeypair">
+    <constructor-arg index="0" value="${credential.pubkey}"/>
+    <constructor-arg index="1" value="${credential.privkey}"/>
+  </bean>
+
+  <!-- IROHA API IPJ CONFIG -->
+  <bean id="irohaAPI" class="jp.co.soramitsu.iroha.java.IrohaAPI">
+    <constructor-arg index="0" value="${iroha.host}"/>
+    <constructor-arg index="1" value="${iroha.port}"/>
+  </bean>
+
+  <!-- STORAGE CONFIG -->
+  <bean id="verdictStorage"
+    class="iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage"/>
+
+  <!-- PROVIDER CONFIG -->
+  <bean id="transactionProvider"
+    class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
+    <constructor-arg index="0" ref="irohaAPI"/>
+    <constructor-arg index="1" value="${credential.accountId}"/>
+    <constructor-arg index="2" ref="keyPair"/>
+    <constructor-arg index="3" ref="verdictStorage"/>
+    <constructor-arg index="4" ref="cacheProvider"/>
+  </bean>
+
+  <!-- SIGNER CONFIG -->
+  <bean id="transactionSigner"
+    class="iroha.validation.transactions.signatory.impl.TransactionSignerImpl">
+    <constructor-arg index="0" ref="irohaAPI"/>
+    <constructor-arg index="1" ref="keyPair"/>
+    <constructor-arg index="2" ref="verdictStorage"/>
+  </bean>
+
+  <!-- CACHE CONFIG -->
+  <bean id="cacheProvider" class="iroha.validation.transactions.provider.impl.util.CacheProvider"/>
+
+  <!-- SERVICE CONFIG -->
+  <bean id="serviceContext" class="iroha.validation.config.ValidationServiceContext">
+    <constructor-arg index="0" ref="validators"/>
+    <constructor-arg index="1" ref="transactionProvider"/>
+    <constructor-arg index="2" ref="transactionSigner"/>
+  </bean>
+
+  <bean class="iroha.validation.service.impl.ValidationServiceImpl">
+    <constructor-arg index="0" ref="serviceContext"/>
+  </bean>
+
+  <!-- RULES DEFINITIONS -->
+  <bean id="sampleRule" class="iroha.validation.rules.impl.SampleRule"/>
+  <util:list id="rules" value-type="iroha.validation.rules.Rule">
+    <ref bean="sampleRule"/>
+    <!-- More can be added -->
+  </util:list>
+
+  <!-- VALIDATORS DEFINITIONS -->
+  <bean id="sampleValidator" class="iroha.validation.validators.impl.SampleValidator">
+    <constructor-arg ref="rules"/>
+  </bean>
+  <util:list id="validators" value-type="iroha.validation.validators.Validator">
+    <ref bean="sampleValidator"/>
+    <!-- More can be added -->
+  </util:list>
+</beans>

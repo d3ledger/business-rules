@@ -3,29 +3,64 @@ package iroha.validation.behavior;
 import iroha.protocol.BlockOuterClass;
 import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.TransactionOuterClass;
-import iroha.validation.transactions.storage.TransactionProvider;
-import iroha.validation.transactions.storage.impl.BasicTransactionProvider;
+import iroha.validation.config.ValidationServiceContext;
+import iroha.validation.rules.impl.SampleRule;
+import iroha.validation.rules.impl.TransferTxVolumeRule;
+import iroha.validation.service.ValidationService;
+import iroha.validation.service.impl.ValidationServiceImpl;
+import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
+import iroha.validation.transactions.provider.impl.util.CacheProvider;
+import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
+import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage;
+import iroha.validation.validators.impl.SimpleAggregationValidator;
+import java.math.BigDecimal;
 import java.security.KeyPair;
+import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.QueryBuilder;
 import jp.co.soramitsu.iroha.java.Transaction;
+import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.testcontainers.IrohaContainer;
 import jp.co.soramitsu.iroha.testcontainers.PeerConfig;
 import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 
 public class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
   private static final KeyPair peerKeypair = crypto.generateKeypair();
-  private static final KeyPair userKeypair = crypto.generateKeypair();
-  private static final String domainName = "domain";
+  private static final KeyPair firstUserKeypair = crypto.generateKeypair();
+  private static final KeyPair validatorUserKeypair = Utils.parseHexKeypair(
+      "092e71b031a51adae924f7cd944f0371ae8b8502469e32693885334dedcc6001",
+      "e51123b78d658418d018e7d2486021209af3cff82714b4cb7925870fec6097dc"
+  );
+  private static final KeyPair serviceUserKeypair = crypto.generateKeypair();
+  private static final String domainName = "notary";
   private static final String roleName = "user";
-  private static final String userName = "user";
+  private static final String userName = "test";
+  private static final String serviceUserName = "richguy";
   private static final String userId = String.format("%s@%s", userName, domainName);
+  private static final String serviceUserId = String.format("%s@%s", serviceUserName, domainName);
+  private static final String asset = "bux";
+  private static final String assetId = String.format("%s#%s", asset, domainName);
+
+  private IrohaContainer iroha;
+  private IrohaAPI irohaAPI;
+  private ScheduledExecutorService threadPool = Executors.newScheduledThreadPool(2);
+
+  @Autowired
+  private ValidationService validationService;
 
   private static BlockOuterClass.Block getGenesisBlock() {
     return new GenesisBlockBuilder()
@@ -43,21 +78,35 @@ public class IrohaIntegrationTest {
                         RolePermission.can_set_quorum,
                         RolePermission.can_get_all_signatories,
                         RolePermission.can_get_all_txs,
-                        RolePermission.can_get_blocks
+                        RolePermission.can_get_blocks,
+                        RolePermission.can_transfer,
+                        RolePermission.can_receive,
+                        RolePermission.can_add_asset_qty,
+                        RolePermission.can_get_all_acc_ast
                     )
                 )
                 .createDomain(domainName, roleName)
                 // create user
-                .createAccount(userName, domainName, userKeypair.getPublic())
-                .addSignatory(userId, crypto.generateKeypair().getPublic())
+                .createAccount(userName, domainName, firstUserKeypair.getPublic())
+                .createAccount(serviceUserName, domainName, serviceUserKeypair.getPublic())
+                .addSignatory(userId, validatorUserKeypair.getPublic())
+                .addSignatory(serviceUserId, validatorUserKeypair.getPublic())
                 .setAccountQuorum(userId, 1)
+                .setAccountQuorum(serviceUserId, 1)
+                .createAsset(asset, domainName, 0)
                 // transactions in genesis block can be unsigned
                 .build()
+                .build()
+        )
+        .addTransaction(
+            Transaction.builder(serviceUserId)
+                .addAssetQuantity(assetId, "1000000")
+                .sign(serviceUserKeypair)
                 .build()
         ).build();
   }
 
-  public static PeerConfig getPeerConfig() {
+  private static PeerConfig getPeerConfig() {
     PeerConfig config = PeerConfig.builder()
         .genesisBlock(getGenesisBlock())
         .build();
@@ -68,26 +117,7 @@ public class IrohaIntegrationTest {
     return config;
   }
 
-  public static void main(String[] args) {
-    IrohaContainer iroha = new IrohaContainer()
-        .withPeerConfig(getPeerConfig());
-
-    iroha.start();
-
-    IrohaAPI irohaAPI = new IrohaAPI(iroha.getToriiAddress());
-
-    Executors.newScheduledThreadPool(1)
-        .scheduleAtFixedRate(() -> {
-          sendTx(irohaAPI);
-        }, 1, 4, TimeUnit.SECONDS);
-
-    TransactionProvider provider = new BasicTransactionProvider(irohaAPI, userId, userKeypair);
-
-    // Just print arriving pending transactions
-    provider.getPendingTransactionsStreaming().subscribe(System.out::println);
-  }
-
-  private static void sendTx(IrohaAPI api) {
+  private static void spamPendingCreateAccTx(IrohaAPI api) {
     TransactionOuterClass.Transaction transaction = Transaction.builder(userId)
         .createAccount(
             RandomStringUtils.random(9, "abcdefghijklmnoprstvwxyz"),
@@ -95,7 +125,79 @@ public class IrohaIntegrationTest {
             crypto.generateKeypair().getPublic()
         )
         .setQuorum(2)
-        .sign(userKeypair).build();
+        .sign(firstUserKeypair).build();
     api.transactionSync(transaction);
+  }
+
+  private static void spamPendingTransferTx(IrohaAPI api) {
+    TransactionOuterClass.Transaction transaction = Transaction.builder(serviceUserId)
+        .transferAsset(serviceUserId, userId, assetId, "test transfer",
+            RandomStringUtils.random(2, "19"))
+        .setQuorum(2)
+        .sign(serviceUserKeypair).build();
+    api.transactionSync(transaction);
+  }
+
+  public static ValidationService getService(IrohaAPI irohaAPI, String accountId, KeyPair keyPair) {
+    TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
+    return new ValidationServiceImpl(new ValidationServiceContext(
+        Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
+            new SampleRule(),
+            new TransferTxVolumeRule(assetId, new BigDecimal(90))
+            ))
+        ),
+        new BasicTransactionProvider(irohaAPI,
+            accountId,
+            keyPair,
+            transactionVerdictStorage,
+            new CacheProvider()
+        ),
+        new TransactionSignerImpl(irohaAPI,
+            keyPair,
+            transactionVerdictStorage
+        )
+    ));
+  }
+
+  @BeforeEach
+  public void setUp() {
+    iroha = new IrohaContainer()
+        .withPeerConfig(getPeerConfig());
+
+    iroha.start();
+
+    irohaAPI = iroha.getApi();
+
+    threadPool.scheduleAtFixedRate(() -> spamPendingCreateAccTx(irohaAPI), 1, 2, TimeUnit.SECONDS);
+    threadPool.scheduleAtFixedRate(() -> spamPendingTransferTx(irohaAPI), 0, 2, TimeUnit.SECONDS);
+  }
+
+  @AfterEach
+  public void tearDown() {
+    threadPool.shutdownNow();
+    irohaAPI.close();
+    iroha.close();
+  }
+
+  /**
+   * Test launches full pipeline for 15 seconds
+   */
+  @Test
+  public void validatorTest() throws InterruptedException {
+    ValidationService validationService = getService(irohaAPI, userId, validatorUserKeypair);
+    validationService.registerAccount(userId);
+    validationService.registerAccount(serviceUserId);
+    validationService.verifyTransactions();
+    irohaAPI.query(new QueryBuilder(serviceUserId, Instant.now(), 1)
+        .getAccountAssets(serviceUserId)
+        .buildSigned(serviceUserKeypair))
+        .getAccountAssetsResponse()
+        .getAccountAssetsList().forEach(System.out::println);
+    Thread.sleep(15000);
+    irohaAPI.query(new QueryBuilder(userId, Instant.now(), 1)
+        .getAccountAssets(userId)
+        .buildSigned(firstUserKeypair))
+        .getAccountAssetsResponse()
+        .getAccountAssetsList().forEach(System.out::println);
   }
 }
