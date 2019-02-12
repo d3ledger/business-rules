@@ -1,14 +1,15 @@
 package iroha.validation.utils;
 
 import iroha.protocol.TransactionOuterClass.Transaction;
+import jp.co.soramitsu.iroha.java.Utils;
 
-public class ValidationUtils {
+public interface ValidationUtils {
 
-  private ValidationUtils() {
-    throw new IllegalStateException("Util class cannot be instantiated");
+  static String getTxAccountId(final Transaction transaction) {
+    return transaction.getPayload().getReducedPayload().getCreatorAccountId();
   }
 
-  public static String getTxAccountId(final Transaction transaction) {
-    return transaction.getPayload().getReducedPayload().getCreatorAccountId();
+  static String hexHash(Transaction transaction) {
+    return Utils.toHex(Utils.hash(transaction));
   }
 }

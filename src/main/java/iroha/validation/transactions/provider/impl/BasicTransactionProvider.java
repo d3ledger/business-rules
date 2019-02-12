@@ -11,6 +11,8 @@ import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
+import iroha.validation.verdict.ValidationResult;
+import iroha.validation.verdict.Verdict;
 import java.security.KeyPair;
 import java.time.Instant;
 import java.util.HashSet;
@@ -23,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import jp.co.soramitsu.iroha.java.BlocksQueryBuilder;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
-import jp.co.soramitsu.iroha.java.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +43,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final TransactionVerdictStorage transactionVerdictStorage;
   private final CacheProvider cacheProvider;
   private boolean isStarted;
-  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
+  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(4);
   // Accounts to monitor pending tx
   private final Set<String> accountsToMonitor = new HashSet<>();
 
@@ -76,8 +77,11 @@ public class BasicTransactionProvider implements TransactionProvider {
       logger.info("Starting pending transactions streaming");
       isStarted = true;
       executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
-      executorService.schedule(this::monitorNewBlocks, 0, TimeUnit.SECONDS);
-      executorService.scheduleAtFixedRate(cacheProvider::manageCache, 0, 1, TimeUnit.SECONDS);
+      executorService.schedule(this::processCommittedTransactions, 0, TimeUnit.SECONDS);
+      executorService
+          .scheduleAtFixedRate(this::monitorRejectedTransactions, 1, 2, TimeUnit.SECONDS);
+      executorService
+          .scheduleAtFixedRate(cacheProvider::takeNotlockedFromCache, 0, 1, TimeUnit.SECONDS);
     }
     return cacheProvider.getObservable();
   }
@@ -123,12 +127,29 @@ public class BasicTransactionProvider implements TransactionProvider {
     return pendingTransactions;
   }
 
+  private void monitorRejectedTransactions() {
+    synchronized (accountsToMonitor) {
+      accountsToMonitor.forEach(account -> {
+            ValidationResult verdict = getPendingValidationResult(account);
+            if (verdict != null && verdict.getStatus().equals(Verdict.REJECTED)) {
+              cacheProvider.removeIfPending(account);
+            }
+          }
+      );
+    }
+  }
+
+  private ValidationResult getPendingValidationResult(String account) {
+    return transactionVerdictStorage
+        .getTransactionVerdict(cacheProvider.getAccountPendingTransactionHash(account));
+  }
+
   private void monitorIrohaPending() {
     getAllPendingTransactions().forEach(transaction -> {
           // if only BRVS signatory remains
           if (transaction.getPayload().getReducedPayload().getQuorum() -
               transaction.getSignaturesCount() == 1) {
-            String hex = Utils.toHex(Utils.hash(transaction));
+            String hex = ValidationUtils.hexHash(transaction);
             if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
               transactionVerdictStorage.markTransactionPending(hex);
               cacheProvider.put(transaction);
@@ -138,7 +159,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
   }
 
-  private void monitorNewBlocks() {
+  private void processCommittedTransactions() {
     getBlockStreaming().subscribe(block -> {
           final List<Transaction> blockTransactions = block
               .getBlockV1()
@@ -156,7 +177,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     // committed transfer transactions
     if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
         .anyMatch(Command::hasTransferAsset)) {
-      cacheProvider.removePending(ValidationUtils.getTxAccountId(transaction));
+      cacheProvider.removeIfPending(ValidationUtils.getTxAccountId(transaction));
     }
   }
 

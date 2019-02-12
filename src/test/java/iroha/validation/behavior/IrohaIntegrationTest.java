@@ -5,6 +5,7 @@ import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.rules.impl.SampleRule;
+import iroha.validation.rules.impl.TransferTxVolumeRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
@@ -12,7 +13,8 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage;
-import iroha.validation.validators.impl.SampleValidator;
+import iroha.validation.validators.impl.SimpleAggregationValidator;
+import java.math.BigDecimal;
 import java.security.KeyPair;
 import java.time.Instant;
 import java.util.Arrays;
@@ -98,7 +100,7 @@ public class IrohaIntegrationTest {
         )
         .addTransaction(
             Transaction.builder(serviceUserId)
-                .addAssetQuantity(assetId, "10000")
+                .addAssetQuantity(assetId, "1000000")
                 .sign(serviceUserKeypair)
                 .build()
         ).build();
@@ -129,7 +131,8 @@ public class IrohaIntegrationTest {
 
   private static void spamPendingTransferTx(IrohaAPI api) {
     TransactionOuterClass.Transaction transaction = Transaction.builder(serviceUserId)
-        .transferAsset(serviceUserId, userId, assetId, "test transfer", "1")
+        .transferAsset(serviceUserId, userId, assetId, "test transfer",
+            RandomStringUtils.random(2, "19"))
         .setQuorum(2)
         .sign(serviceUserKeypair).build();
     api.transactionSync(transaction);
@@ -138,7 +141,11 @@ public class IrohaIntegrationTest {
   public static ValidationService getService(IrohaAPI irohaAPI, String accountId, KeyPair keyPair) {
     TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
     return new ValidationServiceImpl(new ValidationServiceContext(
-        Collections.singletonList(new SampleValidator(Collections.singletonList(new SampleRule()))),
+        Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
+            new SampleRule(),
+            new TransferTxVolumeRule(assetId, new BigDecimal(90))
+            ))
+        ),
         new BasicTransactionProvider(irohaAPI,
             accountId,
             keyPair,

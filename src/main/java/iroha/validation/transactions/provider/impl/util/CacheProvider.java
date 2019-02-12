@@ -7,10 +7,8 @@ import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.utils.ValidationUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
@@ -20,7 +18,7 @@ public class CacheProvider {
   // Local BRVS cache
   private final Map<String, List<Transaction>> cache = new HashMap<>();
   // Iroha accounts awaiting for the previous transaction completion
-  private final Set<String> pendingAccounts = new HashSet<>();
+  private final Map<String, String> pendingAccounts = new HashMap<>();
   // Observable
   private final PublishSubject<Transaction> subject = PublishSubject.create();
 
@@ -37,29 +35,33 @@ public class CacheProvider {
       cache.get(accountId).remove(transaction);
       if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
           .anyMatch(Command::hasTransferAsset)) {
-        pendingAccounts.add(accountId);
+        pendingAccounts.put(accountId, ValidationUtils.hexHash(transaction));
       }
       subject.onNext(transaction);
     }
   }
 
-  public synchronized void removePending(String account) {
-    pendingAccounts.remove(account);
+  public synchronized boolean isPending(String account) {
+    return pendingAccounts.containsKey(account);
   }
 
-  public synchronized boolean isPending(String account) {
-    return pendingAccounts.contains(account);
+  public synchronized void removeIfPending(String account) {
+    pendingAccounts.remove(account);
   }
 
   public synchronized List<Transaction> getAccountTransactions(String account) {
     return cache.get(account);
   }
 
+  public synchronized String getAccountPendingTransactionHash(String account) {
+    return pendingAccounts.get(account);
+  }
+
   public synchronized Observable<Transaction> getObservable() {
     return subject;
   }
 
-  public synchronized void manageCache() {
+  public synchronized void takeNotlockedFromCache() {
     cache.keySet().forEach(account -> {
           if (!isPending(account)) {
             takeNextTx(account);
