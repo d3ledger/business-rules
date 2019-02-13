@@ -41,14 +41,11 @@ public class TransactionSignerImpl implements TransactionSigner {
    */
   @Override
   public void signAndSend(Transaction transaction) {
-    transactionVerdictStorage.markTransactionIrrelevant(ValidationUtils.hexHash(transaction));
-    Transaction validatedTx = jp.co.soramitsu.iroha.java.Transaction
+    transactionVerdictStorage.markTransactionValidated(ValidationUtils.hexHash(transaction));
+    irohaAPI.transactionSync(jp.co.soramitsu.iroha.java.Transaction
         .parseFrom(transaction)
         .sign(keyPair)
-        .build();
-
-    irohaAPI.transactionSync(validatedTx);
-    transactionVerdictStorage.markTransactionValidated(ValidationUtils.hexHash(validatedTx));
+        .build());
   }
 
   /**
@@ -57,12 +54,9 @@ public class TransactionSignerImpl implements TransactionSigner {
   @Override
   public void rejectAndSend(Transaction transaction, String reason) {
     transactionVerdictStorage.markTransactionRejected(ValidationUtils.hexHash(transaction), reason);
-    Transaction rejectedTx = jp.co.soramitsu.iroha.java.Transaction
+    irohaAPI.transactionSync(jp.co.soramitsu.iroha.java.Transaction
         .parseFrom(transaction)
         .sign(fakeKeyPair)
-        .build();
-
-    irohaAPI.transactionSync(rejectedTx);
-    transactionVerdictStorage.markTransactionRejected(ValidationUtils.hexHash(rejectedTx), reason);
+        .build());
   }
 }

@@ -4,8 +4,6 @@ public class ValidationResult {
 
   public static ValidationResult PENDING = new ValidationResult(Verdict.PENDING);
   public static ValidationResult VALIDATED = new ValidationResult(Verdict.VALIDATED);
-  public static ValidationResult IRRELEVANT = new ValidationResult(Verdict.IRRELEVANT);
-
   public static ValidationResult REJECTED(String reason) {
     return new ValidationResult(Verdict.REJECTED, reason);
   }

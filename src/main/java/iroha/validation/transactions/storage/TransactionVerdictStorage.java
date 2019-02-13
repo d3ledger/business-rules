@@ -26,15 +26,6 @@ public interface TransactionVerdictStorage {
   void markTransactionValidated(String txHash);
 
   /**
-   * Method for saving transaction verdict as irrelevant (i.e. hash changed due to signatory) to a
-   * storage
-   *
-   * @param txHash transaction hash
-   */
-  void markTransactionIrrelevant(String txHash);
-
-
-  /**
    * Method for saving transaction verdict as rejected by a reason to a storage
    *
    * @param txHash transaction hash
