@@ -39,14 +39,6 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    * {@inheritDoc}
    */
   @Override
-  public void markTransactionIrrelevant(String txHash) {
-    validationResultMap.put(txHash, ValidationResult.IRRELEVANT);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
   public void markTransactionRejected(String txHash, String reason) {
     validationResultMap.put(txHash, ValidationResult.REJECTED(reason));
   }

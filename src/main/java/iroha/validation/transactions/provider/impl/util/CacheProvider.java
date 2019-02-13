@@ -5,12 +5,11 @@ import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.utils.ValidationUtils;
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
-import org.springframework.util.CollectionUtils;
 
 @Component
 public class CacheProvider {
@@ -25,13 +24,17 @@ public class CacheProvider {
   public synchronized void put(Transaction transaction) {
     final String accountId = ValidationUtils.getTxAccountId(transaction);
     if (!cache.containsKey(accountId)) {
-      cache.put(accountId, new ArrayList<>());
+      cache.put(accountId, new LinkedList<>());
     }
     cache.get(accountId).add(transaction);
+    if (!pendingAccounts.containsKey(accountId)) {
+      subject.onNext(transaction);
+    }
   }
 
-  private synchronized void removeAccountTransaction(String accountId, Transaction transaction) {
+  private synchronized void consumeNextAccountTransaction(String accountId) {
     if (cache.containsKey(accountId)) {
+      Transaction transaction = cache.get(accountId).get(0);
       cache.get(accountId).remove(transaction);
       if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
           .anyMatch(Command::hasTransferAsset)) {
@@ -41,39 +44,22 @@ public class CacheProvider {
     }
   }
 
-  public synchronized boolean isPending(String account) {
-    return pendingAccounts.containsKey(account);
+  public synchronized String getAccountBlockedBy(String txHash) {
+    for (Map.Entry<String, String> entry : pendingAccounts.entrySet()) {
+      if (entry.getValue().equals(txHash)) {
+        return entry.getKey();
+      }
+    }
+    return null;
   }
 
-  public synchronized void removeIfPending(String account) {
-    pendingAccounts.remove(account);
-  }
-
-  public synchronized List<Transaction> getAccountTransactions(String account) {
-    return cache.get(account);
-  }
-
-  public synchronized String getAccountPendingTransactionHash(String account) {
-    return pendingAccounts.get(account);
+  public synchronized void unlockPendingAccount(String account) {
+    if (pendingAccounts.remove(account) != null) {
+      consumeNextAccountTransaction(account);
+    }
   }
 
   public synchronized Observable<Transaction> getObservable() {
     return subject;
-  }
-
-  public synchronized void takeNotlockedFromCache() {
-    cache.keySet().forEach(account -> {
-          if (!isPending(account)) {
-            takeNextTx(account);
-          }
-        }
-    );
-  }
-
-  private synchronized void takeNextTx(String account) {
-    List<Transaction> transactions = getAccountTransactions(account);
-    if (!CollectionUtils.isEmpty(transactions)) {
-      removeAccountTransaction(account, transactions.get(0));
-    }
   }
 }

@@ -1,9 +1,10 @@
 package iroha.validation.transactions.provider.impl;
 
 import com.google.common.base.Strings;
+import com.google.protobuf.ProtocolStringList;
 import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
-import iroha.protocol.Commands.Command;
+import iroha.protocol.BlockOuterClass.Block_v1.Payload;
 import iroha.protocol.Queries;
 import iroha.protocol.Queries.BlocksQuery;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -11,8 +12,6 @@ import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
-import iroha.validation.verdict.ValidationResult;
-import iroha.validation.verdict.Verdict;
 import java.security.KeyPair;
 import java.time.Instant;
 import java.util.HashSet;
@@ -43,7 +42,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final TransactionVerdictStorage transactionVerdictStorage;
   private final CacheProvider cacheProvider;
   private boolean isStarted;
-  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(4);
+  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2);
   // Accounts to monitor pending tx
   private final Set<String> accountsToMonitor = new HashSet<>();
 
@@ -77,11 +76,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       logger.info("Starting pending transactions streaming");
       isStarted = true;
       executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
-      executorService.schedule(this::processCommittedTransactions, 0, TimeUnit.SECONDS);
-      executorService
-          .scheduleAtFixedRate(this::monitorRejectedTransactions, 1, 2, TimeUnit.SECONDS);
-      executorService
-          .scheduleAtFixedRate(cacheProvider::takeNotlockedFromCache, 0, 1, TimeUnit.SECONDS);
+      executorService.schedule(this::processBlockTransactions, 0, TimeUnit.SECONDS);
     }
     return cacheProvider.getObservable();
   }
@@ -127,23 +122,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     return pendingTransactions;
   }
 
-  private void monitorRejectedTransactions() {
-    synchronized (accountsToMonitor) {
-      accountsToMonitor.forEach(account -> {
-            ValidationResult verdict = getPendingValidationResult(account);
-            if (verdict != null && verdict.getStatus().equals(Verdict.REJECTED)) {
-              cacheProvider.removeIfPending(account);
-            }
-          }
-      );
-    }
-  }
-
-  private ValidationResult getPendingValidationResult(String account) {
-    return transactionVerdictStorage
-        .getTransactionVerdict(cacheProvider.getAccountPendingTransactionHash(account));
-  }
-
   private void monitorIrohaPending() {
     getAllPendingTransactions().forEach(transaction -> {
           // if only BRVS signatory remains
@@ -159,25 +137,38 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
   }
 
-  private void processCommittedTransactions() {
+  private void processBlockTransactions() {
     getBlockStreaming().subscribe(block -> {
-          final List<Transaction> blockTransactions = block
+          final Payload payload = block
               .getBlockV1()
-              .getPayload()
-              .getTransactionsList();
+              .getPayload();
 
-          if (blockTransactions != null) {
-            blockTransactions.forEach(this::tryToRemoveLock);
-          }
+          proccessRejected(payload.getRejectedTransactionsHashesList());
+          proccessCommitted(payload.getTransactionsList());
         }
     );
   }
 
+  private void proccessRejected(ProtocolStringList rejectedHashes) {
+    if (rejectedHashes != null) {
+      rejectedHashes.forEach(this::tryToRemoveLock);
+    }
+  }
+
+  private void proccessCommitted(List<Transaction> blockTransactions) {
+    if (blockTransactions != null) {
+      blockTransactions.forEach(this::tryToRemoveLock);
+    }
+  }
+
   private void tryToRemoveLock(Transaction transaction) {
-    // committed transfer transactions
-    if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
-        .anyMatch(Command::hasTransferAsset)) {
-      cacheProvider.removeIfPending(ValidationUtils.getTxAccountId(transaction));
+    tryToRemoveLock(ValidationUtils.hexHash(transaction));
+  }
+
+  private void tryToRemoveLock(String hash) {
+    String account = cacheProvider.getAccountBlockedBy(hash);
+    if (account != null) {
+      cacheProvider.unlockPendingAccount(account);
     }
   }
 
