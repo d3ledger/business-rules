@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class IrohaHelper {
 
-  private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
+  private static final Logger logger = LoggerFactory.getLogger(IrohaHelper.class);
 
   private final IrohaAPI irohaAPI;
   // BRVS account id to query Iroha
