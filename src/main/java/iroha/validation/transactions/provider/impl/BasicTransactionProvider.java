@@ -1,8 +1,6 @@
 package iroha.validation.transactions.provider.impl;
 
-import com.google.protobuf.ProtocolStringList;
 import io.reactivex.Observable;
-import iroha.protocol.BlockOuterClass.Block_v1.Payload;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
@@ -28,7 +26,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final TransactionVerdictStorage transactionVerdictStorage;
   private final CacheProvider cacheProvider;
   private boolean isStarted;
-  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(2);
+  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   // Accounts to monitor pending tx
   private final Set<String> accountsToMonitor = new HashSet<>();
 
@@ -57,6 +55,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       logger.info("Starting pending transactions streaming");
       executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
       executorService.schedule(this::processBlockTransactions, 0, TimeUnit.SECONDS);
+      executorService.schedule(this::processRejectedTransactions, 0, TimeUnit.SECONDS);
       isStarted = true;
     }
     return cacheProvider.getObservable();
@@ -86,22 +85,25 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
   }
 
-  private void processBlockTransactions() {
-    irohaHelper.getBlockStreaming().subscribe(block -> {
-          final Payload payload = block
-              .getBlockV1()
-              .getPayload();
-
-          processRejected(payload.getRejectedTransactionsHashesList());
-          processCommitted(payload.getTransactionsList());
-        }
-    );
+  private void processRejectedTransactions() {
+    transactionVerdictStorage.getRejectedTransactionsHashesStreaming()
+        .subscribe(this::tryToRemoveLock);
   }
 
-  private void processRejected(ProtocolStringList rejectedHashes) {
-    if (rejectedHashes != null) {
-      rejectedHashes.forEach(this::tryToRemoveLock);
-    }
+  private void processBlockTransactions() {
+    irohaHelper.getBlockStreaming().subscribe(block ->
+          /*
+          We do not process rejected hashes of blocks in order to support fail fast behavior
+          BRVS fake key pair leads to STATELESS_INVALID status so such transactions
+          are not presented in ledger blocks at all
+           */
+        processCommitted(
+            block
+                .getBlockV1()
+                .getPayload()
+                .getTransactionsList()
+        )
+    );
   }
 
   private void processCommitted(List<Transaction> blockTransactions) {
