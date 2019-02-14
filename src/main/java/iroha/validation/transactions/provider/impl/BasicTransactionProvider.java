@@ -92,8 +92,8 @@ public class BasicTransactionProvider implements TransactionProvider {
               .getBlockV1()
               .getPayload();
 
-      processRejected(payload.getRejectedTransactionsHashesList());
-      processCommitted(payload.getTransactionsList());
+          processRejected(payload.getRejectedTransactionsHashesList());
+          processCommitted(payload.getTransactionsList());
         }
     );
   }
