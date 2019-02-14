@@ -48,20 +48,17 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.irohaHelper = irohaHelper;
   }
 
-  public synchronized void start() {
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public synchronized Observable<Transaction> getPendingTransactionsStreaming() {
     if (!isStarted) {
       logger.info("Starting pending transactions streaming");
       executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
       executorService.schedule(this::processBlockTransactions, 0, TimeUnit.SECONDS);
       isStarted = true;
     }
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public synchronized Observable<Transaction> getPendingTransactionsStreaming() {
     return cacheProvider.getObservable();
   }
 

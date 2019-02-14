@@ -10,11 +10,6 @@ import java.io.Closeable;
 public interface TransactionProvider extends Closeable {
 
   /**
-   * Method that starts transaction fetching
-   */
-  void start();
-
-  /**
    * Method providing new pending transactions coming from Iroha to be validated
    *
    * @return {@link Observable} of Iroha proto {@link TransactionOuterClass.Transaction} transaction
