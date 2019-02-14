@@ -1,5 +1,6 @@
 package iroha.validation.transactions.storage;
 
+import io.reactivex.Observable;
 import iroha.validation.verdict.ValidationResult;
 
 public interface TransactionVerdictStorage {
@@ -39,4 +40,11 @@ public interface TransactionVerdictStorage {
    * @param txHash transaction hash
    */
   ValidationResult getTransactionVerdict(String txHash);
+
+  /**
+   * Method providing arriving rejected verdicts transactions
+   *
+   * @return {@link Observable} of transactions hashes
+   */
+  Observable<String> getRejectedTransactionsHashesStreaming();
 }

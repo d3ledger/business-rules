@@ -1,5 +1,8 @@
 package iroha.validation.transactions.storage.impl;
 
+import io.reactivex.Observable;
+import io.reactivex.subjects.PublishSubject;
+import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import java.util.HashMap;
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictStorage {
 
   private final Map<String, ValidationResult> validationResultMap = new HashMap<>();
+  private final PublishSubject<String> subject = PublishSubject.create();
 
   /**
    * {@inheritDoc}
@@ -41,6 +45,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
   @Override
   public void markTransactionRejected(String txHash, String reason) {
     validationResultMap.put(txHash, ValidationResult.REJECTED(reason));
+    subject.onNext(txHash);
   }
 
   /**
@@ -49,5 +54,13 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
   @Override
   public ValidationResult getTransactionVerdict(String txHash) {
     return validationResultMap.get(txHash);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Observable<String> getRejectedTransactionsHashesStreaming() {
+    return subject;
   }
 }
