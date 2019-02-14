@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
+import org.springframework.util.CollectionUtils;
 
 @Component
 public class CacheProvider {
@@ -23,25 +24,34 @@ public class CacheProvider {
 
   public synchronized void put(Transaction transaction) {
     final String accountId = ValidationUtils.getTxAccountId(transaction);
+    if (!pendingAccounts.containsKey(accountId)) {
+      // do not even put in cache if possible
+      consumeAndLockAccountByTransactionIfNeeded(accountId, transaction);
+      return;
+    }
     if (!cache.containsKey(accountId)) {
       cache.put(accountId, new LinkedList<>());
     }
     cache.get(accountId).add(transaction);
-    if (!pendingAccounts.containsKey(accountId)) {
-      subject.onNext(transaction);
-    }
   }
 
   private synchronized void consumeNextAccountTransaction(String accountId) {
-    if (cache.containsKey(accountId)) {
-      Transaction transaction = cache.get(accountId).get(0);
-      cache.get(accountId).remove(transaction);
-      if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
-          .anyMatch(Command::hasTransferAsset)) {
-        pendingAccounts.put(accountId, ValidationUtils.hexHash(transaction));
-      }
-      subject.onNext(transaction);
+    List<Transaction> accountTransactions = cache.get(accountId);
+    if (!CollectionUtils.isEmpty(accountTransactions)) {
+      Transaction transaction = accountTransactions.remove(0);
+      consumeAndLockAccountByTransactionIfNeeded(accountId, transaction);
     }
+  }
+
+  private synchronized void consumeAndLockAccountByTransactionIfNeeded(
+      String account,
+      Transaction transaction) {
+
+    if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
+        .anyMatch(Command::hasTransferAsset)) {
+      pendingAccounts.put(account, ValidationUtils.hexHash(transaction));
+    }
+    subject.onNext(transaction);
   }
 
   public synchronized String getAccountBlockedBy(String txHash) {
