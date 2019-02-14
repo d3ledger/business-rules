@@ -9,6 +9,7 @@ import iroha.validation.rules.impl.TransferTxVolumeRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
+import iroha.validation.transactions.provider.impl.IrohaHelper;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
@@ -33,10 +34,9 @@ import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.testcontainers.shaded.org.apache.commons.lang.RandomStringUtils;
 
-public class IrohaIntegrationTest {
+class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
   private static final KeyPair peerKeypair = crypto.generateKeypair();
@@ -58,9 +58,6 @@ public class IrohaIntegrationTest {
   private IrohaContainer iroha;
   private IrohaAPI irohaAPI;
   private ScheduledExecutorService threadPool = Executors.newScheduledThreadPool(2);
-
-  @Autowired
-  private ValidationService validationService;
 
   private static BlockOuterClass.Block getGenesisBlock() {
     return new GenesisBlockBuilder()
@@ -138,7 +135,8 @@ public class IrohaIntegrationTest {
     api.transactionSync(transaction);
   }
 
-  public static ValidationService getService(IrohaAPI irohaAPI, String accountId, KeyPair keyPair) {
+  private static ValidationService getService(IrohaAPI irohaAPI, String accountId,
+      KeyPair keyPair) {
     TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
@@ -146,13 +144,13 @@ public class IrohaIntegrationTest {
             new TransferTxVolumeRule(assetId, new BigDecimal(90))
             ))
         ),
-        new BasicTransactionProvider(irohaAPI,
-            accountId,
-            keyPair,
+        new BasicTransactionProvider(
             transactionVerdictStorage,
-            new CacheProvider()
+            new CacheProvider(),
+            new IrohaHelper(irohaAPI, accountId, keyPair)
         ),
-        new TransactionSignerImpl(irohaAPI,
+        new TransactionSignerImpl(
+            irohaAPI,
             keyPair,
             transactionVerdictStorage
         )
@@ -160,7 +158,7 @@ public class IrohaIntegrationTest {
   }
 
   @BeforeEach
-  public void setUp() {
+  void setUp() {
     iroha = new IrohaContainer()
         .withPeerConfig(getPeerConfig());
 
@@ -173,7 +171,7 @@ public class IrohaIntegrationTest {
   }
 
   @AfterEach
-  public void tearDown() {
+  void tearDown() {
     threadPool.shutdownNow();
     irohaAPI.close();
     iroha.close();
@@ -183,7 +181,7 @@ public class IrohaIntegrationTest {
    * Test launches full pipeline for 15 seconds
    */
   @Test
-  public void validatorTest() throws InterruptedException {
+  void validatorTest() throws InterruptedException {
     ValidationService validationService = getService(irohaAPI, userId, validatorUserKeypair);
     validationService.registerAccount(userId);
     validationService.registerAccount(serviceUserId);
