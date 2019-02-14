@@ -38,6 +38,7 @@ public class ValidationServiceImpl implements ValidationService {
    */
   @Override
   public void verifyTransactions() {
+    transactionProvider.start();
     transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
         {
           boolean verdict = true;
