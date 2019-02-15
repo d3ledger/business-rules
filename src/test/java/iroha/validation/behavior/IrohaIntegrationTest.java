@@ -49,6 +49,7 @@ class IrohaIntegrationTest {
   private static final String senderId = String.format("%s@%s", senderName, domainName);
   private static final String asset = "bux";
   private static final String assetId = String.format("%s#%s", asset, domainName);
+  private static final String initialReceiverAmount = "10";
   private static final int TRANSACTION_VALIDATION_TIMEOUT = 5000;
 
 
@@ -93,12 +94,20 @@ class IrohaIntegrationTest {
                 .build()
         )
         .addTransaction(
+            // add some assets to receiver acc
+            Transaction.builder(receiverId)
+                .addAssetQuantity(assetId, initialReceiverAmount)
+                .sign(receiverKeypair)
+                .build()
+        )
+        .addTransaction(
             // add some assets to sender acc
             Transaction.builder(senderId)
                 .addAssetQuantity(assetId, "1000000")
                 .sign(senderKeypair)
                 .build()
-        ).build();
+        )
+        .build();
   }
 
   private static PeerConfig getPeerConfig() {
@@ -151,25 +160,15 @@ class IrohaIntegrationTest {
   }
 
   /**
-   * Test launches full pipeline with Iroha container setting up
-   *
    * @given {@link ValidationService} instance with {@link TransferTxVolumeRule} that limits asset
    * amount to 150 for the asset called "bux#notary"
-   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command CreateAccount} command is
-   * sent to Iroha peer
-   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction} and it's signed by
-   * BRVS and committed in Iroha
-   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command TransferAsset} command of
-   * 100 "bux#notary" sent to Iroha peer
-   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction} and it's signed by
-   * BRVS and committed in Iroha
-   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command CreateAccount} command of
-   * 200 "bux#notary" sent to Iroha peer
-   * @then {@link TransferTxVolumeRule} is NOT satisfied by such {@link Transaction} and it's
-   * rejected by BRVS and failed in Iroha
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command CreateAccount} command
+   * for "abcd@notary" is sent to Iroha peer
+   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction} and tx is signed by
+   * BRVS and committed in Iroha so account "abcd@notary" exists in Iroha
    */
   @Test
-  void validatorTest() throws InterruptedException {
+  void createAccountTransactionOnTransferLimitValidatorTest() throws InterruptedException {
     // construct BRVS using some account for block streaming and validator keypair
     ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
     // register accounts to monitor transactions of
@@ -200,6 +199,25 @@ class IrohaIntegrationTest {
     assertEquals(newAccountId, accountResponse.getAccountId());
     assertEquals(domainName, accountResponse.getDomainId());
     assertEquals(1, accountResponse.getQuorum());
+  }
+
+  /**
+   * @given {@link ValidationService} instance with {@link TransferTxVolumeRule} that limits asset
+   * amount to 150 for the asset called "bux#notary"
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command TransferAsset} command of
+   * 100 "bux#notary" from "sender@notary" to "receiver@notary" sent to Iroha peer
+   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction} and tx is signed by
+   * BRVS and committed in Iroha so destination account balance is increased by 100 "bux#notary"
+   */
+  @Test
+  void validTransferAssetOnTransferLimitValidatorTest() throws InterruptedException {
+    // construct BRVS using some account for block streaming and validator keypair
+    ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
+    // register accounts to monitor transactions of
+    validationService.registerAccount(receiverId);
+    validationService.registerAccount(senderId);
+    // subscribe to new transactions
+    validationService.verifyTransactions();
 
     // send valid transfer asset transaction
     irohaAPI.transactionSync(Transaction.builder(senderId)
@@ -208,6 +226,35 @@ class IrohaIntegrationTest {
         .sign(senderKeypair).build());
     Thread.sleep(TRANSACTION_VALIDATION_TIMEOUT);
 
+    // query Iroha and check that transfer was committed
+    AccountAsset accountAsset = irohaAPI.query(new QueryBuilder(receiverId, Instant.now(), 1)
+        .getAccountAssets(receiverId)
+        .buildSigned(receiverKeypair))
+        .getAccountAssetsResponse()
+        .getAccountAssetsList().get(0);
+    assertEquals(assetId, accountAsset.getAssetId());
+    assertEquals("110", accountAsset.getBalance());
+  }
+
+  /**
+   * @given {@link ValidationService} instance with {@link TransferTxVolumeRule} that limits asset
+   * amount to 150 for the asset called "bux#notary"
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command TransferAsset} command of
+   * 200 "bux#notary" from "sender@notary" to "receiver@notary" sent to Iroha peer
+   * @then {@link TransferTxVolumeRule} is NOT satisfied by such {@link Transaction} due to asset
+   * limit violation and tx is rejected by BRVS and failed in Iroha so destination account balance
+   * is the same as before the trans attempt
+   */
+  @Test
+  void invalidTransferAssetOnTransferLimitValidatorTest() throws InterruptedException {
+    // construct BRVS using some account for block streaming and validator keypair
+    ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
+    // register accounts to monitor transactions of
+    validationService.registerAccount(receiverId);
+    validationService.registerAccount(senderId);
+    // subscribe to new transactions
+    validationService.verifyTransactions();
+
     // send invalid transfer asset transaction
     irohaAPI.transactionSync(Transaction.builder(senderId)
         .transferAsset(senderId, receiverId, assetId, "test invalid transfer", "200")
@@ -215,13 +262,13 @@ class IrohaIntegrationTest {
         .sign(senderKeypair).build());
     Thread.sleep(TRANSACTION_VALIDATION_TIMEOUT);
 
-    // query Iroha and check that only first transfer was committed
+    // query Iroha and check that transfer was not committed
     AccountAsset accountAsset = irohaAPI.query(new QueryBuilder(receiverId, Instant.now(), 1)
         .getAccountAssets(receiverId)
         .buildSigned(receiverKeypair))
         .getAccountAssetsResponse()
         .getAccountAssetsList().get(0);
     assertEquals(assetId, accountAsset.getAssetId());
-    assertEquals("100", accountAsset.getBalance());
+    assertEquals(initialReceiverAmount, accountAsset.getBalance());
   }
 }
