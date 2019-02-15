@@ -1,4 +1,4 @@
-package test.java.iroha.validation.rules;
+package iroha.validation.rules;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +35,7 @@ class RulesTest {
         .getReducedPayload()
         .getCommandsList())
         .thenReturn(Collections.singletonList(command));
-    
+
     when(command.hasTransferAsset()).thenReturn(true);
     when(command.getTransferAsset()).thenReturn(transferAsset);
   }
