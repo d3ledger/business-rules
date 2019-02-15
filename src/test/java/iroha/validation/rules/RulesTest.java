@@ -33,19 +33,11 @@ class RulesTest {
     when(transaction
         .getPayload()
         .getReducedPayload()
-        .getCommandsList()
-    )
+        .getCommandsList())
         .thenReturn(Collections.singletonList(command));
-
-    when(command
-        .hasTransferAsset()
-    )
-        .thenReturn(true);
-
-    when(command
-        .getTransferAsset()
-    )
-        .thenReturn(transferAsset);
+    
+    when(command.hasTransferAsset()).thenReturn(true);
+    when(command.getTransferAsset()).thenReturn(transferAsset);
   }
 
   /**
@@ -80,7 +72,8 @@ class RulesTest {
   /**
    * @given {@link TransferTxVolumeRule} instance with limit of asset amount equal to 10 and for the
    * asset called "asset"
-   * @when {@link Transaction} with {@link Command TransferAsset} command of 100 "otherAsset" passed
+   * @when {@link Transaction} with {@link Command TransferAsset} command of 100 "otherAsset"
+   * passed
    * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction}
    */
   @Test
