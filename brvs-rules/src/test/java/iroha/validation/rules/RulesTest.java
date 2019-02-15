@@ -35,7 +35,7 @@ class RulesTest {
         .getReducedPayload()
         .getCommandsList())
         .thenReturn(Collections.singletonList(command));
-    
+
     when(command.hasTransferAsset()).thenReturn(true);
     when(command.getTransferAsset()).thenReturn(transferAsset);
   }

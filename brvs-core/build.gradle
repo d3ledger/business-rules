@@ -1,0 +1,14 @@
+dependencies {
+
+    compile project(':brvs-rules')
+    
+    // unit tests
+    testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
+    testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
+    // Test containers iroha
+    testCompile('com.github.hyperledger.iroha-java:testcontainers:1.0.0_rc2-SNAPSHOT')
+}
+
+test {
+    useJUnitPlatform {}
+}

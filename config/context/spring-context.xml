@@ -32,11 +32,15 @@
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
+    <constructor-arg index="0" ref="verdictStorage"/>
+    <constructor-arg index="1" ref="cacheProvider"/>
+    <constructor-arg index="2" ref="irohaHelper"/>
+  </bean>
+
+  <bean id="irohaHelper" class="iroha.validation.transactions.provider.impl.IrohaHelper">
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" value="${credential.accountId}"/>
     <constructor-arg index="2" ref="keyPair"/>
-    <constructor-arg index="3" ref="verdictStorage"/>
-    <constructor-arg index="4" ref="cacheProvider"/>
   </bean>
 
   <!-- SIGNER CONFIG -->
@@ -69,11 +73,11 @@
   </util:list>
 
   <!-- VALIDATORS DEFINITIONS -->
-  <bean id="sampleValidator" class="iroha.validation.validators.impl.SampleValidator">
+  <bean id="simpleAggregationValidator" class="iroha.validation.validators.impl.SimpleAggregationValidator">
     <constructor-arg ref="rules"/>
   </bean>
   <util:list id="validators" value-type="iroha.validation.validators.Validator">
-    <ref bean="sampleValidator"/>
+    <ref bean="simpleAggregationValidator"/>
     <!-- More can be added -->
   </util:list>
 </beans>
