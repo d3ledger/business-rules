@@ -48,6 +48,11 @@ class RulesTest {
         .thenReturn(transferAsset);
   }
 
+  /**
+   * @given {@link SampleRule} instance
+   * @when any {@link Transaction} is passed to the rule satisfiability method
+   * @then {@link SampleRule} is satisfied by the {@link Transaction}
+   */
   @Test
   void sampleRuleTest() {
     rule = new SampleRule();
@@ -56,6 +61,12 @@ class RulesTest {
     assertTrue(rule.isSatisfiedBy(transaction));
   }
 
+  /**
+   * @given {@link TransferTxVolumeRule} instance with limit of asset amount equal to 10 and for the
+   * asset called "asset"
+   * @when {@link Transaction} with {@link Command TransferAsset} command of 1 "asset" passed
+   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction}
+   */
   @Test
   void correctTransferTxVolumeRuleTest() {
     initTransferTxVolumeTest();
@@ -66,6 +77,12 @@ class RulesTest {
     assertTrue(rule.isSatisfiedBy(transaction));
   }
 
+  /**
+   * @given {@link TransferTxVolumeRule} instance with limit of asset amount equal to 10 and for the
+   * asset called "asset"
+   * @when {@link Transaction} with {@link Command TransferAsset} command of 100 "otherAsset" passed
+   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction}
+   */
   @Test
   void otherAssetTransferTxVolumeRuleTest() {
     initTransferTxVolumeTest();
@@ -76,6 +93,12 @@ class RulesTest {
     assertTrue(rule.isSatisfiedBy(transaction));
   }
 
+  /**
+   * @given {@link TransferTxVolumeRule} instance with limit of asset amount equal to 10 and for the
+   * asset called "asset"
+   * @when {@link Transaction} with {@link Command TransferAsset} command of 100 "asset" passed
+   * @then {@link TransferTxVolumeRule} is NOT satisfied by such {@link Transaction}
+   */
   @Test
   void violatedTransferTxVolumeRuleTest() {
     initTransferTxVolumeTest();

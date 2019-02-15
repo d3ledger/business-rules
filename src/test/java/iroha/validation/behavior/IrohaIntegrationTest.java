@@ -151,7 +151,22 @@ class IrohaIntegrationTest {
   }
 
   /**
-   * Test launches full pipeline
+   * Test launches full pipeline with Iroha container setting up
+   *
+   * @given {@link ValidationService} instance with {@link TransferTxVolumeRule} that limits asset
+   * amount to 150 for the asset called "bux#notary"
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command CreateAccount} command is
+   * sent to Iroha peer
+   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction} and it's signed by
+   * BRVS and committed in Iroha
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command TransferAsset} command of
+   * 100 "bux#notary" sent to Iroha peer
+   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction} and it's signed by
+   * BRVS and committed in Iroha
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command CreateAccount} command of
+   * 200 "bux#notary" sent to Iroha peer
+   * @then {@link TransferTxVolumeRule} is NOT satisfied by such {@link Transaction} and it's
+   * rejected by BRVS and failed in Iroha
    */
   @Test
   void validatorTest() throws InterruptedException {
