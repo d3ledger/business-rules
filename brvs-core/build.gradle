@@ -1,0 +1,7 @@
+dependencies {
+
+    compile project(':brvs-rules')
+
+    // Test containers iroha
+    testCompile('com.github.hyperledger.iroha-java:testcontainers:1.0.0_rc2-SNAPSHOT')
+}
