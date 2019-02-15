@@ -17,9 +17,7 @@ allprojects {
     apply plugin: 'java'
     repositories {
         mavenCentral()
-        // for Ktor
         jcenter()
-        maven { url = 'https://dl.bintray.com/kotlin/ktor' }
         maven { url 'https://jitpack.io' }
     }
 }
