@@ -29,7 +29,8 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
 
   public MongoTransactionVerdictStorage() {
     mongoClient = MongoClients.create();
-    CodecRegistry mongoVerdictCodecRegistry = fromRegistries(MongoClientSettings.getDefaultCodecRegistry(),
+    CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
+        MongoClientSettings.getDefaultCodecRegistry(),
         fromProviders(PojoCodecProvider.builder().automatic(true).build()));
     collection = mongoClient
         .getDatabase("verdictStorage")
@@ -88,14 +89,10 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   }
 
   private void store(String txHash, ValidationResult result) {
-    try {
-      collection.replaceOne(eq(TX_HASH_ATTRIBUTE, txHash),
-          new MongoVerdict(txHash, result),
-          replaceOptions
-      );
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    collection.replaceOne(eq(TX_HASH_ATTRIBUTE, txHash),
+        new MongoVerdict(txHash, result),
+        replaceOptions
+    );
   }
 
   @Override
