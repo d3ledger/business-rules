@@ -26,13 +26,13 @@
   </bean>
 
   <!-- STORAGE CONFIG -->
-  <bean id="verdictStorage"
-    class="iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage"/>
+  <bean id="mongoVerdictStorage"
+    class="iroha.validation.transactions.storage.impl.MongoTransactionVerdictStorage"/>
 
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
-    <constructor-arg index="0" ref="verdictStorage"/>
+    <constructor-arg index="0" ref="mongoVerdictStorage"/>
     <constructor-arg index="1" ref="cacheProvider"/>
     <constructor-arg index="2" ref="irohaHelper"/>
   </bean>
@@ -48,7 +48,7 @@
     class="iroha.validation.transactions.signatory.impl.TransactionSignerImpl">
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" ref="keyPair"/>
-    <constructor-arg index="2" ref="verdictStorage"/>
+    <constructor-arg index="2" ref="mongoVerdictStorage"/>
   </bean>
 
   <!-- CACHE CONFIG -->

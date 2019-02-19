@@ -5,6 +5,7 @@ import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.stereotype.Component;
@@ -62,5 +63,10 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
   @Override
   public Observable<String> getRejectedTransactionsHashesStreaming() {
     return subject;
+  }
+
+  @Override
+  public void close() {
+
   }
 }
