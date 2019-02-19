@@ -8,9 +8,9 @@ public class ValidationResult {
     return new ValidationResult(Verdict.REJECTED, reason);
   }
 
-  private final Verdict status;
+  private Verdict status;
 
-  private final String reason;
+  private String reason;
 
   private ValidationResult(Verdict status) {
     this(status, "");
@@ -27,5 +27,18 @@ public class ValidationResult {
 
   public String getReason() {
     return reason;
+  }
+
+  // Following things are made for BSON (MongoDB Serializer)
+
+  protected ValidationResult() {
+  }
+
+  public void setStatus(Verdict status) {
+    this.status = status;
+  }
+
+  public void setReason(String reason) {
+    this.reason = reason;
   }
 }

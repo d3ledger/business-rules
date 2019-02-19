@@ -1,4 +1,4 @@
-package iroha.validation.transactions.storage.impl;
+package iroha.validation.transactions.storage.impl.dummy;
 
 import io.reactivex.Observable;
 import io.reactivex.subjects.PublishSubject;

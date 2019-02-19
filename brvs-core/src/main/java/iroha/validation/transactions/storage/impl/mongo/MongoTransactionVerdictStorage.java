@@ -1,4 +1,4 @@
-package iroha.validation.transactions.storage.impl;
+package iroha.validation.transactions.storage.impl.mongo;
 
 import static com.mongodb.client.model.Filters.eq;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
@@ -77,7 +77,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   @Override
   public ValidationResult getTransactionVerdict(String txHash) {
     MongoVerdict verdict = collection.find(eq(TX_HASH_ATTRIBUTE, txHash)).first();
-    return verdict == null ? null : verdict.result;
+    return verdict == null ? null : verdict.getResult();
   }
 
   /**
@@ -98,32 +98,5 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   @Override
   public void close() {
     mongoClient.close();
-  }
-
-  public class MongoVerdict {
-
-    private String txHash;
-    private ValidationResult result;
-
-    private MongoVerdict(String txHash, ValidationResult result) {
-      this.txHash = txHash;
-      this.result = result;
-    }
-
-    public String getTxHash() {
-      return txHash;
-    }
-
-    public void setTxHash(String txHash) {
-      this.txHash = txHash;
-    }
-
-    public ValidationResult getResult() {
-      return result;
-    }
-
-    public void setResult(ValidationResult result) {
-      this.result = result;
-    }
   }
 }
