@@ -2,10 +2,8 @@ package iroha.validation.transactions.storage.impl;
 
 import io.reactivex.Observable;
 import io.reactivex.subjects.PublishSubject;
-import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.stereotype.Component;
