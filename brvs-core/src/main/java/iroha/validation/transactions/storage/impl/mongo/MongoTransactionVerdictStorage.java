@@ -88,7 +88,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
     return subject;
   }
 
-  private synchronized void store(String txHash, ValidationResult result) {
+  private void store(String txHash, ValidationResult result) {
     collection.replaceOne(eq(TX_HASH_ATTRIBUTE, txHash),
         new MongoVerdict(txHash, result),
         replaceOptions
