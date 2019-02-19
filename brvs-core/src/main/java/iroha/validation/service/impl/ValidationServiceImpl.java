@@ -1,13 +1,16 @@
 package iroha.validation.service.impl;
 
+import iroha.validation.adapter.ChainAdapter;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,18 @@ public class ValidationServiceImpl implements ValidationService {
   private Collection<Validator> validators;
   private TransactionProvider transactionProvider;
   private TransactionSigner transactionSigner;
+  private ChainAdapter chainAdapter;
+  private Thread chainAdapterThread = new Thread(){
+    public void run(){
+      try {
+        chainAdapter.run();
+      } catch (IOException e) {
+        e.printStackTrace();
+      } catch (TimeoutException e) {
+        e.printStackTrace();
+      }
+    }
+  };;
 
   @Autowired
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
@@ -31,6 +46,7 @@ public class ValidationServiceImpl implements ValidationService {
     this.validators = validationServiceContext.getValidators();
     this.transactionProvider = validationServiceContext.getTransactionProvider();
     this.transactionSigner = validationServiceContext.getTransactionSigner();
+    this.chainAdapter = validationServiceContext.getChainAdapter();
   }
 
   /**
@@ -38,6 +54,7 @@ public class ValidationServiceImpl implements ValidationService {
    */
   @Override
   public void verifyTransactions() {
+    chainAdapterThread.start();
     transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
         {
           boolean verdict = true;

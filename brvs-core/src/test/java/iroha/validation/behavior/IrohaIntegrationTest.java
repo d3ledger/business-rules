@@ -6,6 +6,7 @@ import iroha.protocol.BlockOuterClass;
 import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.QryResponses.Account;
 import iroha.protocol.QryResponses.AccountAsset;
+import iroha.validation.adapter.ChainAdapter;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.rules.impl.TransferTxVolumeRule;
@@ -139,7 +140,8 @@ class IrohaIntegrationTest {
             irohaAPI,
             keyPair,
             transactionVerdictStorage
-        )
+        ),
+        new ChainAdapter(irohaAPI, accountId, keyPair)
     ));
   }
 

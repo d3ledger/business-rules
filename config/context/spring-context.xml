@@ -59,6 +59,8 @@
     <constructor-arg index="0" ref="validators"/>
     <constructor-arg index="1" ref="transactionProvider"/>
     <constructor-arg index="2" ref="transactionSigner"/>
+    <constructor-arg index="3" ref="chainAdapter"/>
+
   </bean>
 
   <bean class="iroha.validation.service.impl.ValidationServiceImpl">

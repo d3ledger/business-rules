@@ -1,7 +1,8 @@
 package iroha.validation.config;
 
-import iroha.validation.transactions.signatory.TransactionSigner;
+import iroha.validation.adapter.ChainAdapter;
 import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.validators.Validator;
 import java.util.Collection;
 import java.util.Objects;
@@ -15,12 +16,14 @@ public class ValidationServiceContext {
   private final Collection<Validator> validators;
   private final TransactionProvider transactionProvider;
   private final TransactionSigner transactionSigner;
+  private final ChainAdapter chainAdapter;
 
   @Autowired
   public ValidationServiceContext(
       Collection<Validator> validators,
       TransactionProvider transactionProvider,
-      TransactionSigner transactionSigner) {
+      TransactionSigner transactionSigner,
+      ChainAdapter chainAdapter) {
     if (CollectionUtils.isEmpty(validators)) {
       throw new IllegalArgumentException(
           "Validators collection must not be neither null nor empty");
@@ -31,6 +34,11 @@ public class ValidationServiceContext {
     this.validators = validators;
     this.transactionProvider = transactionProvider;
     this.transactionSigner = transactionSigner;
+    this.chainAdapter = chainAdapter;
+  }
+
+  public ChainAdapter getChainAdapter() {
+    return chainAdapter;
   }
 
   public Collection<Validator> getValidators() {

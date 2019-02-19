@@ -1,17 +1,23 @@
 package iroha.validation.transactions.provider.impl;
 
 import com.google.common.base.Strings;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+import com.rabbitmq.client.Delivery;
 import io.reactivex.Observable;
+import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.BlockOuterClass;
 import iroha.protocol.QryResponses;
 import iroha.protocol.Queries;
 import iroha.protocol.TransactionOuterClass;
+import java.io.IOException;
 import java.security.KeyPair;
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import jp.co.soramitsu.iroha.java.BlocksQueryBuilder;
+import java.util.concurrent.TimeoutException;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
 import org.slf4j.Logger;
@@ -79,14 +85,44 @@ public class IrohaHelper {
    * @return {@link Observable} of Iroha proto {@link QryResponses.BlockQueryResponse} block
    */
   Observable<BlockOuterClass.Block> getBlockStreaming() {
-    Queries.BlocksQuery query = new BlocksQueryBuilder(accountId, Instant.now(), 1)
-        .buildSigned(keyPair);
-    return irohaAPI.blocksQuery(query).map(response -> {
-          logger.info(
-              "New Iroha block arrived. Height " + response.getBlockResponse().getBlock().getBlockV1()
-                  .getPayload().getHeight());
-          return response.getBlockResponse().getBlock();
-        }
-    );
+    ConnectionFactory factory = new ConnectionFactory();
+    factory.setHost("localhost");
+    Connection conn = null;
+    Channel ch = null;
+    String queue = null;
+    try {
+      conn = factory.newConnection();
+      ch = conn.createChannel();
+      ch.exchangeDeclare("iroha", "fanout", true);
+      queue = ch.queueDeclare("", true, false, false, null).getQueue();
+      ch.queueBind(queue, "iroha", "");
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (TimeoutException e) {
+      e.printStackTrace();
+    }
+
+    PublishSubject<Delivery> source = PublishSubject.create();
+    DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+      source.onNext(delivery);
+    };
+
+    try {
+      ch.basicConsume(queue, true, deliverCallback, consumerTag -> {});
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    logger.info("On subscribe to Iroha chain");
+
+    return source.map(delivery -> {
+      BlockOuterClass.Block block = iroha.protocol.BlockOuterClass.Block
+          .parseFrom(delivery.getBody());
+      logger.info(
+          "New Iroha block arrived. Height " + block.getBlockV1()
+              .getPayload().getHeight());
+      return block;
+    });
+
   }
 }
