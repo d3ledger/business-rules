@@ -1,0 +1,16 @@
+version: '3.1'
+
+services:
+  brvs:
+    container_name: brvs
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    networks:
+      # Specify the network Iroha is present in if needed
+      - deploy_d3-network
+
+networks:
+  # Specify the network Iroha is present in if needed
+  deploy_d3-network:
+    external: true
