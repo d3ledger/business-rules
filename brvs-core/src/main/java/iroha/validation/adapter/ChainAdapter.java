@@ -5,6 +5,7 @@ import com.google.common.base.Strings;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.MessageProperties;
 import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Queries;
@@ -73,7 +74,7 @@ public class ChainAdapter {
     );
 
     obs.blockingSubscribe(block -> {
-      ch.basicPublish("iroha", "", null, block.toByteArray());
+      ch.basicPublish("iroha", "", MessageProperties.MINIMAL_PERSISTENT_BASIC, block.toByteArray());
       logger.info("Block pushed");
     });
   }
