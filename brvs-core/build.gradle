@@ -2,7 +2,7 @@ dependencies {
 
     compile project(':brvs-rules')
     compile "com.rabbitmq:amqp-client:5.6.0"
-
+    
     // unit tests
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
@@ -12,4 +12,21 @@ dependencies {
 
 test {
     useJUnitPlatform {}
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'iroha.validation.Application'
+        )
+    }
+}
+
+import com.github.jengelman.gradle.plugins.shadow.transformers.ServiceFileTransformer
+
+shadowJar {
+    transform(ServiceFileTransformer) {
+        path = 'META-INF'
+        include 'spring.*'
+    }
 }

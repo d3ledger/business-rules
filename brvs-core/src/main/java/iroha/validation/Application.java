@@ -8,7 +8,7 @@ import org.springframework.context.support.FileSystemXmlApplicationContext;
 public class Application {
 
   public static void main(String[] args) {
-    new FileSystemXmlApplicationContext("config/context/spring-context.xml")
+    new FileSystemXmlApplicationContext(args[0])
         .getBean(ValidationService.class)
         .verifyTransactions();
   }
