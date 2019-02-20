@@ -2,15 +2,27 @@ version: '3.1'
 
 services:
   brvs:
-    container_name: brvs
+    container_name: "brvs"
     build:
       context: ../
       dockerfile: Dockerfile
-    networks:
-      # Specify the network Iroha is present in if needed
-      - deploy_d3-network
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:latest
+    container_name: "mongodb"
+    environment:
+      - MONGO_DATA_DIR=/data/db
+      - MONGO_LOG_DIR=/dev/null
+    volumes:
+      - ./data/db:/data/db
+    ports:
+      - 27017:27017
+    command: mongod --smallfiles
 
 networks:
   # Specify the network Iroha is present in if needed
-  deploy_d3-network:
-    external: true
+  default:
+    external:
+      name: deploy_d3-network

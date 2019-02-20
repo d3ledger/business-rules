@@ -4,6 +4,7 @@
 /out/
 */build/
 */out/
+deploy/data
 
 # Ignore Gradle GUI config
 gradle-app.setting
