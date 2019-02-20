@@ -8,7 +8,6 @@ import com.rabbitmq.client.ConnectionFactory;
 import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Queries;
-import iroha.validation.transactions.provider.impl.IrohaHelper;
 import java.io.IOException;
 import java.security.KeyPair;
 import java.time.Instant;
@@ -24,7 +23,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ChainAdapter {
 
-  private static final Logger logger = LoggerFactory.getLogger(IrohaHelper.class);
+  private static final Logger logger = LoggerFactory.getLogger(ChainAdapter.class);
 
   private final IrohaAPI irohaAPI;
   // BRVS account id to query Iroha
@@ -32,10 +31,15 @@ public class ChainAdapter {
   // BRVS keypair to query Iroha
   private final KeyPair keyPair;
 
+  private final String RMQHost;
+  private final Integer RMQPort;
+
   @Autowired
   public ChainAdapter(IrohaAPI irohaAPI,
       String accountId,
-      KeyPair keyPair) {
+      KeyPair keyPair,
+      String RMQHost,
+      Integer RMQPort) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null or empty");
@@ -45,11 +49,14 @@ public class ChainAdapter {
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
+    this.RMQHost = RMQHost;
+    this.RMQPort = RMQPort;
   }
 
   public void run() throws IOException, TimeoutException {
     ConnectionFactory factory = new ConnectionFactory();
-    factory.setHost("localhost");
+    factory.setHost(RMQHost);
+    factory.setPort(RMQPort);
     Connection conn = factory.newConnection();
     Channel ch = conn.createChannel();
     ch.exchangeDeclare("iroha", "fanout", true);

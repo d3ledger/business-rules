@@ -134,14 +134,14 @@ class IrohaIntegrationTest {
         new BasicTransactionProvider(
             transactionVerdictStorage,
             new CacheProvider(),
-            new IrohaHelper(irohaAPI, accountId, keyPair)
+            new IrohaHelper(irohaAPI, accountId, keyPair,"localhost", 5672)
         ),
         new TransactionSignerImpl(
             irohaAPI,
             keyPair,
             transactionVerdictStorage
         ),
-        new ChainAdapter(irohaAPI, accountId, keyPair)
+        new ChainAdapter(irohaAPI, accountId, keyPair, "localhost", 5672)
     ));
   }
 
@@ -151,7 +151,6 @@ class IrohaIntegrationTest {
         .withPeerConfig(getPeerConfig());
 
     iroha.start();
-
     irohaAPI = iroha.getApi();
   }
 

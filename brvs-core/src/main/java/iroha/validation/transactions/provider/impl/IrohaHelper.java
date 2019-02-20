@@ -39,12 +39,16 @@ public class IrohaHelper {
   // BRVS keypair to query Iroha
   private final KeyPair keyPair;
 
+  private final String RMQHost;
+  private final Integer RMQPort;
+
   @Autowired
   public IrohaHelper(
       IrohaAPI irohaAPI,
       String accountId,
-      KeyPair keyPair
-  ) {
+      KeyPair keyPair,
+      String RMQHost,
+      Integer RMQPort) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null or empty");
@@ -54,6 +58,8 @@ public class IrohaHelper {
     this.irohaAPI = irohaAPI;
     this.accountId = accountId;
     this.keyPair = keyPair;
+    this.RMQHost = RMQHost;
+    this.RMQPort = RMQPort;
   }
 
 
@@ -84,9 +90,10 @@ public class IrohaHelper {
    *
    * @return {@link Observable} of Iroha proto {@link QryResponses.BlockQueryResponse} block
    */
-  Observable<BlockOuterClass.Block> getBlockStreaming() {
+  public Observable<BlockOuterClass.Block> getBlockStreaming() {
     ConnectionFactory factory = new ConnectionFactory();
-    factory.setHost("localhost");
+    factory.setHost(RMQHost);
+    factory.setPort(RMQPort);
     Connection conn = null;
     Channel ch = null;
     String queue = null;
@@ -108,7 +115,8 @@ public class IrohaHelper {
     };
 
     try {
-      ch.basicConsume(queue, true, deliverCallback, consumerTag -> {});
+      ch.basicConsume(queue, true, deliverCallback, consumerTag -> {
+      });
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -116,6 +124,7 @@ public class IrohaHelper {
     logger.info("On subscribe to Iroha chain");
 
     return source.map(delivery -> {
+      System.out.println(delivery.getBody());
       BlockOuterClass.Block block = iroha.protocol.BlockOuterClass.Block
           .parseFrom(delivery.getBody());
       logger.info(

@@ -37,7 +37,7 @@ public class ValidationServiceImpl implements ValidationService {
         e.printStackTrace();
       }
     }
-  };;
+  };
 
   @Autowired
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
