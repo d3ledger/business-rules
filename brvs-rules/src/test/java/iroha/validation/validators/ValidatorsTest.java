@@ -58,19 +58,11 @@ class ValidatorsTest {
     for (int i = 0; i < 100500; i++) {
       rules.add(new SampleRule());
     }
-    rules.add(new BadRule());
+    rules.add(transaction -> false);
     Validator validator = new SimpleAggregationValidator(rules);
 
     Transaction transaction = mock(Transaction.class);
 
     assertFalse(validator.validate(transaction));
-  }
-
-  private class BadRule extends SampleRule {
-
-    @Override
-    public boolean isSatisfiedBy(Transaction transaction) {
-      return false;
-    }
   }
 }
