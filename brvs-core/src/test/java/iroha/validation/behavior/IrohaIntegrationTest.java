@@ -1,11 +1,13 @@
 package iroha.validation.behavior;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import iroha.protocol.BlockOuterClass;
 import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.QryResponses.Account;
 import iroha.protocol.QryResponses.AccountAsset;
+import iroha.protocol.TransactionOuterClass;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.rules.impl.TransferTxVolumeRule;
@@ -17,6 +19,7 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage;
+import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
 import java.math.BigDecimal;
 import java.security.KeyPair;
@@ -51,6 +54,8 @@ class IrohaIntegrationTest {
   private static final String assetId = String.format("%s#%s", asset, domainName);
   private static final String initialReceiverAmount = "10";
   private static final int TRANSACTION_VALIDATION_TIMEOUT = 5000;
+  private static final int TRANSACTION_REACTION_TIMEOUT = 500;
+  private CacheProvider cacheProvider;
 
 
   private IrohaContainer iroha;
@@ -121,7 +126,7 @@ class IrohaIntegrationTest {
     return config;
   }
 
-  private static ValidationService getService(IrohaAPI irohaAPI, String accountId,
+  private ValidationService getService(IrohaAPI irohaAPI, String accountId,
       KeyPair keyPair) {
     TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
     return new ValidationServiceImpl(new ValidationServiceContext(
@@ -132,7 +137,7 @@ class IrohaIntegrationTest {
         ),
         new BasicTransactionProvider(
             transactionVerdictStorage,
-            new CacheProvider(),
+            cacheProvider,
             new IrohaHelper(irohaAPI, accountId, keyPair)
         ),
         new TransactionSignerImpl(
@@ -151,6 +156,8 @@ class IrohaIntegrationTest {
     iroha.start();
 
     irohaAPI = iroha.getApi();
+
+    cacheProvider = new CacheProvider();
   }
 
   @AfterEach
@@ -179,14 +186,20 @@ class IrohaIntegrationTest {
 
     // send create account transaction to check rules
     String newAccountName = "abcd";
-    irohaAPI.transactionSync(Transaction.builder(receiverId)
+    TransactionOuterClass.Transaction transaction = Transaction.builder(receiverId)
         .createAccount(
             newAccountName,
             domainName,
             crypto.generateKeypair().getPublic()
         )
         .setQuorum(2)
-        .sign(receiverKeypair).build());
+        .sign(receiverKeypair).build();
+    irohaAPI.transactionSync(transaction);
+
+    Thread.sleep(TRANSACTION_REACTION_TIMEOUT);
+    // Check account is not blocked
+    assertNull(cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+
     Thread.sleep(TRANSACTION_VALIDATION_TIMEOUT);
 
     // query Iroha and check
@@ -220,10 +233,16 @@ class IrohaIntegrationTest {
     validationService.verifyTransactions();
 
     // send valid transfer asset transaction
-    irohaAPI.transactionSync(Transaction.builder(senderId)
+    TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
         .transferAsset(senderId, receiverId, assetId, "test valid transfer", "100")
         .setQuorum(2)
-        .sign(senderKeypair).build());
+        .sign(senderKeypair).build();
+    irohaAPI.transactionSync(transaction);
+
+    Thread.sleep(TRANSACTION_REACTION_TIMEOUT);
+    // Check account is blocked
+    assertEquals(senderId, cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+
     Thread.sleep(TRANSACTION_VALIDATION_TIMEOUT);
 
     // query Iroha and check that transfer was committed
@@ -256,10 +275,16 @@ class IrohaIntegrationTest {
     validationService.verifyTransactions();
 
     // send invalid transfer asset transaction
-    irohaAPI.transactionSync(Transaction.builder(senderId)
+    TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
         .transferAsset(senderId, receiverId, assetId, "test invalid transfer", "200")
         .setQuorum(2)
-        .sign(senderKeypair).build());
+        .sign(senderKeypair).build();
+    irohaAPI.transactionSync(transaction);
+
+    Thread.sleep(TRANSACTION_REACTION_TIMEOUT);
+    // Check account is not blocked
+    assertNull(cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+
     Thread.sleep(TRANSACTION_VALIDATION_TIMEOUT);
 
     // query Iroha and check that transfer was not committed
