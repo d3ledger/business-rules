@@ -2,8 +2,9 @@ package iroha.validation.transactions.storage;
 
 import io.reactivex.Observable;
 import iroha.validation.verdict.ValidationResult;
+import java.io.Closeable;
 
-public interface TransactionVerdictStorage {
+public interface TransactionVerdictStorage extends Closeable {
 
   /**
    * Method for indicating if hash provided is contained in a storage

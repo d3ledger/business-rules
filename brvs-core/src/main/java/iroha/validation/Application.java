@@ -8,6 +8,9 @@ import org.springframework.context.support.FileSystemXmlApplicationContext;
 public class Application {
 
   public static void main(String[] args) {
+    if (args.length == 0) {
+      throw new IllegalArgumentException("Context file path argument is not specified");
+    }
     new FileSystemXmlApplicationContext(args[0])
         .getBean(ValidationService.class)
         .verifyTransactions();
