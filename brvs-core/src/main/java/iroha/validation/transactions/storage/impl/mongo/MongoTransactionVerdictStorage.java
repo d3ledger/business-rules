@@ -4,6 +4,7 @@ import static com.mongodb.client.model.Filters.eq;
 import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
 import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
+import com.google.common.base.Strings;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -27,8 +28,14 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   private final MongoCollection<MongoVerdict> collection;
   private final PublishSubject<String> subject = PublishSubject.create();
 
-  public MongoTransactionVerdictStorage() {
-    mongoClient = MongoClients.create();
+  public MongoTransactionVerdictStorage(String mongoHost, Integer mongoPort) {
+    if (Strings.isNullOrEmpty(mongoHost)) {
+      throw new IllegalArgumentException("MongoDB host must not be neither null or empty");
+    }
+    if (mongoPort < 1) {
+      throw new IllegalArgumentException("MongoDB port must be valid");
+    }
+    mongoClient = MongoClients.create(String.format("mongodb://%s:%d", mongoHost, mongoPort));
     CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
         MongoClientSettings.getDefaultCodecRegistry(),
         fromProviders(PojoCodecProvider.builder().automatic(true).build()));
