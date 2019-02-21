@@ -41,6 +41,8 @@
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" value="${credential.accountId}"/>
     <constructor-arg index="2" ref="keyPair"/>
+    <constructor-arg index="3" value="${rmq.host}"/>
+    <constructor-arg index="4" value="${rmq.port}"/>
   </bean>
 
   <!-- SIGNER CONFIG -->
@@ -59,6 +61,8 @@
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" value="${credential.accountId}"/>
     <constructor-arg index="2" ref="keyPair"/>
+    <constructor-arg index="3" value="${rmq.host}"/>
+    <constructor-arg index="4" value="${rmq.port}"/>
   </bean>
 
 
