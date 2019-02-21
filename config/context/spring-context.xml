@@ -27,17 +27,17 @@
 
   <!-- STORAGE CONFIG -->
   <bean id="mongoVerdictStorage"
-    class="iroha.validation.transactions.storage.impl.MongoTransactionVerdictStorage"/>
+    class="iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage"/>
 
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
     <constructor-arg index="0" ref="mongoVerdictStorage"/>
     <constructor-arg index="1" ref="cacheProvider"/>
-    <constructor-arg index="2" ref="irohaHelper"/>
+    <constructor-arg index="2" ref="irohaReliableChainListener"/>
   </bean>
 
-  <bean id="irohaHelper" class="iroha.validation.transactions.provider.impl.IrohaHelper">
+  <bean id="irohaReliableChainListener" class="iroha.validation.listener.IrohaReliableChainListener">
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" value="${credential.accountId}"/>
     <constructor-arg index="2" ref="keyPair"/>

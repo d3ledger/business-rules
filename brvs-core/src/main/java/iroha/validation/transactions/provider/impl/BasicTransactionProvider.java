@@ -2,10 +2,12 @@ package iroha.validation.transactions.provider.impl;
 
 import io.reactivex.Observable;
 import iroha.protocol.TransactionOuterClass.Transaction;
+import iroha.validation.listener.IrohaReliableChainListener;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -30,20 +32,20 @@ public class BasicTransactionProvider implements TransactionProvider {
   // Accounts to monitor pending tx
   private final Set<String> accountsToMonitor = new HashSet<>();
 
-  private final IrohaHelper irohaHelper;
+  private final IrohaReliableChainListener irohaReliableChainListener;
 
   @Autowired
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
       CacheProvider cacheProvider,
-      IrohaHelper irohaHelper
+      IrohaReliableChainListener irohaReliableChainListener
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
     Objects.requireNonNull(cacheProvider, "CacheProvider must not be null");
 
     this.transactionVerdictStorage = transactionVerdictStorage;
     this.cacheProvider = cacheProvider;
-    this.irohaHelper = irohaHelper;
+    this.irohaReliableChainListener = irohaReliableChainListener;
   }
 
   /**
@@ -70,18 +72,19 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void monitorIrohaPending() {
     synchronized (accountsToMonitor) {
-      irohaHelper.getAllPendingTransactions(accountsToMonitor).forEach(transaction -> {
-            // if only BRVS signatory remains
-            if (transaction.getPayload().getReducedPayload().getQuorum() -
-                transaction.getSignaturesCount() == 1) {
-              String hex = ValidationUtils.hexHash(transaction);
-              if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
-                transactionVerdictStorage.markTransactionPending(hex);
-                cacheProvider.put(transaction);
+      irohaReliableChainListener.getAllPendingTransactions(accountsToMonitor)
+          .forEach(transaction -> {
+                // if only BRVS signatory remains
+                if (transaction.getPayload().getReducedPayload().getQuorum() -
+                    transaction.getSignaturesCount() == 1) {
+                  String hex = ValidationUtils.hexHash(transaction);
+                  if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
+                    transactionVerdictStorage.markTransactionPending(hex);
+                    cacheProvider.put(transaction);
+                  }
+                }
               }
-            }
-          }
-      );
+          );
     }
   }
 
@@ -91,7 +94,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void processBlockTransactions() {
-    irohaHelper.getBlockStreaming().subscribe(block ->
+    irohaReliableChainListener.getBlockStreaming().subscribe(block ->
           /*
           We do not process rejected hashes of blocks in order to support fail fast behavior
           BRVS fake key pair leads to STATELESS_INVALID status so such transactions
@@ -124,7 +127,8 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   @Override
-  public void close() {
+  public void close() throws IOException {
     executorService.shutdownNow();
+    irohaReliableChainListener.close();
   }
 }
