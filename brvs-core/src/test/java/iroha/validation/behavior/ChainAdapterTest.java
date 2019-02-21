@@ -2,12 +2,9 @@ package iroha.validation.behavior;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.github.dockerjava.api.DockerClient;
 import iroha.protocol.BlockOuterClass;
 import iroha.protocol.Primitive.RolePermission;
 import iroha.validation.adapter.ChainAdapter;
-import iroha.validation.rules.impl.TransferTxVolumeRule;
-import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.impl.IrohaHelper;
 import java.io.IOException;
 import java.security.KeyPair;
@@ -27,7 +24,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 
 public class ChainAdapterTest {
@@ -44,10 +40,8 @@ public class ChainAdapterTest {
   private static final String accountId = String.format("%s@%s", accountName, domainName);
   private static final String asset = "bux";
   private static final String assetId = String.format("%s#%s", asset, domainName);
-  private static final String initialReceiverAmount = "10";
   private static final int TRANSACTION_VALIDATION_TIMEOUT = 5000;
 
-  private static final DockerClient dockerClient = DockerClientFactory.instance().client();
 
   private static final GenericContainer rmq = new GenericContainer<>("rabbitmq:3-management")
       .withExposedPorts(15672, 5672);
@@ -118,17 +112,16 @@ public class ChainAdapterTest {
 
 
   /**
-   * @given {@link ValidationService} instance with {@link TransferTxVolumeRule} that limits asset
-   * amount to 150 for the asset called "bux#notary"
-   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command CreateAccount} command
-   * for "abcd@notary" is sent to Iroha peer
-   * @then {@link TransferTxVolumeRule} is satisfied by such {@link Transaction} and tx is signed by
-   * BRVS and committed in Iroha so account "abcd@notary" exists in Iroha
+   * @given {@link ChainAdapter} instance running and {@link IrohaHelper}
+   * @when two {@link Transaction} with {@link iroha.protocol.Commands.Command AddAssetQuantity}
+   * command for "test@notary" is sent to Iroha peer
+   * @then two {@link BlockOuterClass} arrive
    */
   @Test
   void createAccountTransactionOnTransferLimitValidatorTest() throws InterruptedException {
 
-    ChainAdapter chainAdapter = new ChainAdapter(irohaAPI, accountId, accountKeypair, RMQHost, RMQPort);
+    ChainAdapter chainAdapter = new ChainAdapter(irohaAPI, accountId, accountKeypair, RMQHost,
+        RMQPort);
     Thread chainAdapterThread = new Thread() {
       public void run() {
         try {
@@ -167,7 +160,7 @@ public class ChainAdapterTest {
         .getAccountAssetsList()
         .get(0)
         .getBalance();
-    assertEquals(balance, "2");
+    assertEquals("2", balance);
     assertEquals(2, blocks_n.get());
   }
 
