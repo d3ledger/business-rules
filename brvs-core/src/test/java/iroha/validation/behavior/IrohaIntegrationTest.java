@@ -18,7 +18,7 @@ import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
-import iroha.validation.transactions.storage.impl.dummy.DummyMemoryTransactionVerdictStorage;
+import iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
 import iroha.validation.verdict.Verdict;
@@ -58,17 +58,21 @@ class IrohaIntegrationTest {
   private static final String asset = "bux";
   private static final String assetId = String.format("%s#%s", asset, domainName);
   private static final String initialReceiverAmount = "10";
-  private static final int TRANSACTION_VALIDATION_TIMEOUT = 5000;
+  private static final int TRANSACTION_VALIDATION_TIMEOUT = 7000;
   private static final int TRANSACTION_REACTION_TIMEOUT = 500;
   private CacheProvider cacheProvider;
-  private final TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
+  private TransactionVerdictStorage transactionVerdictStorage;
   private static final GenericContainer rmq = new GenericContainer<>("rabbitmq:3-management")
-      .withExposedPorts(15672, 5672);
+      .withExposedPorts(5672);
+  private static final GenericContainer mongo = new GenericContainer<>("mongo:4.0.6")
+      .withExposedPorts(27017);
 
   private IrohaContainer iroha;
   private IrohaAPI irohaAPI;
   private String rmqHost;
   private Integer rmqPort;
+  private String mongoHost;
+  private Integer mongoPort;
 
   private static BlockOuterClass.Block getGenesisBlock() {
     return new GenesisBlockBuilder()
@@ -137,6 +141,7 @@ class IrohaIntegrationTest {
 
   private ValidationService getService(IrohaAPI irohaAPI, String accountId,
       KeyPair keyPair) {
+    transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
             new SampleRule(),
@@ -169,6 +174,10 @@ class IrohaIntegrationTest {
     rmq.start();
     rmqHost = rmq.getContainerIpAddress();
     rmqPort = rmq.getMappedPort(5672);
+
+    mongo.start();
+    mongoHost = mongo.getContainerIpAddress();
+    mongoPort = mongo.getMappedPort(27017);
   }
 
   @AfterEach
@@ -176,6 +185,7 @@ class IrohaIntegrationTest {
     irohaAPI.close();
     iroha.close();
     rmq.stop();
+    mongo.stop();
   }
 
   /**

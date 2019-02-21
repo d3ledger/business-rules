@@ -27,7 +27,10 @@
 
   <!-- STORAGE CONFIG -->
   <bean id="mongoVerdictStorage"
-    class="iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage"/>
+    class="iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage">
+    <constructor-arg index="0" value="${mongo.host}"/>
+    <constructor-arg index="1" value="${mongo.port}"/>
+  </bean>
 
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
@@ -37,7 +40,8 @@
     <constructor-arg index="2" ref="irohaReliableChainListener"/>
   </bean>
 
-  <bean id="irohaReliableChainListener" class="iroha.validation.listener.IrohaReliableChainListener">
+  <bean id="irohaReliableChainListener"
+    class="iroha.validation.listener.IrohaReliableChainListener">
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" value="${credential.accountId}"/>
     <constructor-arg index="2" ref="keyPair"/>
@@ -76,7 +80,8 @@
   </util:list>
 
   <!-- VALIDATORS DEFINITIONS -->
-  <bean id="simpleAggregationValidator" class="iroha.validation.validators.impl.SimpleAggregationValidator">
+  <bean id="simpleAggregationValidator"
+    class="iroha.validation.validators.impl.SimpleAggregationValidator">
     <constructor-arg ref="rules"/>
   </bean>
   <util:list id="validators" value-type="iroha.validation.validators.Validator">
