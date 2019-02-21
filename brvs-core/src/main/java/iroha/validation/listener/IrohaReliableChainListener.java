@@ -41,18 +41,15 @@ import org.springframework.stereotype.Component;
 public class IrohaReliableChainListener implements Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(IrohaReliableChainListener.class);
+  private static final String EXCHANGE_RMQ_NAME = "iroha";
 
   private final IrohaAPI irohaAPI;
   // BRVS account id to query Iroha
   private final String accountId;
   // BRVS keypair to query Iroha
   private final KeyPair keyPair;
-
-  private static final String EXCHANGE_RMQ_NAME = "iroha";
-
-  private Connection connection;
+  private final Connection connection;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
-
   private boolean isListening;
 
   @Autowired
