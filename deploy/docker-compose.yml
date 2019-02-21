@@ -1,17 +1,18 @@
 version: '3.1'
 
 services:
-  brvs:
-    container_name: "brvs"
+  brvs-core:
+    container_name: "brvs-core"
     build:
       context: ../
       dockerfile: Dockerfile
     depends_on:
-      - mongodb
+      - brvs-mongodb
+      - brvs-rmq
 
-  mongodb:
+  brvs-mongodb:
     image: mongo:latest
-    container_name: "mongodb"
+    container_name: "brvs-mongodb"
     environment:
       - MONGO_DATA_DIR=/data/db
       - MONGO_LOG_DIR=/dev/null
@@ -20,6 +21,10 @@ services:
     ports:
       - 27017:27017
     command: mongod --smallfiles
+
+  brvs-rmq:
+    image: rabbitmq:3-management
+    container_name: "brvs-rmq"
 
 networks:
   # Specify the network Iroha is present in if needed

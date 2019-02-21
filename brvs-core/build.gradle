@@ -1,6 +1,8 @@
 dependencies {
 
     compile project(':brvs-rules')
+    compile "com.rabbitmq:amqp-client:5.6.0"
+    
     // MongoDB
     compile('org.mongodb:mongodb-driver-sync:3.10.1')
     // unit tests

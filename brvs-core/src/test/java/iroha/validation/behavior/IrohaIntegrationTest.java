@@ -9,12 +9,12 @@ import iroha.protocol.QryResponses.Account;
 import iroha.protocol.QryResponses.AccountAsset;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.config.ValidationServiceContext;
+import iroha.validation.listener.IrohaReliableChainListener;
 import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.rules.impl.TransferTxVolumeRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
-import iroha.validation.transactions.provider.impl.IrohaHelper;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
@@ -22,11 +22,14 @@ import iroha.validation.transactions.storage.impl.dummy.DummyMemoryTransactionVe
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
 import iroha.validation.verdict.Verdict;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.security.KeyPair;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryBuilder;
@@ -37,6 +40,7 @@ import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.GenericContainer;
 
 class IrohaIntegrationTest {
 
@@ -58,9 +62,13 @@ class IrohaIntegrationTest {
   private static final int TRANSACTION_REACTION_TIMEOUT = 500;
   private CacheProvider cacheProvider;
   private final TransactionVerdictStorage transactionVerdictStorage = new DummyMemoryTransactionVerdictStorage();
+  private static final GenericContainer rmq = new GenericContainer<>("rabbitmq:3-management")
+      .withExposedPorts(15672, 5672);
 
   private IrohaContainer iroha;
   private IrohaAPI irohaAPI;
+  private String rmqHost;
+  private Integer rmqPort;
 
   private static BlockOuterClass.Block getGenesisBlock() {
     return new GenesisBlockBuilder()
@@ -138,7 +146,7 @@ class IrohaIntegrationTest {
         new BasicTransactionProvider(
             transactionVerdictStorage,
             cacheProvider,
-            new IrohaHelper(irohaAPI, accountId, keyPair)
+            new IrohaReliableChainListener(irohaAPI, accountId, keyPair, rmqHost, rmqPort)
         ),
         new TransactionSignerImpl(
             irohaAPI,
@@ -154,16 +162,20 @@ class IrohaIntegrationTest {
         .withPeerConfig(getPeerConfig());
 
     iroha.start();
-
     irohaAPI = iroha.getApi();
 
     cacheProvider = new CacheProvider();
+
+    rmq.start();
+    rmqHost = rmq.getContainerIpAddress();
+    rmqPort = rmq.getMappedPort(5672);
   }
 
   @AfterEach
   void tearDown() {
     irohaAPI.close();
     iroha.close();
+    rmq.stop();
   }
 
   /**
@@ -304,5 +316,47 @@ class IrohaIntegrationTest {
         .getAccountAssetsList().get(0);
     assertEquals(assetId, accountAsset.getAssetId());
     assertEquals(initialReceiverAmount, accountAsset.getBalance());
+  }
+
+  /**
+   * @given {@link IrohaReliableChainListener} instance running
+   * @when two {@link Transaction} with {@link iroha.protocol.Commands.Command AddAssetQuantity}
+   * commands for "test@notary" is sent to Iroha peer
+   * @then two {@link BlockOuterClass} arrive
+   */
+  @Test
+  void irohaReliableChainListenerTest() throws InterruptedException, IOException, TimeoutException {
+    IrohaReliableChainListener listener = new IrohaReliableChainListener(
+        irohaAPI,
+        senderId,
+        senderKeypair,
+        rmqHost,
+        rmqPort
+    );
+
+    AtomicInteger blocks_n = new AtomicInteger(0);
+    listener.getBlockStreaming().subscribe(block -> blocks_n.incrementAndGet());
+
+    for (int i = 0; i < 2; i++) {
+      irohaAPI.transactionSync(Transaction.builder(senderId)
+          .addAssetQuantity(assetId, "1")
+          .sign(senderKeypair).build()
+      );
+
+      Thread.sleep(TRANSACTION_VALIDATION_TIMEOUT);
+    }
+
+    // query Iroha and check
+    String balance = irohaAPI.query(new QueryBuilder(senderId, Instant.now(), 1)
+        .getAccountAssets(senderId)
+        .buildSigned(senderKeypair))
+        .getAccountAssetsResponse()
+        .getAccountAssetsList()
+        .get(0)
+        .getBalance();
+
+    assertEquals("1000002", balance);
+    assertEquals(2, blocks_n.get());
+    listener.close();
   }
 }
