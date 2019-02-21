@@ -60,17 +60,17 @@ public class IrohaReliableChainListener implements Closeable {
       IrohaAPI irohaAPI,
       String accountId,
       KeyPair keyPair,
-      String RMQHost,
-      Integer RMQPort) {
+      String rmqHost,
+      Integer rmqPort) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null or empty");
     }
     Objects.requireNonNull(keyPair, "Keypair must not be null");
-    if (Strings.isNullOrEmpty(RMQHost)) {
+    if (Strings.isNullOrEmpty(rmqHost)) {
       throw new IllegalArgumentException("RMQ host must not be neither null or empty");
     }
-    if (RMQPort < 1) {
+    if (rmqPort < 1) {
       throw new IllegalArgumentException("RMQ port must be valid");
     }
 
@@ -79,8 +79,8 @@ public class IrohaReliableChainListener implements Closeable {
     this.keyPair = keyPair;
 
     ConnectionFactory factory = new ConnectionFactory();
-    factory.setHost(RMQHost);
-    factory.setPort(RMQPort);
+    factory.setHost(rmqHost);
+    factory.setPort(rmqPort);
     try {
       connection = factory.newConnection();
     } catch (TimeoutException | IOException e) {

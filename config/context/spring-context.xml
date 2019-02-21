@@ -56,23 +56,12 @@
   <!-- CACHE CONFIG -->
   <bean id="cacheProvider" class="iroha.validation.transactions.provider.impl.util.CacheProvider"/>
 
-  <!-- СHAIN ADAPTER CONFIG -->
-  <bean id="chainAdapter" class="iroha.validation.adapter.ChainAdapter">
-    <constructor-arg index="0" ref="irohaAPI"/>
-    <constructor-arg index="1" value="${credential.accountId}"/>
-    <constructor-arg index="2" ref="keyPair"/>
-    <constructor-arg index="3" value="${rmq.host}"/>
-    <constructor-arg index="4" value="${rmq.port}"/>
-  </bean>
-
 
   <!-- SERVICE CONFIG -->
   <bean id="serviceContext" class="iroha.validation.config.ValidationServiceContext">
     <constructor-arg index="0" ref="validators"/>
     <constructor-arg index="1" ref="transactionProvider"/>
     <constructor-arg index="2" ref="transactionSigner"/>
-    <constructor-arg index="3" ref="chainAdapter"/>
-
   </bean>
 
   <bean class="iroha.validation.service.impl.ValidationServiceImpl">

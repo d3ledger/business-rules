@@ -67,8 +67,8 @@ class IrohaIntegrationTest {
 
   private IrohaContainer iroha;
   private IrohaAPI irohaAPI;
-  private String RMQHost;
-  private Integer RMQPort;
+  private String rmqHost;
+  private Integer rmqPort;
 
   private static BlockOuterClass.Block getGenesisBlock() {
     return new GenesisBlockBuilder()
@@ -146,7 +146,7 @@ class IrohaIntegrationTest {
         new BasicTransactionProvider(
             transactionVerdictStorage,
             cacheProvider,
-            new IrohaReliableChainListener(irohaAPI, accountId, keyPair, RMQHost, RMQPort)
+            new IrohaReliableChainListener(irohaAPI, accountId, keyPair, rmqHost, rmqPort)
         ),
         new TransactionSignerImpl(
             irohaAPI,
@@ -167,8 +167,8 @@ class IrohaIntegrationTest {
     cacheProvider = new CacheProvider();
 
     rmq.start();
-    RMQHost = rmq.getContainerIpAddress();
-    RMQPort = rmq.getMappedPort(5672);
+    rmqHost = rmq.getContainerIpAddress();
+    rmqPort = rmq.getMappedPort(5672);
   }
 
   @AfterEach
@@ -330,8 +330,8 @@ class IrohaIntegrationTest {
         irohaAPI,
         senderId,
         senderKeypair,
-        RMQHost,
-        RMQPort
+        rmqHost,
+        rmqPort
     );
 
     AtomicInteger blocks_n = new AtomicInteger(0);
