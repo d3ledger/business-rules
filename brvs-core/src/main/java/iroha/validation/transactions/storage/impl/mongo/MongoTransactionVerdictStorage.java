@@ -28,11 +28,11 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   private final MongoCollection<MongoVerdict> collection;
   private final PublishSubject<String> subject = PublishSubject.create();
 
-  public MongoTransactionVerdictStorage(String mongoHost, Integer mongoPort) {
+  public MongoTransactionVerdictStorage(String mongoHost, int mongoPort) {
     if (Strings.isNullOrEmpty(mongoHost)) {
       throw new IllegalArgumentException("MongoDB host must not be neither null or empty");
     }
-    if (mongoPort < 1) {
+    if (mongoPort < 1 || mongoPort > 65535) {
       throw new IllegalArgumentException("MongoDB port must be valid");
     }
     mongoClient = MongoClients.create(String.format("mongodb://%s:%d", mongoHost, mongoPort));
