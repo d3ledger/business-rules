@@ -155,23 +155,25 @@ public class IrohaReliableChainListener implements Closeable {
         .map(response -> response.getBlockResponse().getBlock());
 
     Channel channel;
-    try { channel = connection.createChannel();
-    channel.exchangeDeclare(EXCHANGE_RMQ_NAME, BuiltinExchangeType.FANOUT, true);
-    String queue = channel.queueDeclare("", true, false, false, null).getQueue();
-    channel.queueBind(queue, EXCHANGE_RMQ_NAME, "");
+    try {
+      channel = connection.createChannel();
+      channel.exchangeDeclare(EXCHANGE_RMQ_NAME, BuiltinExchangeType.FANOUT, true);
+      String queue = channel.queueDeclare("", true, false, false, null).getQueue();
+      channel.queueBind(queue, EXCHANGE_RMQ_NAME, "");
     } catch (IOException e) {
       throw new IllegalStateException("Cannot initialize MQ Iroha block producer", e);
     }
 
     irohaBlocksObservable.blockingSubscribe(block -> {
-      channel.basicPublish(
-          EXCHANGE_RMQ_NAME,
-          "",
-          MessageProperties.MINIMAL_PERSISTENT_BASIC,
-          block.toByteArray()
-      );
-      logger.info("New Block pushed to MQ. Height " + block.getBlockV1().getPayload().getHeight());
-    });
+          channel.basicPublish(
+              EXCHANGE_RMQ_NAME,
+              "",
+              MessageProperties.MINIMAL_PERSISTENT_BASIC,
+              block.toByteArray()
+          );
+          logger.info("New Block pushed to MQ. Height " + block.getBlockV1().getPayload().getHeight());
+        }
+    );
   }
 
   @Override
