@@ -10,12 +10,7 @@ import java.util.Collection;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.stereotype.Component;
 
-@Component
-@ComponentScan("iroha.validation")
 public class ValidationServiceImpl implements ValidationService {
 
   private static Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
@@ -24,7 +19,6 @@ public class ValidationServiceImpl implements ValidationService {
   private TransactionProvider transactionProvider;
   private TransactionSigner transactionSigner;
 
-  @Autowired
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
 

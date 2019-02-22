@@ -16,9 +16,7 @@ import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
-import org.springframework.stereotype.Component;
 
-@Component
 public class MongoTransactionVerdictStorage implements TransactionVerdictStorage {
 
   private static final ReplaceOptions replaceOptions = new ReplaceOptions().upsert(true);

@@ -32,6 +32,14 @@
     <constructor-arg index="1" value="${mongo.port}"/>
   </bean>
 
+  <!-- ACCOUNT VALIDATOR CONFIG -->
+  <bean id="accountValidator"
+    class="iroha.validation.rest.AccountValidityChecker">
+    <constructor-arg index="0" value="${credential.accountId}"/>
+    <constructor-arg index="1" ref="keyPair"/>
+    <constructor-arg index="2" ref="irohaAPI"/>
+  </bean>
+
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">

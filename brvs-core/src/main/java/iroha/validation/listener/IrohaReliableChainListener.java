@@ -34,10 +34,7 @@ import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-@Component
 public class IrohaReliableChainListener implements Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(IrohaReliableChainListener.class);
@@ -52,7 +49,6 @@ public class IrohaReliableChainListener implements Closeable {
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
   private boolean isListening;
 
-  @Autowired
   public IrohaReliableChainListener(
       IrohaAPI irohaAPI,
       String accountId,

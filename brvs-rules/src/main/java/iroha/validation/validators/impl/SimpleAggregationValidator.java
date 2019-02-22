@@ -8,12 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-@Component
 public class SimpleAggregationValidator implements Validator {
 
   private Collection<Rule> rules;
 
-  @Autowired
   public SimpleAggregationValidator(Collection<Rule> rules) {
     if (CollectionUtils.isEmpty(rules)) {
       throw new IllegalArgumentException("Rules collection must not be neither null nor empty");

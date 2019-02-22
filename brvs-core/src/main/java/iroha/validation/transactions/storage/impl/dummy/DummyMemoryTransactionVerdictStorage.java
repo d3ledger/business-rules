@@ -6,9 +6,7 @@ import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import java.util.HashMap;
 import java.util.Map;
-import org.springframework.stereotype.Component;
 
-@Component
 public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictStorage {
 
   private final Map<String, ValidationResult> validationResultMap = new HashMap<>();

@@ -17,10 +17,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-@Component
 public class BasicTransactionProvider implements TransactionProvider {
 
   private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
@@ -34,7 +31,6 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private final IrohaReliableChainListener irohaReliableChainListener;
 
-  @Autowired
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
       CacheProvider cacheProvider,

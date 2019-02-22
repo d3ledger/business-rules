@@ -8,10 +8,7 @@ import java.security.KeyPair;
 import java.util.Objects;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-@Component
 public class TransactionSignerImpl implements TransactionSigner {
 
   private static final KeyPair fakeKeyPair = Utils.parseHexKeypair(
@@ -23,7 +20,6 @@ public class TransactionSignerImpl implements TransactionSigner {
   private final KeyPair keyPair;
   private final TransactionVerdictStorage transactionVerdictStorage;
 
-  @Autowired
   public TransactionSignerImpl(IrohaAPI irohaAPI,
       KeyPair keyPair,
       TransactionVerdictStorage transactionVerdictStorage) {

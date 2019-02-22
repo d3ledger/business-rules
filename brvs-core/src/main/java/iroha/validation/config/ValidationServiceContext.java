@@ -5,18 +5,14 @@ import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.validators.Validator;
 import java.util.Collection;
 import java.util.Objects;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-@Component
 public class ValidationServiceContext {
 
   private final Collection<Validator> validators;
   private final TransactionProvider transactionProvider;
   private final TransactionSigner transactionSigner;
 
-  @Autowired
   public ValidationServiceContext(
       Collection<Validator> validators,
       TransactionProvider transactionProvider,
