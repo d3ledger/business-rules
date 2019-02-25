@@ -13,7 +13,7 @@ services:
       - brvs-rmq
     environment:
       WAIT_HOSTS: brvs-mongodb:27017, brvs-rmq:5672
-      WAIT_BEFORE_HOSTS: 30
+      WAIT_BEFORE_HOSTS: 10
 
   brvs-mongodb:
     image: mongo:4.0.6
