@@ -36,7 +36,7 @@ public class RestService {
   @POST
   @Path("/register/{accountId}")
   public Response register(@PathParam("accountId") String accountId) {
-    if (!hasValidaFormat(accountId)) {
+    if (!hasValidFormat(accountId)) {
       return Response.status(422).entity("Invalid account format. Use 'username@domain'.").build();
     }
     if (!accountValidityChecker.existsInIroha(accountId)) {
@@ -46,7 +46,7 @@ public class RestService {
     return Response.status(204).build();
   }
 
-  private boolean hasValidaFormat(String accountId) {
+  private boolean hasValidFormat(String accountId) {
     return !StringUtils.isEmpty(accountId) && accountId.split("@").length == 2;
   }
 }
