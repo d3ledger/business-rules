@@ -1,10 +1,14 @@
 dependencies {
 
     compile project(':brvs-rules')
+    // RMQ
     compile "com.rabbitmq:amqp-client:5.6.0"
-    
     // MongoDB
     compile('org.mongodb:mongodb-driver-sync:3.10.1')
+    // REST
+    compile('org.glassfish.jersey.containers:jersey-container-grizzly2-http:2.28')
+    compile('org.glassfish.jersey.inject:jersey-hk2:2.28')
+
     // unit tests
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
