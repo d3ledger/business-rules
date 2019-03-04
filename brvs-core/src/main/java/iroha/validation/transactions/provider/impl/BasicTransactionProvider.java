@@ -5,6 +5,7 @@ import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.IrohaReliableChainListener;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
+import iroha.validation.transactions.provider.impl.util.UserQuorumProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.IOException;
@@ -24,6 +25,7 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private final TransactionVerdictStorage transactionVerdictStorage;
   private final CacheProvider cacheProvider;
+  private final UserQuorumProvider userQuorumProvider;
   private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   // Accounts to monitor pending tx
@@ -34,6 +36,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
       CacheProvider cacheProvider,
+      UserQuorumProvider userQuorumProvider,
       IrohaReliableChainListener irohaReliableChainListener
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
@@ -41,6 +44,7 @@ public class BasicTransactionProvider implements TransactionProvider {
 
     this.transactionVerdictStorage = transactionVerdictStorage;
     this.cacheProvider = cacheProvider;
+    this.userQuorumProvider = userQuorumProvider;
     this.irohaReliableChainListener = irohaReliableChainListener;
   }
 
@@ -71,8 +75,8 @@ public class BasicTransactionProvider implements TransactionProvider {
       irohaReliableChainListener.getAllPendingTransactions(accountsToMonitor)
           .forEach(transaction -> {
                 // if only BRVS signatory remains
-                if (transaction.getPayload().getReducedPayload().getQuorum() -
-                    transaction.getSignaturesCount() == 1) {
+                if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorum(
+                    transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
                   String hex = ValidationUtils.hexHash(transaction);
                   if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
                     transactionVerdictStorage.markTransactionPending(hex);

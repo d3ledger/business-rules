@@ -40,12 +40,23 @@
     <constructor-arg index="2" ref="irohaAPI"/>
   </bean>
 
+  <!-- USER ACCOUNT QUORUM PROVIDER CONFIG -->
+  <bean id="quorumProvider"
+    class="iroha.validation.transactions.provider.impl.util.UserQuorumProvider">
+    <constructor-arg index="0" value="${credential.accountId}"/>
+    <constructor-arg index="1" ref="keyPair"/>
+    <constructor-arg index="2" ref="irohaAPI"/>
+    <constructor-arg index="3" value="${quorum.writer}"/>
+    <constructor-arg index="4" value="${quorum.key}"/>
+  </bean>
+
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
     <constructor-arg index="0" ref="mongoVerdictStorage"/>
     <constructor-arg index="1" ref="cacheProvider"/>
-    <constructor-arg index="2" ref="irohaReliableChainListener"/>
+    <constructor-arg index="2" ref="quorumProvider"/>
+    <constructor-arg index="3" ref="irohaReliableChainListener"/>
   </bean>
 
   <bean id="irohaReliableChainListener"
