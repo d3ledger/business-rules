@@ -45,6 +45,9 @@ public class UserQuorumProvider {
     } catch (NumberFormatException e) {
       logger.error("Error occurred parsing quorum details for " + targetAccount, e);
       return UNREACHABLE_QUORUM;
+    } catch (Exception e) {
+      logger.error("Unknown exception occurred retrieving quorum data", e);
+      return UNREACHABLE_QUORUM;
     }
   }
 }
