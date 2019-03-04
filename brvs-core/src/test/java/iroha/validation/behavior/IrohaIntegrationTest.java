@@ -16,6 +16,7 @@ import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
+import iroha.validation.transactions.provider.impl.util.UserQuorumProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage;
@@ -78,8 +79,7 @@ class IrohaIntegrationTest {
     return new GenesisBlockBuilder()
         // first transaction
         .addTransaction(
-            // transactions in genesis block can have no creator
-            Transaction.builder(null)
+            Transaction.builder(receiverId)
                 // by default peer is listening on port 10001
                 .addPeer("0.0.0.0:10001", peerKeypair.getPublic())
                 // create default role
@@ -94,7 +94,8 @@ class IrohaIntegrationTest {
                         RolePermission.can_transfer,
                         RolePermission.can_receive,
                         RolePermission.can_add_asset_qty,
-                        RolePermission.can_get_all_acc_ast
+                        RolePermission.can_get_all_acc_ast,
+                        RolePermission.can_get_all_acc_detail
                     )
                 )
                 .createDomain(domainName, roleName)
@@ -104,8 +105,10 @@ class IrohaIntegrationTest {
                 .createAccount(senderName, domainName, senderKeypair.getPublic())
                 // allow validator to sign receiver tx
                 .addSignatory(receiverId, validatorKeypair.getPublic())
+                .setAccountDetail(receiverId, "uq", "1")
                 // allow validator to sign sender tx
                 .addSignatory(senderId, validatorKeypair.getPublic())
+                .setAccountDetail(senderId, "uq", "1")
                 .createAsset(asset, domainName, 0)
                 // transactions in genesis block can be unsigned
                 .build()
@@ -151,6 +154,7 @@ class IrohaIntegrationTest {
         new BasicTransactionProvider(
             transactionVerdictStorage,
             cacheProvider,
+            new UserQuorumProvider(accountId, keyPair, irohaAPI, accountId, "uq"),
             new IrohaReliableChainListener(irohaAPI, accountId, keyPair, rmqHost, rmqPort)
         ),
         new TransactionSignerImpl(
