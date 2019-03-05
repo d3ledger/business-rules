@@ -26,17 +26,46 @@
   </bean>
 
   <!-- STORAGE CONFIG -->
-  <bean id="verdictStorage"
-    class="iroha.validation.transactions.storage.impl.DummyMemoryTransactionVerdictStorage"/>
+  <bean id="mongoVerdictStorage"
+    class="iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage">
+    <constructor-arg index="0" value="${mongo.host}"/>
+    <constructor-arg index="1" value="${mongo.port}"/>
+  </bean>
+
+  <!-- ACCOUNT VALIDATOR CONFIG -->
+  <bean id="accountValidator"
+    class="iroha.validation.rest.AccountValidityChecker">
+    <constructor-arg index="0" value="${credential.accountId}"/>
+    <constructor-arg index="1" ref="keyPair"/>
+    <constructor-arg index="2" ref="irohaAPI"/>
+  </bean>
+
+  <!-- USER ACCOUNT QUORUM PROVIDER CONFIG -->
+  <bean id="quorumProvider"
+    class="iroha.validation.transactions.provider.impl.util.UserQuorumProvider">
+    <constructor-arg index="0" value="${credential.accountId}"/>
+    <constructor-arg index="1" ref="keyPair"/>
+    <constructor-arg index="2" ref="irohaAPI"/>
+    <constructor-arg index="3" value="${quorum.writer}"/>
+    <constructor-arg index="4" value="${quorum.key}"/>
+  </bean>
 
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
+    <constructor-arg index="0" ref="mongoVerdictStorage"/>
+    <constructor-arg index="1" ref="cacheProvider"/>
+    <constructor-arg index="2" ref="quorumProvider"/>
+    <constructor-arg index="3" ref="irohaReliableChainListener"/>
+  </bean>
+
+  <bean id="irohaReliableChainListener"
+    class="iroha.validation.listener.IrohaReliableChainListener">
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" value="${credential.accountId}"/>
     <constructor-arg index="2" ref="keyPair"/>
-    <constructor-arg index="3" ref="verdictStorage"/>
-    <constructor-arg index="4" ref="cacheProvider"/>
+    <constructor-arg index="3" value="${rmq.host}"/>
+    <constructor-arg index="4" value="${rmq.port}"/>
   </bean>
 
   <!-- SIGNER CONFIG -->
@@ -44,11 +73,12 @@
     class="iroha.validation.transactions.signatory.impl.TransactionSignerImpl">
     <constructor-arg index="0" ref="irohaAPI"/>
     <constructor-arg index="1" ref="keyPair"/>
-    <constructor-arg index="2" ref="verdictStorage"/>
+    <constructor-arg index="2" ref="mongoVerdictStorage"/>
   </bean>
 
   <!-- CACHE CONFIG -->
   <bean id="cacheProvider" class="iroha.validation.transactions.provider.impl.util.CacheProvider"/>
+
 
   <!-- SERVICE CONFIG -->
   <bean id="serviceContext" class="iroha.validation.config.ValidationServiceContext">
@@ -69,11 +99,12 @@
   </util:list>
 
   <!-- VALIDATORS DEFINITIONS -->
-  <bean id="sampleValidator" class="iroha.validation.validators.impl.SampleValidator">
+  <bean id="simpleAggregationValidator"
+    class="iroha.validation.validators.impl.SimpleAggregationValidator">
     <constructor-arg ref="rules"/>
   </bean>
   <util:list id="validators" value-type="iroha.validation.validators.Validator">
-    <ref bean="sampleValidator"/>
+    <ref bean="simpleAggregationValidator"/>
     <!-- More can be added -->
   </util:list>
 </beans>
