@@ -14,9 +14,9 @@ import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.rules.impl.TransferTxVolumeRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
+import iroha.validation.transactions.provider.impl.AccountManager;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
-import iroha.validation.transactions.provider.impl.util.UserQuorumProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage;
@@ -59,10 +59,11 @@ class IrohaIntegrationTest {
   private static final String asset = "bux";
   private static final String assetId = String.format("%s#%s", asset, domainName);
   private static final String initialReceiverAmount = "10";
-  private static final int TRANSACTION_VALIDATION_TIMEOUT = 7000;
-  private static final int TRANSACTION_REACTION_TIMEOUT = 500;
+  private static final int TRANSACTION_VALIDATION_TIMEOUT = 10000;
+  private static final int TRANSACTION_REACTION_TIMEOUT = 2500;
   private CacheProvider cacheProvider;
   private TransactionVerdictStorage transactionVerdictStorage;
+  private AccountManager accountManager;
   private static final GenericContainer rmq = new GenericContainer<>("rabbitmq:3-management")
       .withExposedPorts(5672);
   private static final GenericContainer mongo = new GenericContainer<>("mongo:4.0.6")
@@ -144,6 +145,8 @@ class IrohaIntegrationTest {
 
   private ValidationService getService(IrohaAPI irohaAPI, String accountId,
       KeyPair keyPair) {
+    accountManager = new AccountManager(accountId, keyPair, irohaAPI, accountId,
+        "uq", "notary@notary");
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
@@ -154,14 +157,16 @@ class IrohaIntegrationTest {
         new BasicTransactionProvider(
             transactionVerdictStorage,
             cacheProvider,
-            new UserQuorumProvider(accountId, keyPair, irohaAPI, accountId, "uq"),
+            accountManager,
+            accountManager,
             new IrohaReliableChainListener(irohaAPI, accountId, keyPair, rmqHost, rmqPort)
         ),
         new TransactionSignerImpl(
             irohaAPI,
             keyPair,
             transactionVerdictStorage
-        )
+        ),
+        accountManager
     ));
   }
 
@@ -205,8 +210,8 @@ class IrohaIntegrationTest {
     // construct BRVS using some account for block streaming and validator keypair
     ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
     // register accounts to monitor transactions of
-    validationService.registerAccount(receiverId);
-    validationService.registerAccount(senderId);
+    accountManager.register(receiverId);
+    accountManager.register(senderId);
     // subscribe to new transactions
     validationService.verifyTransactions();
 
@@ -256,8 +261,8 @@ class IrohaIntegrationTest {
     // construct BRVS using some account for block streaming and validator keypair
     ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
     // register accounts to monitor transactions of
-    validationService.registerAccount(receiverId);
-    validationService.registerAccount(senderId);
+    accountManager.register(receiverId);
+    accountManager.register(senderId);
     // subscribe to new transactions
     validationService.verifyTransactions();
 
@@ -301,8 +306,8 @@ class IrohaIntegrationTest {
     // construct BRVS using some account for block streaming and validator keypair
     ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
     // register accounts to monitor transactions of
-    validationService.registerAccount(receiverId);
-    validationService.registerAccount(senderId);
+    accountManager.register(receiverId);
+    accountManager.register(senderId);
     // subscribe to new transactions
     validationService.verifyTransactions();
 

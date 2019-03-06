@@ -9,9 +9,4 @@ public interface ValidationService {
    * Method for transaction verification
    */
   void verifyTransactions();
-
-  /**
-   * Method for registering account for the service
-   */
-  void registerAccount(String accountId);
 }
