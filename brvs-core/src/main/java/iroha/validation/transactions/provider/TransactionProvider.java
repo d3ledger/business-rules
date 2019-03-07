@@ -15,11 +15,4 @@ public interface TransactionProvider extends Closeable {
    * @return {@link Observable} of Iroha proto {@link TransactionOuterClass.Transaction} transaction
    */
   Observable<TransactionOuterClass.Transaction> getPendingTransactionsStreaming();
-
-  /**
-   * Method for registering account in order to monitor its pending transactions
-   *
-   * @param accountId account id in Iroha
-   */
-  void register(String accountId);
 }

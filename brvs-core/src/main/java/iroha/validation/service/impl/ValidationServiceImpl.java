@@ -2,6 +2,7 @@ package iroha.validation.service.impl;
 
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.service.ValidationService;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.utils.ValidationUtils;
@@ -15,9 +16,10 @@ public class ValidationServiceImpl implements ValidationService {
 
   private static Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
-  private Collection<Validator> validators;
-  private TransactionProvider transactionProvider;
-  private TransactionSigner transactionSigner;
+  private final Collection<Validator> validators;
+  private final TransactionProvider transactionProvider;
+  private final TransactionSigner transactionSigner;
+  private final RegistrationProvider registrationProvider;
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
@@ -25,6 +27,7 @@ public class ValidationServiceImpl implements ValidationService {
     this.validators = validationServiceContext.getValidators();
     this.transactionProvider = validationServiceContext.getTransactionProvider();
     this.transactionSigner = validationServiceContext.getTransactionSigner();
+    this.registrationProvider = validationServiceContext.getRegistrationProvider();
   }
 
   /**
@@ -32,6 +35,7 @@ public class ValidationServiceImpl implements ValidationService {
    */
   @Override
   public void verifyTransactions() {
+    registerExistentAccounts();
     transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
         {
           boolean verdict = true;
@@ -55,8 +59,11 @@ public class ValidationServiceImpl implements ValidationService {
     );
   }
 
-  @Override
-  public void registerAccount(String accountId) {
-    transactionProvider.register(accountId);
+  private void registerExistentAccounts() {
+     try {
+      registrationProvider.getUserAccounts().forEach(registrationProvider::register);
+    } catch (Exception e) {
+      logger.warn("Couldn't add existing accounts. Please add them manually", e);
+    }
   }
 }

@@ -3,16 +3,15 @@ package iroha.validation.transactions.provider.impl;
 import io.reactivex.Observable;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.IrohaReliableChainListener;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
-import iroha.validation.transactions.provider.impl.util.UserQuorumProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -26,17 +25,16 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final TransactionVerdictStorage transactionVerdictStorage;
   private final CacheProvider cacheProvider;
   private final UserQuorumProvider userQuorumProvider;
+  private final RegistrationProvider registrationProvider;
   private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
-  // Accounts to monitor pending tx
-  private final Set<String> accountsToMonitor = new HashSet<>();
-
   private final IrohaReliableChainListener irohaReliableChainListener;
 
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
       CacheProvider cacheProvider,
       UserQuorumProvider userQuorumProvider,
+      RegistrationProvider registrationProvider,
       IrohaReliableChainListener irohaReliableChainListener
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
@@ -45,6 +43,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.transactionVerdictStorage = transactionVerdictStorage;
     this.cacheProvider = cacheProvider;
     this.userQuorumProvider = userQuorumProvider;
+    this.registrationProvider = registrationProvider;
     this.irohaReliableChainListener = irohaReliableChainListener;
   }
 
@@ -63,29 +62,21 @@ public class BasicTransactionProvider implements TransactionProvider {
     return cacheProvider.getObservable();
   }
 
-  @Override
-  public void register(String accountId) {
-    synchronized (accountsToMonitor) {
-      accountsToMonitor.add(accountId);
-    }
-  }
-
   private void monitorIrohaPending() {
-    synchronized (accountsToMonitor) {
-      irohaReliableChainListener.getAllPendingTransactions(accountsToMonitor)
-          .forEach(transaction -> {
-                // if only BRVS signatory remains
-                if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorum(
-                    transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
-                  String hex = ValidationUtils.hexHash(transaction);
-                  if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
-                    transactionVerdictStorage.markTransactionPending(hex);
-                    cacheProvider.put(transaction);
-                  }
+    irohaReliableChainListener
+        .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
+        .forEach(transaction -> {
+              // if only BRVS signatory remains
+              if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorum(
+                  transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
+                String hex = ValidationUtils.hexHash(transaction);
+                if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
+                  transactionVerdictStorage.markTransactionPending(hex);
+                  cacheProvider.put(transaction);
                 }
               }
-          );
-    }
+            }
+        );
   }
 
   private void processRejectedTransactions() {

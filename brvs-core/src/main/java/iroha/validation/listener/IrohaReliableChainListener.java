@@ -88,7 +88,7 @@ public class IrohaReliableChainListener implements Closeable {
    * @param accountsToMonitor users that transactions should be queried for
    * @return set of transactions that are in pending state
    */
-  public Set<Transaction> getAllPendingTransactions(Set<String> accountsToMonitor) {
+  public Set<Transaction> getAllPendingTransactions(Iterable<String> accountsToMonitor) {
     Set<TransactionOuterClass.Transaction> pendingTransactions = new HashSet<>();
     accountsToMonitor.forEach(account -> {
           Queries.Query query = Query.builder(account, 1)
@@ -168,7 +168,8 @@ public class IrohaReliableChainListener implements Closeable {
               block.toByteArray()
           );
           logger.info("New Block pushed to MQ. Height " + block.getBlockV1().getPayload().getHeight());
-        }
+        },
+        error -> logger.error("Error occurred", error)
     );
   }
 
