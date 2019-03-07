@@ -101,11 +101,17 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     logger.info("Successfully registered " + accountId);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public synchronized Iterable<String> getRegisteredAccounts() {
     return registeredAccounts;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public Iterable<String> getUserAccounts() {
     Set<String> users = new HashSet<>();
