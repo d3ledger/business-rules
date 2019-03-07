@@ -139,7 +139,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
                   String key = entry.getKey();
                   String suffix = entry.getValue().toString();
                   if (key.endsWith(suffix)) {
-                    users.add(key.replace(suffix, "").concat("@").concat(suffix));
+                    users.add(key.substring(0, key.lastIndexOf(suffix)).concat("@").concat(suffix));
                   }
                 }
 
