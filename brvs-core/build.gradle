@@ -8,12 +8,13 @@ dependencies {
     // REST
     compile('org.glassfish.jersey.containers:jersey-container-grizzly2-http:2.28')
     compile('org.glassfish.jersey.inject:jersey-hk2:2.28')
+    compile('org.glassfish.jersey.media:jersey-media-json-jackson:2.28')
 
     // unit tests
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
     // Test containers iroha
-    testCompile('com.github.hyperledger.iroha-java:testcontainers:1.0.0_rc2-SNAPSHOT')
+    testCompile('com.github.hyperledger.iroha-java:testcontainers:3.1.0')
 }
 
 test {
