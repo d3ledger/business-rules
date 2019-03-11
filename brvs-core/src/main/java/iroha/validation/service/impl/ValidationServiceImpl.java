@@ -4,6 +4,7 @@ import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
@@ -20,6 +21,8 @@ public class ValidationServiceImpl implements ValidationService {
   private final TransactionProvider transactionProvider;
   private final TransactionSigner transactionSigner;
   private final RegistrationProvider registrationProvider;
+  private final BrvsData brvsData;
+  private final boolean isRoot;
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
@@ -28,6 +31,8 @@ public class ValidationServiceImpl implements ValidationService {
     this.transactionProvider = validationServiceContext.getTransactionProvider();
     this.transactionSigner = validationServiceContext.getTransactionSigner();
     this.registrationProvider = validationServiceContext.getRegistrationProvider();
+    this.brvsData = validationServiceContext.getBrvsData();
+    this.isRoot = validationServiceContext.isRoot();
   }
 
   /**
@@ -35,6 +40,10 @@ public class ValidationServiceImpl implements ValidationService {
    */
   @Override
   public void verifyTransactions() {
+    // if this instance is not the first in the network
+    if (!isRoot) {
+      registerBrvs();
+    }
     registerExistentAccounts();
     transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
         {
@@ -60,10 +69,15 @@ public class ValidationServiceImpl implements ValidationService {
   }
 
   private void registerExistentAccounts() {
-     try {
+    try {
       registrationProvider.getUserAccounts().forEach(registrationProvider::register);
     } catch (Exception e) {
       logger.warn("Couldn't add existing accounts. Please add them manually", e);
     }
+  }
+
+  private void registerBrvs() {
+    logger.info("Trying to register new brvs instance (self)");
+    registrationProvider.addBrvsInstance(brvsData);
   }
 }

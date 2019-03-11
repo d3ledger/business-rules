@@ -16,6 +16,7 @@ import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.provider.impl.AccountManager;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
+import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
@@ -35,6 +36,7 @@ import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryBuilder;
 import jp.co.soramitsu.iroha.java.Transaction;
+import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.testcontainers.IrohaContainer;
 import jp.co.soramitsu.iroha.testcontainers.PeerConfig;
 import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
@@ -47,15 +49,15 @@ class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
   private static final KeyPair peerKeypair = crypto.generateKeypair();
+  private static final KeyPair senderKeypair = crypto.generateKeypair();
   private static final KeyPair receiverKeypair = crypto.generateKeypair();
   private static final KeyPair validatorKeypair = crypto.generateKeypair();
-  private static final KeyPair senderKeypair = crypto.generateKeypair();
   private static final String domainName = "notary";
   private static final String roleName = "user";
-  private static final String receiverName = "test";
   private static final String senderName = "richguy";
-  private static final String receiverId = String.format("%s@%s", receiverName, domainName);
   private static final String senderId = String.format("%s@%s", senderName, domainName);
+  private static final String receiverName = "test";
+  private static final String receiverId = String.format("%s@%s", receiverName, domainName);
   private static final String asset = "bux";
   private static final String assetId = String.format("%s#%s", asset, domainName);
   private static final String initialReceiverAmount = "10";
@@ -145,8 +147,8 @@ class IrohaIntegrationTest {
 
   private ValidationService getService(IrohaAPI irohaAPI, String accountId,
       KeyPair keyPair) {
-    accountManager = new AccountManager(accountId, keyPair, irohaAPI, accountId,
-        "uq", "notary@notary");
+    accountManager = new AccountManager(accountId, keyPair, irohaAPI,
+        "uq", "notary@notary", accountId);
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
@@ -166,7 +168,9 @@ class IrohaIntegrationTest {
             keyPair,
             transactionVerdictStorage
         ),
-        accountManager
+        accountManager,
+        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost"),
+        "true"
     ));
   }
 
