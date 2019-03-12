@@ -31,9 +31,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   // Not to let BRVS to take it in processing
   // Max quorum is 128
   private static final int UNREACHABLE_QUORUM = 129;
-  private static final Pattern accounIdPattern = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
+  private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
+  private static final float PROPORTION = 2f / 3;
+  private static final int PUBKEY_LENGTH = 32;
   private static final JsonParser parser = new JsonParser();
-  private static final float proportion = 2f / 3;
 
   private final Set<String> registeredAccounts = new HashSet<>();
 
@@ -111,7 +112,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
 
   private boolean hasValidFormat(String accountId) {
-    return accounIdPattern.matcher(accountId).matches();
+    return ACCOUN_ID_PATTERN.matcher(accountId).matches();
   }
 
   /**
@@ -176,7 +177,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   private int getValidQuorumFor(String accountId) {
     return (int) (getUserQuorum(accountId) +
-        Math.ceil((proportion) * Iterables.size(getBrvsInstances())));
+        Math.ceil((PROPORTION) * Iterables.size(getBrvsInstances())));
   }
 
   /**
@@ -237,7 +238,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private BrvsData brvsAccountProcessor(Entry<String, JsonObject> entry) {
     String pubkey = entry.getKey();
     String hostname = entry.getValue().toString();
-    if (pubkey.length() != 32) {
+    if (pubkey.length() != PUBKEY_LENGTH) {
       logger.warn("Expected hostname-pubkey pair. Got %s : %s", hostname, pubkey);
       return null;
     }
