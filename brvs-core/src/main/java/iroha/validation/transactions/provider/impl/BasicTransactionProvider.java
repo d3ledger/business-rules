@@ -1,6 +1,8 @@
 package iroha.validation.transactions.provider.impl;
 
+import com.google.common.base.Strings;
 import io.reactivex.Observable;
+import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.IrohaReliableChainListener;
 import iroha.validation.transactions.provider.RegistrationProvider;
@@ -26,25 +28,35 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final CacheProvider cacheProvider;
   private final UserQuorumProvider userQuorumProvider;
   private final RegistrationProvider registrationProvider;
-  private boolean isStarted;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   private final IrohaReliableChainListener irohaReliableChainListener;
+  private final String userDomain;
+  private boolean isStarted;
 
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
       CacheProvider cacheProvider,
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
-      IrohaReliableChainListener irohaReliableChainListener
+      IrohaReliableChainListener irohaReliableChainListener,
+      String userDomain
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
     Objects.requireNonNull(cacheProvider, "CacheProvider must not be null");
+    Objects.requireNonNull(userQuorumProvider, "UserQuorumProvider must not be null");
+    Objects.requireNonNull(registrationProvider, "RegistrationProvider must not be null");
+    Objects
+        .requireNonNull(irohaReliableChainListener, "IrohaReliableChainListener must not be null");
+    if (Strings.isNullOrEmpty(userDomain)) {
+      throw new IllegalArgumentException("User domain must not be null nor empty");
+    }
 
     this.transactionVerdictStorage = transactionVerdictStorage;
     this.cacheProvider = cacheProvider;
     this.userQuorumProvider = userQuorumProvider;
     this.registrationProvider = registrationProvider;
     this.irohaReliableChainListener = irohaReliableChainListener;
+    this.userDomain = userDomain;
   }
 
   /**
@@ -102,8 +114,30 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void processCommitted(List<Transaction> blockTransactions) {
     if (blockTransactions != null) {
-      blockTransactions.forEach(this::tryToRemoveLock);
+      blockTransactions.forEach(transaction -> {
+            tryToRemoveLock(transaction);
+            try {
+              registerCreatedAccountByTransactionScanning(transaction);
+            } catch (Exception e) {
+              logger.warn("Couldn't register account from the processed block", e);
+            }
+          }
+      );
     }
+  }
+
+  private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
+    blockTransaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList()
+        .stream()
+        .filter(Command::hasCreateAccount)
+        .map(Command::getCreateAccount)
+        .filter(command -> command.getDomainId().equals(userDomain))
+        .forEach(command -> registrationProvider
+            .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()))
+        );
   }
 
   private void tryToRemoveLock(Transaction transaction) {

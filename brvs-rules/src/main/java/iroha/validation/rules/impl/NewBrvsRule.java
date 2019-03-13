@@ -71,7 +71,7 @@ public class NewBrvsRule implements Rule {
             .getAccount()
             .getJsonData()
         );
-    ((JsonObject) rootNode).entrySet().forEach(accountSetter ->
+    rootNode.getAsJsonObject().entrySet().forEach(accountSetter ->
         accountSetter
             .getValue()
             .getAsJsonObject()

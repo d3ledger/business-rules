@@ -69,11 +69,14 @@ public class ValidationServiceImpl implements ValidationService {
   }
 
   private void registerExistentAccounts() {
-    try {
-      registrationProvider.getUserAccounts().forEach(registrationProvider::register);
-    } catch (Exception e) {
-      logger.warn("Couldn't add existing accounts. Please add them manually", e);
-    }
+    logger.info("Going to register existent user accounts in BRVS: " + brvsData.getHostname());
+    registrationProvider.getUserAccounts().forEach(account -> {
+      try {
+        registrationProvider.register(account);
+      } catch (Exception e) {
+        logger.warn("Couldn't add existing account " + account + " Please add it manually", e);
+      }
+    });
   }
 
   private void registerBrvs() {
