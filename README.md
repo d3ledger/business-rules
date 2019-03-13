@@ -63,6 +63,55 @@ To ensure BRVS works send some transaction from a user perspective and query BRV
 <brvs-hostname>:8080/brvs/rest/status/<transaction-hash>
 ```
 
+## API examples
+### Querying validation results
+- Querying invalid or unknown transaction hash
+```
+localhost:8080/brvs/rest/status/123
+
+Result:
+(404)
+Body:
+Transaction hash is not known.
+```
+- Querying transaction known by BRVS but not yet processed
+```
+localhost:8080/brvs/rest/status/13EDF1F41991ABF414B3252253C3D5B5198BDDAAFCCB181BFB334758C3C4ABEA
+
+Result:
+(200)
+Body:
+{
+    "status": "PENDING",
+    "reason": ""
+}
+```
+- Querying validated transaction
+```
+localhost:8080/brvs/rest/status/13EDF1F41991ABF414B3252253C3D5B5198BDDAAFCCB181BFB334758C3C4ABEA
+
+Result:
+(200)
+Body:
+{
+    "status": "VALIDATED",
+    "reason": ""
+}
+```
+- Querying transaction rejected by BRVS
+```
+localhost:8080/brvs/rest/status/6A54D95EFD400F316F0396914724B247E57065A66CABFD86427EA73BEFA886AC
+
+Result:
+(200)
+Body:
+{
+    "status": "REJECTED",
+    "reason": "iroha.validation.validators.impl.SimpleAggregationValidator"
+}
+```
+The reason message is just a string. It is still under development
+
 ## Running the tests
 
 To run the tests just run
