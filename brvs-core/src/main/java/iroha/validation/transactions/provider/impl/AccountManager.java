@@ -1,12 +1,12 @@
 package iroha.validation.transactions.provider.impl;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.QryResponses.QueryResponse;
+import iroha.protocol.TransactionOuterClass;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
@@ -21,6 +21,8 @@ import javax.xml.bind.DatatypeConverter;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
 import jp.co.soramitsu.iroha.java.Transaction;
+import jp.co.soramitsu.iroha.java.TransactionBuilder;
+import jp.co.soramitsu.iroha.java.detail.BuildableAndSignable;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
   private static final float PROPORTION = 2f / 3;
   private static final int PUBKEY_LENGTH = 32;
+  private static final int INITIAL_QUORUM_VALUE = 1;
   private static final JsonParser parser = new JsonParser();
 
   private final Set<String> registeredAccounts = new HashSet<>();
@@ -81,21 +84,48 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    */
   @Override
   public int getUserQuorum(String targetAccount) {
-    QueryResponse queryResponse = irohaAPI.query(Query.builder(accountId, 1L)
-        .getAccountDetail(targetAccount, accountId, userQuorumAttribute)
-        .buildSigned(keyPair));
+    QueryResponse queryResponse = irohaAPI.query(
+        Query
+            .builder(accountId, 1L)
+            .getAccountDetail(targetAccount, accountId, userQuorumAttribute)
+            .buildSigned(keyPair));
     if (!queryResponse.hasAccountDetailResponse()) {
-      logger.error("Account detail is not set for account: %s", targetAccount);
+      logger.error("Account detail is not set for account: " + targetAccount);
       return UNREACHABLE_QUORUM;
     }
     try {
       return Integer.parseInt(queryResponse.getAccountDetailResponse().getDetail().split("\"")[5]);
+    } catch (ArrayIndexOutOfBoundsException e) {
+      logger.warn(
+          "User quorum details was not set previously yet. Please set it using appropriate services. Account: "
+              + targetAccount);
+      return UNREACHABLE_QUORUM;
     } catch (NumberFormatException e) {
       logger.error("Error occurred parsing quorum details for " + targetAccount, e);
       return UNREACHABLE_QUORUM;
     } catch (Exception e) {
       logger.error("Unknown exception occurred retrieving quorum data", e);
       return UNREACHABLE_QUORUM;
+    }
+  }
+
+  @Override
+  public void setUserQuorum(String targetAccount, int quorum) {
+    TxStatus txStatus = irohaAPI.transaction(
+        Transaction
+            .builder(accountId)
+            .setAccountDetail(targetAccount, userQuorumAttribute, String.valueOf(quorum))
+            .sign(keyPair)
+            .build()
+    ).blockingLast().getTxStatus();
+    if (!txStatus.equals(TxStatus.COMMITTED)) {
+      logger.error("Could not change user " + targetAccount +
+          " quorum (ACC_DETAILS). Got transaction status: " + txStatus.name()
+      );
+      throw new IllegalStateException(
+          "Could not change user " + targetAccount +
+              " quorum (ACC_DETAILS). Got transaction status: " + txStatus.name()
+      );
     }
   }
 
@@ -120,34 +150,41 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    */
   @Override
   public synchronized void register(String accountId) {
+    logger.info("Going to register " + accountId);
+    if (registeredAccounts.contains(accountId)) {
+      throw new IllegalArgumentException("User " + accountId + " is already registered.");
+    }
     if (!hasValidFormat(accountId)) {
-      throw new IllegalArgumentException("Invalid account format. Use 'username@domain'.");
+      throw new IllegalArgumentException(
+          "Invalid account format[" + accountId + "]. Use 'username@domain'.");
     }
     if (!existsInIroha(accountId)) {
-      throw new IllegalArgumentException("Account does not exist.");
+      throw new IllegalArgumentException("Account" + accountId + " does not exist.");
     }
     try {
-      addSignatoryToUser(accountId);
-      modifyUserQuorum(accountId);
+      // if this is the only brvs in the network
+      boolean sign = getBrvsAccountQuorum() == 1;
+      addSignatoryToUser(accountId, sign);
+      modifyQuorumOnRegistration(accountId, sign);
     } catch (Exception e) {
-      logger.error("Error during brvs user registration occurred", e);
+      logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
       throw e;
     }
     registeredAccounts.add(accountId);
     logger.info("Successfully registered " + accountId);
   }
 
-  private void addSignatoryToUser(String userAccountId) {
+  private void addSignatoryToUser(String userAccountId, boolean sign) {
     TxStatus txStatus = irohaAPI.transaction(
-        Transaction.builder(accountId)
-            .addSignatory(userAccountId, keyPair.getPublic())
-            .build()
-            .build()
-    ).blockingLast().getTxStatus();
+        decideOnSigning(
+            Transaction
+                .builder(accountId)
+                .addSignatory(userAccountId, keyPair.getPublic()),
+            sign
+        ).build()).blockingLast().getTxStatus();
     if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.warn("Could not register user %s. Got transaction status: %s",
-          userAccountId,
-          txStatus.name()
+      logger.error("Could not register user " + userAccountId +
+          ". Got transaction status: " + txStatus.name()
       );
       throw new IllegalStateException(
           "Could not register user " + userAccountId +
@@ -156,28 +193,49 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     }
   }
 
-  private synchronized void modifyUserQuorum(String userAccountId) {
+  private synchronized void modifyQuorumOnRegistration(String userAccountId, boolean sign) {
     TxStatus txStatus = irohaAPI.transaction(
-        Transaction.builder(accountId)
-            .setAccountQuorum(userAccountId, getValidQuorumFor(userAccountId))
-            .build()
-            .build()
-    ).blockingLast().getTxStatus();
+        decideOnSigning(
+            Transaction
+                .builder(accountId)
+                .setAccountQuorum(userAccountId, getValidQuorumForUserAccount(userAccountId)),
+            sign
+        ).build()).blockingLast().getTxStatus();
     if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.warn("Could not change user %s quorum. Got transaction status: %s",
-          userAccountId,
-          txStatus.name()
+      logger.error("Could not change user " + userAccountId +
+          " quorum. Got transaction status: " + txStatus.name()
       );
       throw new IllegalStateException(
           "Could not change user " + userAccountId +
-              "quorum. Got transaction status: " + txStatus.name()
+              " quorum. Got transaction status: " + txStatus.name()
       );
     }
+    setUserQuorum(userAccountId, INITIAL_QUORUM_VALUE);
   }
 
-  private int getValidQuorumFor(String accountId) {
-    return (int) (getUserQuorum(accountId) +
-        Math.ceil((PROPORTION) * Iterables.size(getBrvsInstances())));
+  private BuildableAndSignable<TransactionOuterClass.Transaction> decideOnSigning(
+      TransactionBuilder builder, boolean sign) {
+    if (sign) {
+      return builder.sign(keyPair);
+    }
+    return builder.build();
+  }
+
+  private int getBrvsAccountQuorum() {
+    return irohaAPI.query(Query
+        .builder(accountId, 1L)
+        .getAccount(accountId)
+        .buildSigned(keyPair)
+    ).getAccountResponse().getAccount().getQuorum();
+  }
+
+  private int getValidQuorumForUserAccount(String accountId) {
+    int userQuorum = getUserQuorum(accountId);
+    // Since we call it during user registration
+    if (userQuorum == UNREACHABLE_QUORUM) {
+      userQuorum = 1;
+    }
+    return (int) (userQuorum + Math.ceil((PROPORTION) * getBrvsAccountQuorum()));
   }
 
   /**
@@ -207,7 +265,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             .getAccount()
             .getJsonData()
         );
-    ((JsonObject) rootNode).entrySet().forEach(accountSetter ->
+    rootNode.getAsJsonObject().entrySet().forEach(accountSetter ->
         accountSetter
             .getValue()
             .getAsJsonObject()
@@ -223,9 +281,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     return resultSet;
   }
 
-  private String userAccountProcessor(Entry<String, JsonObject> entry) {
+  private String userAccountProcessor(Entry<String, JsonPrimitive> entry) {
     String key = entry.getKey();
-    String suffix = entry.getValue().toString();
+    String suffix = entry.getValue().getAsString();
     if (!key.endsWith(suffix)) {
       return null;
     }
@@ -235,9 +293,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     return key.substring(0, key.lastIndexOf(suffix)).concat("@").concat(suffix);
   }
 
-  private BrvsData brvsAccountProcessor(Entry<String, JsonObject> entry) {
+  private BrvsData brvsAccountProcessor(Entry<String, JsonPrimitive> entry) {
     String pubkey = entry.getKey();
-    String hostname = entry.getValue().toString();
+    String hostname = entry.getValue().getAsString();
     if (pubkey.length() != PUBKEY_LENGTH) {
       logger.warn("Expected hostname-pubkey pair. Got %s : %s", hostname, pubkey);
       return null;
