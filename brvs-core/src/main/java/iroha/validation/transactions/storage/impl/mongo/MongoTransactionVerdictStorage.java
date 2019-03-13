@@ -28,7 +28,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
 
   public MongoTransactionVerdictStorage(String mongoHost, int mongoPort) {
     if (Strings.isNullOrEmpty(mongoHost)) {
-      throw new IllegalArgumentException("MongoDB host must not be neither null or empty");
+      throw new IllegalArgumentException("MongoDB host must not be neither null nor empty");
     }
     if (mongoPort < 1 || mongoPort > 65535) {
       throw new IllegalArgumentException("MongoDB port must be valid");

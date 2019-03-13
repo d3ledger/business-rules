@@ -57,11 +57,11 @@ public class IrohaReliableChainListener implements Closeable {
       int rmqPort) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     if (Strings.isNullOrEmpty(accountId)) {
-      throw new IllegalArgumentException("Account ID must not be neither null or empty");
+      throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
     Objects.requireNonNull(keyPair, "Keypair must not be null");
     if (Strings.isNullOrEmpty(rmqHost)) {
-      throw new IllegalArgumentException("RMQ host must not be neither null or empty");
+      throw new IllegalArgumentException("RMQ host must not be neither null nor empty");
     }
     if (rmqPort < 1 || rmqPort > 65535) {
       throw new IllegalArgumentException("RMQ port must be valid");
