@@ -1,7 +1,7 @@
 package iroha.validation;
 
-import iroha.validation.rest.AccountValidityChecker;
 import iroha.validation.service.ValidationService;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import java.net.URI;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
@@ -28,9 +28,8 @@ public class Application {
     resourceConfig.register(new AbstractBinder() {
       @Override
       protected void configure() {
-        bind(context.getBean(ValidationService.class)).to(ValidationService.class);
         bind(context.getBean(TransactionVerdictStorage.class)).to(TransactionVerdictStorage.class);
-        bind(context.getBean(AccountValidityChecker.class)).to(AccountValidityChecker.class);
+        bind(context.getBean(RegistrationProvider.class)).to(RegistrationProvider.class);
       }
     });
     GrizzlyHttpServerFactory.createHttpServer(URI.create(BASE_URI), resourceConfig);

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import iroha.protocol.BlockOuterClass;
+import iroha.protocol.Primitive.GrantablePermission;
 import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.QryResponses.Account;
 import iroha.protocol.QryResponses.AccountAsset;
@@ -14,9 +15,10 @@ import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.rules.impl.TransferTxVolumeRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
+import iroha.validation.transactions.provider.impl.AccountManager;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
+import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
-import iroha.validation.transactions.provider.impl.util.UserQuorumProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage;
@@ -29,12 +31,12 @@ import java.security.KeyPair;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryBuilder;
 import jp.co.soramitsu.iroha.java.Transaction;
+import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.testcontainers.IrohaContainer;
 import jp.co.soramitsu.iroha.testcontainers.PeerConfig;
 import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
@@ -47,22 +49,25 @@ class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
   private static final KeyPair peerKeypair = crypto.generateKeypair();
+  private static final KeyPair senderKeypair = crypto.generateKeypair();
   private static final KeyPair receiverKeypair = crypto.generateKeypair();
   private static final KeyPair validatorKeypair = crypto.generateKeypair();
-  private static final KeyPair senderKeypair = crypto.generateKeypair();
   private static final String domainName = "notary";
   private static final String roleName = "user";
-  private static final String receiverName = "test";
-  private static final String senderName = "richguy";
-  private static final String receiverId = String.format("%s@%s", receiverName, domainName);
+  private static final String senderName = "sender";
   private static final String senderId = String.format("%s@%s", senderName, domainName);
+  private static final String receiverName = "receiver";
+  private static final String receiverId = String.format("%s@%s", receiverName, domainName);
+  private static final String validatorName = "brvs";
+  private static final String validatorId = String.format("%s@%s", validatorName, domainName);
   private static final String asset = "bux";
   private static final String assetId = String.format("%s#%s", asset, domainName);
   private static final String initialReceiverAmount = "10";
-  private static final int TRANSACTION_VALIDATION_TIMEOUT = 7000;
-  private static final int TRANSACTION_REACTION_TIMEOUT = 500;
+  private static final int TRANSACTION_VALIDATION_TIMEOUT = 10000;
+  private static final int TRANSACTION_REACTION_TIMEOUT = 2500;
   private CacheProvider cacheProvider;
   private TransactionVerdictStorage transactionVerdictStorage;
+  private AccountManager accountManager;
   private static final GenericContainer rmq = new GenericContainer<>("rabbitmq:3-management")
       .withExposedPorts(5672);
   private static final GenericContainer mongo = new GenericContainer<>("mongo:4.0.6")
@@ -79,7 +84,7 @@ class IrohaIntegrationTest {
     return new GenesisBlockBuilder()
         // first transaction
         .addTransaction(
-            Transaction.builder(receiverId)
+            Transaction.builder(validatorId)
                 // by default peer is listening on port 10001
                 .addPeer("0.0.0.0:10001", peerKeypair.getPublic())
                 // create default role
@@ -95,20 +100,23 @@ class IrohaIntegrationTest {
                         RolePermission.can_receive,
                         RolePermission.can_add_asset_qty,
                         RolePermission.can_get_all_acc_ast,
-                        RolePermission.can_get_all_acc_detail
+                        RolePermission.can_get_all_acc_detail,
+                        RolePermission.can_grant_can_add_my_signatory,
+                        RolePermission.can_grant_can_set_my_quorum,
+                        RolePermission.can_set_detail
                     )
                 )
                 .createDomain(domainName, roleName)
+                // brvs account
+                .createAccount(validatorName, domainName, validatorKeypair.getPublic())
                 // create receiver acc
                 .createAccount(receiverName, domainName, receiverKeypair.getPublic())
                 // create sender acc
                 .createAccount(senderName, domainName, senderKeypair.getPublic())
-                // allow validator to sign receiver tx
-                .addSignatory(receiverId, validatorKeypair.getPublic())
-                .setAccountDetail(receiverId, "uq", "1")
-                // allow validator to sign sender tx
-                .addSignatory(senderId, validatorKeypair.getPublic())
-                .setAccountDetail(senderId, "uq", "1")
+                // account holder
+                .createAccount(domainName, domainName, crypto.generateKeypair().getPublic())
+                .setAccountDetail(domainName+"@"+domainName, receiverName+domainName, domainName)
+                .setAccountDetail(domainName+"@"+domainName, senderName+domainName, domainName)
                 .createAsset(asset, domainName, 0)
                 // transactions in genesis block can be unsigned
                 .build()
@@ -142,8 +150,10 @@ class IrohaIntegrationTest {
     return config;
   }
 
-  private ValidationService getService(IrohaAPI irohaAPI, String accountId,
-      KeyPair keyPair) {
+  private ValidationService getService(IrohaAPI irohaAPI) {
+    final String accountsHolderAccount = String.format("%s@%s", domainName, domainName);
+    accountManager = new AccountManager(validatorId, validatorKeypair, irohaAPI,
+        "uq", accountsHolderAccount, accountsHolderAccount);
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
@@ -154,14 +164,20 @@ class IrohaIntegrationTest {
         new BasicTransactionProvider(
             transactionVerdictStorage,
             cacheProvider,
-            new UserQuorumProvider(accountId, keyPair, irohaAPI, accountId, "uq"),
-            new IrohaReliableChainListener(irohaAPI, accountId, keyPair, rmqHost, rmqPort)
+            accountManager,
+            accountManager,
+            new IrohaReliableChainListener(irohaAPI, validatorId, validatorKeypair, rmqHost,
+                rmqPort),
+            domainName
         ),
         new TransactionSignerImpl(
             irohaAPI,
-            keyPair,
+            validatorKeypair,
             transactionVerdictStorage
-        )
+        ),
+        accountManager,
+        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost"),
+        "true"
     ));
   }
 
@@ -182,6 +198,25 @@ class IrohaIntegrationTest {
     mongo.start();
     mongoHost = mongo.getContainerIpAddress();
     mongoPort = mongo.getMappedPort(27017);
+
+    irohaAPI.transactionSync(Transaction.builder(senderId)
+        .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
+        .grantPermission(validatorId, GrantablePermission.can_set_my_quorum)
+        .sign(senderKeypair)
+        .build()
+    );
+    irohaAPI.transactionSync(Transaction.builder(receiverId)
+        .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
+        .grantPermission(validatorId, GrantablePermission.can_set_my_quorum)
+        .sign(receiverKeypair)
+        .build()
+    );
+    irohaAPI.transactionSync(Transaction.builder(receiverId)
+        .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
+        .grantPermission(validatorId, GrantablePermission.can_set_my_quorum)
+        .sign(receiverKeypair)
+        .build()
+    );
   }
 
   @AfterEach
@@ -203,10 +238,8 @@ class IrohaIntegrationTest {
   @Test
   void createAccountTransactionOnTransferLimitValidatorTest() throws InterruptedException {
     // construct BRVS using some account for block streaming and validator keypair
-    ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
-    // register accounts to monitor transactions of
-    validationService.registerAccount(receiverId);
-    validationService.registerAccount(senderId);
+    ValidationService validationService = getService(irohaAPI);
+    Thread.sleep(TRANSACTION_REACTION_TIMEOUT);
     // subscribe to new transactions
     validationService.verifyTransactions();
 
@@ -254,10 +287,8 @@ class IrohaIntegrationTest {
   @Test
   void validTransferAssetOnTransferLimitValidatorTest() throws InterruptedException {
     // construct BRVS using some account for block streaming and validator keypair
-    ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
-    // register accounts to monitor transactions of
-    validationService.registerAccount(receiverId);
-    validationService.registerAccount(senderId);
+    ValidationService validationService = getService(irohaAPI);
+    Thread.sleep(TRANSACTION_REACTION_TIMEOUT);
     // subscribe to new transactions
     validationService.verifyTransactions();
 
@@ -299,10 +330,8 @@ class IrohaIntegrationTest {
   @Test
   void invalidTransferAssetOnTransferLimitValidatorTest() throws InterruptedException {
     // construct BRVS using some account for block streaming and validator keypair
-    ValidationService validationService = getService(irohaAPI, receiverId, validatorKeypair);
-    // register accounts to monitor transactions of
-    validationService.registerAccount(receiverId);
-    validationService.registerAccount(senderId);
+    ValidationService validationService = getService(irohaAPI);
+    Thread.sleep(TRANSACTION_REACTION_TIMEOUT);
     // subscribe to new transactions
     validationService.verifyTransactions();
 
@@ -335,11 +364,11 @@ class IrohaIntegrationTest {
   /**
    * @given {@link IrohaReliableChainListener} instance running
    * @when two {@link Transaction} with {@link iroha.protocol.Commands.Command AddAssetQuantity}
-   * commands for "test@notary" is sent to Iroha peer
+   * commands for "sender@notary" is sent to Iroha peer
    * @then two {@link BlockOuterClass} arrive
    */
   @Test
-  void irohaReliableChainListenerTest() throws InterruptedException, IOException, TimeoutException {
+  void irohaReliableChainListenerTest() throws InterruptedException, IOException {
     IrohaReliableChainListener listener = new IrohaReliableChainListener(
         irohaAPI,
         senderId,

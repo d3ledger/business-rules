@@ -2,7 +2,9 @@ package iroha.validation.service.impl;
 
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.service.ValidationService;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
@@ -15,9 +17,12 @@ public class ValidationServiceImpl implements ValidationService {
 
   private static Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
-  private Collection<Validator> validators;
-  private TransactionProvider transactionProvider;
-  private TransactionSigner transactionSigner;
+  private final Collection<Validator> validators;
+  private final TransactionProvider transactionProvider;
+  private final TransactionSigner transactionSigner;
+  private final RegistrationProvider registrationProvider;
+  private final BrvsData brvsData;
+  private final boolean isRoot;
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
@@ -25,6 +30,9 @@ public class ValidationServiceImpl implements ValidationService {
     this.validators = validationServiceContext.getValidators();
     this.transactionProvider = validationServiceContext.getTransactionProvider();
     this.transactionSigner = validationServiceContext.getTransactionSigner();
+    this.registrationProvider = validationServiceContext.getRegistrationProvider();
+    this.brvsData = validationServiceContext.getBrvsData();
+    this.isRoot = validationServiceContext.isRoot();
   }
 
   /**
@@ -32,6 +40,11 @@ public class ValidationServiceImpl implements ValidationService {
    */
   @Override
   public void verifyTransactions() {
+    // if this instance is not the first in the network
+    if (!isRoot) {
+      registerBrvs();
+    }
+    registerExistentAccounts();
     transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
         {
           boolean verdict = true;
@@ -55,8 +68,19 @@ public class ValidationServiceImpl implements ValidationService {
     );
   }
 
-  @Override
-  public void registerAccount(String accountId) {
-    transactionProvider.register(accountId);
+  private void registerExistentAccounts() {
+    logger.info("Going to register existent user accounts in BRVS: " + brvsData.getHostname());
+    registrationProvider.getUserAccounts().forEach(account -> {
+      try {
+        registrationProvider.register(account);
+      } catch (Exception e) {
+        logger.warn("Couldn't add existing account " + account + " Please add it manually", e);
+      }
+    });
+  }
+
+  private void registerBrvs() {
+    logger.info("Trying to register new brvs instance (self)");
+    registrationProvider.addBrvsInstance(brvsData);
   }
 }

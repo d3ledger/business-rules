@@ -44,7 +44,6 @@ public class CacheProvider {
   private synchronized void consumeAndLockAccountByTransactionIfNeeded(
       String account,
       Transaction transaction) {
-
     if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
         .anyMatch(Command::hasTransferAsset)) {
       pendingAccounts.put(account, ValidationUtils.hexHash(transaction));

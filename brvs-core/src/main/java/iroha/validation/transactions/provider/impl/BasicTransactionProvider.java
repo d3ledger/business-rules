@@ -1,18 +1,19 @@
 package iroha.validation.transactions.provider.impl;
 
+import com.google.common.base.Strings;
 import io.reactivex.Observable;
+import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.IrohaReliableChainListener;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
-import iroha.validation.transactions.provider.impl.util.UserQuorumProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -26,26 +27,36 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final TransactionVerdictStorage transactionVerdictStorage;
   private final CacheProvider cacheProvider;
   private final UserQuorumProvider userQuorumProvider;
-  private boolean isStarted;
+  private final RegistrationProvider registrationProvider;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
-  // Accounts to monitor pending tx
-  private final Set<String> accountsToMonitor = new HashSet<>();
-
   private final IrohaReliableChainListener irohaReliableChainListener;
+  private final String userDomain;
+  private boolean isStarted;
 
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
       CacheProvider cacheProvider,
       UserQuorumProvider userQuorumProvider,
-      IrohaReliableChainListener irohaReliableChainListener
+      RegistrationProvider registrationProvider,
+      IrohaReliableChainListener irohaReliableChainListener,
+      String userDomain
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
     Objects.requireNonNull(cacheProvider, "CacheProvider must not be null");
+    Objects.requireNonNull(userQuorumProvider, "UserQuorumProvider must not be null");
+    Objects.requireNonNull(registrationProvider, "RegistrationProvider must not be null");
+    Objects
+        .requireNonNull(irohaReliableChainListener, "IrohaReliableChainListener must not be null");
+    if (Strings.isNullOrEmpty(userDomain)) {
+      throw new IllegalArgumentException("User domain must not be null nor empty");
+    }
 
     this.transactionVerdictStorage = transactionVerdictStorage;
     this.cacheProvider = cacheProvider;
     this.userQuorumProvider = userQuorumProvider;
+    this.registrationProvider = registrationProvider;
     this.irohaReliableChainListener = irohaReliableChainListener;
+    this.userDomain = userDomain;
   }
 
   /**
@@ -63,29 +74,21 @@ public class BasicTransactionProvider implements TransactionProvider {
     return cacheProvider.getObservable();
   }
 
-  @Override
-  public void register(String accountId) {
-    synchronized (accountsToMonitor) {
-      accountsToMonitor.add(accountId);
-    }
-  }
-
   private void monitorIrohaPending() {
-    synchronized (accountsToMonitor) {
-      irohaReliableChainListener.getAllPendingTransactions(accountsToMonitor)
-          .forEach(transaction -> {
-                // if only BRVS signatory remains
-                if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorum(
-                    transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
-                  String hex = ValidationUtils.hexHash(transaction);
-                  if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
-                    transactionVerdictStorage.markTransactionPending(hex);
-                    cacheProvider.put(transaction);
-                  }
+    irohaReliableChainListener
+        .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
+        .forEach(transaction -> {
+              // if only BRVS signatory remains
+              if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorum(
+                  transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
+                String hex = ValidationUtils.hexHash(transaction);
+                if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
+                  transactionVerdictStorage.markTransactionPending(hex);
+                  cacheProvider.put(transaction);
                 }
               }
-          );
-    }
+            }
+        );
   }
 
   private void processRejectedTransactions() {
@@ -111,8 +114,30 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void processCommitted(List<Transaction> blockTransactions) {
     if (blockTransactions != null) {
-      blockTransactions.forEach(this::tryToRemoveLock);
+      blockTransactions.forEach(transaction -> {
+            tryToRemoveLock(transaction);
+            try {
+              registerCreatedAccountByTransactionScanning(transaction);
+            } catch (Exception e) {
+              logger.warn("Couldn't register account from the processed block", e);
+            }
+          }
+      );
     }
+  }
+
+  private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
+    blockTransaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList()
+        .stream()
+        .filter(Command::hasCreateAccount)
+        .map(Command::getCreateAccount)
+        .filter(command -> command.getDomainId().equals(userDomain))
+        .forEach(command -> registrationProvider
+            .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()))
+        );
   }
 
   private void tryToRemoveLock(Transaction transaction) {

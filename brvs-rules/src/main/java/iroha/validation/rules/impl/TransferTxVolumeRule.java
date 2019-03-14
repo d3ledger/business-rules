@@ -15,6 +15,9 @@ public class TransferTxVolumeRule implements Rule {
     this.limit = limit;
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public boolean isSatisfiedBy(Transaction transaction) {
     return transaction

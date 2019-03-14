@@ -1,6 +1,6 @@
 package iroha.validation.rest;
 
-import iroha.validation.service.ValidationService;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import javax.inject.Inject;
@@ -9,22 +9,22 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.springframework.util.StringUtils;
 
 @Singleton
 @Path("")
 public class RestService {
 
   @Inject
-  private ValidationService validationService;
+  private RegistrationProvider registrationProvider;
   @Inject
   private TransactionVerdictStorage verdictStorage;
-  @Inject
-  private AccountValidityChecker accountValidityChecker;
 
   @GET
   @Path("/status/{txHash}")
+  @Produces(MediaType.APPLICATION_JSON)
   public Response getStatus(@PathParam("txHash") String hash) {
     ValidationResult transactionVerdict = verdictStorage.getTransactionVerdict(hash);
     if (transactionVerdict == null) {
@@ -36,17 +36,11 @@ public class RestService {
   @POST
   @Path("/register/{accountId}")
   public Response register(@PathParam("accountId") String accountId) {
-    if (!hasValidFormat(accountId)) {
-      return Response.status(422).entity("Invalid account format. Use 'username@domain'.").build();
+    try {
+      registrationProvider.register(accountId);
+    } catch (Exception e) {
+      return Response.status(422).entity(e).build();
     }
-    if (!accountValidityChecker.existsInIroha(accountId)) {
-      return Response.status(404).entity("Account does not exist.").build();
-    }
-    validationService.registerAccount(accountId);
     return Response.status(204).build();
-  }
-
-  private boolean hasValidFormat(String accountId) {
-    return !StringUtils.isEmpty(accountId) && accountId.split("@").length == 2;
   }
 }
