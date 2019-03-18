@@ -4,7 +4,6 @@ import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
-import io.reactivex.Observable;
 import iroha.protocol.Endpoint;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.QryResponses.QueryResponse;
@@ -131,7 +130,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             .setAccountDetail(targetAccount, userQuorumAttribute, String.valueOf(quorum))
             .sign(keyPair)
             .build()
-    ).blockingLast().getTxStatus();
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Could not change user " + targetAccount +
           " quorum (ACC_DETAILS). Got transaction status: " + txStatus.name()
@@ -196,7 +195,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
                 .addSignatory(userAccountId, keyPair.getPublic()),
             sign
         ).build()
-    ).blockingLast().getTxStatus();
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Could not register user " + userAccountId +
           ". Got transaction status: " + txStatus.name()
@@ -216,7 +215,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
                 .setAccountQuorum(userAccountId, getValidQuorumForUserAccount(userAccountId)),
             sign
         ).build()
-    ).blockingLast().getTxStatus();
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Could not change user " + userAccountId +
           " quorum. Got transaction status: " + txStatus.name()
@@ -342,7 +341,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             .addSignatory(accountId, DatatypeConverter.parseHexBinary(brvsData.getHexPubKey()))
             .build()
             .build()
-    ).blockingLast().getTxStatus();
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Unable to register %s. Got %s.", brvsData.getHostname(), txStatus.name());
       throw new IllegalStateException(
@@ -351,11 +350,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     logger.info("%s registered successfully", brvsData.getHostname());
   }
 
-  private Observable<Endpoint.ToriiResponse> sendWithLastStatusWaiting(
+  private Endpoint.TxStatus sendWithLastStatusWaiting(
       TransactionOuterClass.Transaction transaction) {
     return irohaAPI.transaction(
         transaction,
         subscriptionStrategy
-    );
+    ).blockingLast().getTxStatus();
   }
 }
