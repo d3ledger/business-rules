@@ -4,6 +4,7 @@ import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import iroha.protocol.Endpoint;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.TransactionOuterClass;
@@ -11,6 +12,7 @@ import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
 import java.security.KeyPair;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -23,6 +25,7 @@ import jp.co.soramitsu.iroha.java.Query;
 import jp.co.soramitsu.iroha.java.Transaction;
 import jp.co.soramitsu.iroha.java.TransactionBuilder;
 import jp.co.soramitsu.iroha.java.detail.BuildableAndSignable;
+import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +41,16 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_QUORUM_VALUE = 1;
   private static final JsonParser parser = new JsonParser();
+  private static final SubscriptionStrategy subscriptionStrategy = new WaitForTerminalStatus(
+      Arrays.asList(
+          TxStatus.STATELESS_VALIDATION_FAILED,
+          TxStatus.STATEFUL_VALIDATION_FAILED,
+          TxStatus.COMMITTED,
+          TxStatus.MST_EXPIRED,
+          TxStatus.REJECTED,
+          TxStatus.UNRECOGNIZED
+      )
+  );
 
   private final Set<String> registeredAccounts = new HashSet<>();
 
@@ -111,13 +124,13 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   @Override
   public void setUserQuorum(String targetAccount, int quorum) {
-    TxStatus txStatus = irohaAPI.transaction(
+    TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
             .builder(accountId)
             .setAccountDetail(targetAccount, userQuorumAttribute, String.valueOf(quorum))
             .sign(keyPair)
             .build()
-    ).blockingLast().getTxStatus();
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Could not change user " + targetAccount +
           " quorum (ACC_DETAILS). Got transaction status: " + txStatus.name()
@@ -156,10 +169,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     }
     if (!hasValidFormat(accountId)) {
       throw new IllegalArgumentException(
-          "Invalid account format[" + accountId + "]. Use 'username@domain'.");
+          "Invalid account format [" + accountId + "]. Use 'username@domain'.");
     }
     if (!existsInIroha(accountId)) {
-      throw new IllegalArgumentException("Account" + accountId + " does not exist.");
+      throw new IllegalArgumentException("Account " + accountId + " does not exist.");
     }
     try {
       // if this is the only brvs in the network
@@ -175,13 +188,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   }
 
   private void addSignatoryToUser(String userAccountId, boolean sign) {
-    TxStatus txStatus = irohaAPI.transaction(
+    TxStatus txStatus = sendWithLastStatusWaiting(
         decideOnSigning(
             Transaction
                 .builder(accountId)
                 .addSignatory(userAccountId, keyPair.getPublic()),
             sign
-        ).build()).blockingLast().getTxStatus();
+        ).build()
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Could not register user " + userAccountId +
           ". Got transaction status: " + txStatus.name()
@@ -194,13 +208,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   }
 
   private synchronized void modifyQuorumOnRegistration(String userAccountId, boolean sign) {
-    TxStatus txStatus = irohaAPI.transaction(
+    TxStatus txStatus = sendWithLastStatusWaiting(
         decideOnSigning(
             Transaction
                 .builder(accountId)
                 .setAccountQuorum(userAccountId, getValidQuorumForUserAccount(userAccountId)),
             sign
-        ).build()).blockingLast().getTxStatus();
+        ).build()
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Could not change user " + userAccountId +
           " quorum. Got transaction status: " + txStatus.name()
@@ -321,18 +336,25 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   @Override
   public void addBrvsInstance(BrvsData brvsData) {
-    TxStatus txStatus = irohaAPI.transaction(
+    TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction.builder(accountId)
             .addSignatory(accountId, DatatypeConverter.parseHexBinary(brvsData.getHexPubKey()))
             .build()
             .build()
-        , new WaitForTerminalStatus()
-    ).blockingLast().getTxStatus();
+    );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Unable to register %s. Got %s.", brvsData.getHostname(), txStatus.name());
       throw new IllegalStateException(
           "Could not register new BRVS instance. Got wrong status response: " + txStatus.name());
     }
     logger.info("%s registered successfully", brvsData.getHostname());
+  }
+
+  private Endpoint.TxStatus sendWithLastStatusWaiting(
+      TransactionOuterClass.Transaction transaction) {
+    return irohaAPI.transaction(
+        transaction,
+        subscriptionStrategy
+    ).blockingLast().getTxStatus();
   }
 }
