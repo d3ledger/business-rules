@@ -121,6 +121,9 @@ public class IrohaReliableChainListener implements Closeable {
     logger.info("Subscribed to Iroha chain listener");
 
     return source.map(delivery -> {
+          // Iroha state is not updated immediately after block arrival
+          // In order to query a relevant state there is a delay
+          // https://jira.hyperledger.org/browse/IR-406
           Thread.sleep(IROHA_WORLD_STATE_UPDATE_TIME);
           BlockOuterClass.Block block = iroha.protocol.BlockOuterClass.Block
               .parseFrom(delivery.getBody());
