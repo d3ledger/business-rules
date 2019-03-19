@@ -12,11 +12,14 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +33,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final RegistrationProvider registrationProvider;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   private final IrohaReliableChainListener irohaReliableChainListener;
-  private final String userDomain;
+  private final Set<String> userDomains;
   private boolean isStarted;
 
   public BasicTransactionProvider(
@@ -39,7 +42,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
       IrohaReliableChainListener irohaReliableChainListener,
-      String userDomain
+      String userDomains
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
     Objects.requireNonNull(cacheProvider, "CacheProvider must not be null");
@@ -47,7 +50,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     Objects.requireNonNull(registrationProvider, "RegistrationProvider must not be null");
     Objects
         .requireNonNull(irohaReliableChainListener, "IrohaReliableChainListener must not be null");
-    if (Strings.isNullOrEmpty(userDomain)) {
+    if (Strings.isNullOrEmpty(userDomains)) {
       throw new IllegalArgumentException("User domain must not be null nor empty");
     }
 
@@ -56,7 +59,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.userQuorumProvider = userQuorumProvider;
     this.registrationProvider = registrationProvider;
     this.irohaReliableChainListener = irohaReliableChainListener;
-    this.userDomain = userDomain;
+    this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
   }
 
   /**
@@ -134,7 +137,7 @@ public class BasicTransactionProvider implements TransactionProvider {
         .stream()
         .filter(Command::hasCreateAccount)
         .map(Command::getCreateAccount)
-        .filter(command -> command.getDomainId().equals(userDomain))
+        .filter(command -> userDomains.contains(command.getDomainId()))
         .forEach(command -> registrationProvider
             .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()))
         );
