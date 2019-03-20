@@ -5,42 +5,24 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.1'
-        classpath("org.springframework.boot:spring-boot-gradle-plugin:2.0.5.RELEASE")
     }
 }
 
 group = 'business-rules'
 version = '0.1-SNAPSHOT'
 
-apply plugin: "jacoco"
-apply plugin: 'com.github.johnrengelman.shadow'
-apply plugin: 'java'
-
-repositories {
-    mavenCentral()
-    maven { url 'https://jitpack.io' }
+allprojects {
+    apply plugin: "jacoco"
+    apply plugin: 'com.github.johnrengelman.shadow'
+    apply plugin: 'java'
+    repositories {
+        mavenCentral()
+        jcenter()
+        maven { url 'https://jitpack.io' }
+    }
 }
 
 sourceCompatibility = 1.8
-
-// ------------------| Dependencies |------------------
-
-allprojects {
-    dependencies {
-        // IPJ
-        compile('com.github.hyperledger.iroha-java:client:master-SNAPSHOT')
-        // Spring
-        compile('org.springframework:spring-context:5.1.4.RELEASE')
-        //Logging
-        compile('org.slf4j:slf4j-api:1.7.25')
-        compile('org.slf4j:slf4j-simple:1.7.25')
-        // unit tests
-        testCompile('org.junit.jupiter:junit-jupiter-api:5.2.0')
-        testRuntime('org.junit.jupiter:junit-jupiter-engine:5.2.0')
-        // Test containers iroha
-        testCompile "com.github.hyperledger.iroha-java:testcontainers:master-SNAPSHOT"
-    }
-}
 
 wrapper {
     gradleVersion = 4.10

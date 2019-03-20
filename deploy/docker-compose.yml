@@ -1,0 +1,38 @@
+version: '3.1'
+
+services:
+  brvs-core:
+    container_name: "brvs-core"
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    ports:
+      - 8080:8080
+    depends_on:
+      - brvs-mongodb
+      - brvs-rmq
+    environment:
+      WAIT_HOSTS: brvs-mongodb:27017, brvs-rmq:5672
+      WAIT_BEFORE_HOSTS: 10
+
+  brvs-mongodb:
+    image: mongo:4.0.6
+    container_name: "brvs-mongodb"
+    environment:
+      - MONGO_DATA_DIR=/data/db
+      - MONGO_LOG_DIR=/data/logs
+    volumes:
+      - ./data/db:/data/db
+    ports:
+      - 27017:27017
+    command: mongod --smallfiles
+
+  brvs-rmq:
+    image: rabbitmq:3-management
+    container_name: "brvs-rmq"
+
+networks:
+  # Specify the network Iroha is present in if needed
+  default:
+    external:
+      name: deploy_d3-network
