@@ -21,6 +21,7 @@ import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.signatory.impl.TransactionSignerImpl;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.storage.impl.mongo.MongoBlockStorage;
 import iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
@@ -170,6 +171,7 @@ class IrohaIntegrationTest {
             cacheProvider,
             accountManager,
             accountManager,
+            new MongoBlockStorage(mongoHost, mongoPort),
             new IrohaReliableChainListener(irohaAPI, validatorId, validatorKeypair, rmqHost,
                 rmqPort),
             domainName
