@@ -4,6 +4,7 @@ import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import java.net.URI;
+import jp.co.soramitsu.iroha.java.IrohaAPI;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
@@ -30,6 +31,7 @@ public class Application {
       protected void configure() {
         bind(context.getBean(TransactionVerdictStorage.class)).to(TransactionVerdictStorage.class);
         bind(context.getBean(RegistrationProvider.class)).to(RegistrationProvider.class);
+        bind(context.getBean(IrohaAPI.class)).to(IrohaAPI.class);
       }
     });
     GrizzlyHttpServerFactory.createHttpServer(URI.create(BASE_URI), resourceConfig);
