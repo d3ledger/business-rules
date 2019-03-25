@@ -70,7 +70,14 @@ public class ValidationServiceImpl implements ValidationService {
 
   private void registerExistentAccounts() {
     logger.info("Going to register existent user accounts in BRVS: " + brvsData.getHostname());
-    registrationProvider.getUserAccounts().forEach(account -> {
+    final Iterable<String> userAccounts;
+    try {
+      userAccounts = registrationProvider.getUserAccounts();
+    } catch (Exception e) {
+      logger.warn("Couldn't query existing accounts. Please add it manually", e);
+      return;
+    }
+    userAccounts.forEach(account -> {
       try {
         registrationProvider.register(account);
       } catch (Exception e) {
