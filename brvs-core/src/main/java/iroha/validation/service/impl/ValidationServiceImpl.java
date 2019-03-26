@@ -74,7 +74,7 @@ public class ValidationServiceImpl implements ValidationService {
     try {
       userAccounts = registrationProvider.getUserAccounts();
     } catch (Exception e) {
-      logger.warn("Couldn't query existing accounts. Please add it manually", e);
+      logger.warn("Couldn't query existing accounts. Please add them manually", e);
       return;
     }
     userAccounts.forEach(account -> {
