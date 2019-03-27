@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.xml.bind.DatatypeConverter;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
@@ -58,6 +59,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private final KeyPair keyPair;
   private final IrohaAPI irohaAPI;
   private final String userQuorumAttribute;
+  private final Set<String> userDomains;
   private final String userAccountsHolderAccount;
   private final String brvsInstancesHolderAccount;
 
@@ -65,6 +67,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       KeyPair keyPair,
       IrohaAPI irohaAPI,
       String userQuorumAttribute,
+      String userDomains,
       String userAccountsHolderAccount,
       String brvsInstancesHolderAccount) {
     if (Strings.isNullOrEmpty(accountId)) {
@@ -76,9 +79,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException(
           "User quorum attribute name must not be neither null nor empty");
     }
-    if (Strings.isNullOrEmpty(userAccountsHolderAccount)) {
-      throw new IllegalArgumentException(
-          "User accounts holder account must not be neither null nor empty");
+    if (Strings.isNullOrEmpty(accountId)) {
+      throw new IllegalArgumentException("Account ID must not be neither null nor empty");
+    }
+    if (Strings.isNullOrEmpty(userDomains)) {
+      throw new IllegalArgumentException("User domains string must not be null nor empty");
     }
     if (Strings.isNullOrEmpty(brvsInstancesHolderAccount)) {
       throw new IllegalArgumentException(
@@ -88,6 +93,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     this.keyPair = keyPair;
     this.irohaAPI = irohaAPI;
     this.userQuorumAttribute = userQuorumAttribute;
+    this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
     this.userAccountsHolderAccount = userAccountsHolderAccount;
     this.brvsInstancesHolderAccount = brvsInstancesHolderAccount;
   }
@@ -170,6 +176,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     if (!hasValidFormat(accountId)) {
       throw new IllegalArgumentException(
           "Invalid account format [" + accountId + "]. Use 'username@domain'.");
+    }
+    if (!userDomains.contains(accountId)) {
+      throw new IllegalArgumentException(
+          "The BRVS instance is not permitted to process the domain specified: " +
+              accountId.split("@")[1] + ".");
     }
     if (!existsInIroha(accountId)) {
       throw new IllegalArgumentException("Account " + accountId + " does not exist.");
