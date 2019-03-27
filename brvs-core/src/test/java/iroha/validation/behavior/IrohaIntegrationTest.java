@@ -178,8 +178,7 @@ class IrohaIntegrationTest {
             transactionVerdictStorage
         ),
         accountManager,
-        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost"),
-        "true"
+        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost")
     ));
   }
 

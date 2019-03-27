@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.xml.bind.DatatypeConverter;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
 import jp.co.soramitsu.iroha.java.Transaction;
@@ -348,22 +347,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   @Override
   public Iterable<BrvsData> getBrvsInstances() {
     return getAccountsFrom(brvsInstancesHolderAccount, this::brvsAccountProcessor);
-  }
-
-  @Override
-  public void addBrvsInstance(BrvsData brvsData) {
-    TxStatus txStatus = sendWithLastStatusWaiting(
-        Transaction.builder(accountId)
-            .addSignatory(accountId, DatatypeConverter.parseHexBinary(brvsData.getHexPubKey()))
-            .build()
-            .build()
-    );
-    if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.error("Unable to register %s. Got %s.", brvsData.getHostname(), txStatus.name());
-      throw new IllegalStateException(
-          "Could not register new BRVS instance. Got wrong status response: " + txStatus.name());
-    }
-    logger.info("%s registered successfully", brvsData.getHostname());
   }
 
   private Endpoint.TxStatus sendWithLastStatusWaiting(
