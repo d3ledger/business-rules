@@ -70,7 +70,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       String userDomains,
       String userAccountsHolderAccount,
       String brvsInstancesHolderAccount) {
-    
+
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
@@ -161,9 +161,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
         .hasAccount();
   }
 
-
   private boolean hasValidFormat(String accountId) {
     return ACCOUN_ID_PATTERN.matcher(accountId).matches();
+  }
+
+  private String getDomain(String accountId) {
+    return accountId.split("@")[1];
   }
 
   /**
@@ -179,10 +182,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException(
           "Invalid account format [" + accountId + "]. Use 'username@domain'.");
     }
-    if (!userDomains.contains(accountId)) {
+    if (!userDomains.contains(getDomain(accountId))) {
       throw new IllegalArgumentException(
           "The BRVS instance is not permitted to process the domain specified: " +
-              accountId.split("@")[1] + ".");
+              getDomain(accountId) + ".");
     }
     if (!existsInIroha(accountId)) {
       throw new IllegalArgumentException("Account " + accountId + " does not exist.");
