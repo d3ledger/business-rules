@@ -70,6 +70,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       String userDomains,
       String userAccountsHolderAccount,
       String brvsInstancesHolderAccount) {
+    
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
@@ -79,11 +80,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException(
           "User quorum attribute name must not be neither null nor empty");
     }
-    if (Strings.isNullOrEmpty(accountId)) {
-      throw new IllegalArgumentException("Account ID must not be neither null nor empty");
-    }
     if (Strings.isNullOrEmpty(userDomains)) {
       throw new IllegalArgumentException("User domains string must not be null nor empty");
+    }
+    if (Strings.isNullOrEmpty(userAccountsHolderAccount)) {
+      throw new IllegalArgumentException(
+          "User accounts holder account must not be neither null nor empty");
     }
     if (Strings.isNullOrEmpty(brvsInstancesHolderAccount)) {
       throw new IllegalArgumentException(
