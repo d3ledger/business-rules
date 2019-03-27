@@ -93,7 +93,6 @@
     <constructor-arg name="transactionSigner" ref="transactionSigner"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
     <constructor-arg name="brvsData" ref="brvsData"/>
-    <constructor-arg name="isRoot" value="${brvs.root}"/>
   </bean>
 
   <bean class="iroha.validation.service.impl.ValidationServiceImpl">
