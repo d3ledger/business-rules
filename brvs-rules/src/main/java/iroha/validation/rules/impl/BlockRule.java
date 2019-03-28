@@ -20,14 +20,13 @@ public class BlockRule implements Rule {
   private static final Logger logger = LoggerFactory.getLogger(BlockRule.class);
 
   private IrohaAPI irohaAPI;
-  private String blockerAccount;
+  private String blockerAccount = "blocker@trading";
   private String brvsAccountId;
   private KeyPair keyPair;
 
-  public BlockRule(IrohaAPI irohaAPI, String blockerAccount, String brvsAccountId,
+  public BlockRule(IrohaAPI irohaAPI, String brvsAccountId,
       KeyPair keyPair) {
     this.irohaAPI = irohaAPI;
-    this.blockerAccount = blockerAccount;
     this.brvsAccountId = brvsAccountId;
     this.keyPair = keyPair;
 
@@ -49,7 +48,7 @@ public class BlockRule implements Rule {
     QueryResponse queryResponse = irohaAPI.query(
         Query
             .builder(brvsAccountId, 1L)
-            .getAccountDetail(creator, blockerAccount, assetId.replace("#", key))
+            .getAccountDetail(creator, blockerAccount, key)
             .buildSigned(keyPair));
 
     String detail = queryResponse.getAccountDetailResponse().getDetail();
@@ -58,11 +57,11 @@ public class BlockRule implements Rule {
     JsonReader reader = Json.createReader(new StringReader(detail));
     String str_limit = null;
     try {
-       str_limit = reader
+      str_limit = reader
           .readObject()
           .getJsonObject(blockerAccount)
           .getString(key);
-    } catch (NullPointerException ex) {
+    } catch (Exception ex) {
       logger.info("Exception on parsing json detail: {}", ex);
       return true;
     }

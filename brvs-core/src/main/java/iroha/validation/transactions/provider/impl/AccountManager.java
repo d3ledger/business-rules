@@ -201,10 +201,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       logger.error("Could not register user " + userAccountId +
           ". Got transaction status: " + txStatus.name()
       );
-      throw new IllegalStateException(
-          "Could not register user " + userAccountId +
-              ". Got transaction status: " + txStatus.name()
-      );
+//      throw new IllegalStateException(
+//          "Could not register user " + userAccountId +
+//              ". Got transaction status: " + txStatus.name()
+//      );
     }
   }
 
