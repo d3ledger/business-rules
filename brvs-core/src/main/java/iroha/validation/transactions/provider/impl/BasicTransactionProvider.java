@@ -51,7 +51,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     Objects
         .requireNonNull(irohaReliableChainListener, "IrohaReliableChainListener must not be null");
     if (Strings.isNullOrEmpty(userDomains)) {
-      throw new IllegalArgumentException("User domain must not be null nor empty");
+      throw new IllegalArgumentException("User domains string must not be null nor empty");
     }
 
     this.transactionVerdictStorage = transactionVerdictStorage;

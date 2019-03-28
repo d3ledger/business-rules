@@ -19,7 +19,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import javax.xml.bind.DatatypeConverter;
+import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
 import jp.co.soramitsu.iroha.java.Transaction;
@@ -58,6 +58,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private final KeyPair keyPair;
   private final IrohaAPI irohaAPI;
   private final String userQuorumAttribute;
+  private final Set<String> userDomains;
   private final String userAccountsHolderAccount;
   private final String brvsInstancesHolderAccount;
 
@@ -65,8 +66,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       KeyPair keyPair,
       IrohaAPI irohaAPI,
       String userQuorumAttribute,
+      String userDomains,
       String userAccountsHolderAccount,
       String brvsInstancesHolderAccount) {
+
     if (Strings.isNullOrEmpty(accountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
@@ -75,6 +78,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     if (Strings.isNullOrEmpty(userQuorumAttribute)) {
       throw new IllegalArgumentException(
           "User quorum attribute name must not be neither null nor empty");
+    }
+    if (Strings.isNullOrEmpty(userDomains)) {
+      throw new IllegalArgumentException("User domains string must not be null nor empty");
     }
     if (Strings.isNullOrEmpty(userAccountsHolderAccount)) {
       throw new IllegalArgumentException(
@@ -88,6 +94,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     this.keyPair = keyPair;
     this.irohaAPI = irohaAPI;
     this.userQuorumAttribute = userQuorumAttribute;
+    this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
     this.userAccountsHolderAccount = userAccountsHolderAccount;
     this.brvsInstancesHolderAccount = brvsInstancesHolderAccount;
   }
@@ -107,7 +114,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       return UNREACHABLE_QUORUM;
     }
     try {
-      System.out.println(queryResponse.getAccountDetailResponse());
       return Integer.parseInt(queryResponse.getAccountDetailResponse().getDetail().split("\"")[5]);
     } catch (ArrayIndexOutOfBoundsException e) {
       logger.warn(
@@ -154,9 +160,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
         .hasAccount();
   }
 
-
   private boolean hasValidFormat(String accountId) {
     return ACCOUN_ID_PATTERN.matcher(accountId).matches();
+  }
+
+  private String getDomain(String accountId) {
+    return accountId.split("@")[1];
   }
 
   /**
@@ -171,6 +180,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     if (!hasValidFormat(accountId)) {
       throw new IllegalArgumentException(
           "Invalid account format [" + accountId + "]. Use 'username@domain'.");
+    }
+    if (!userDomains.contains(getDomain(accountId))) {
+      throw new IllegalArgumentException(
+          "The BRVS instance is not permitted to process the domain specified: " +
+              getDomain(accountId) + ".");
     }
     if (!existsInIroha(accountId)) {
       throw new IllegalArgumentException("Account " + accountId + " does not exist.");
@@ -201,10 +215,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       logger.error("Could not register user " + userAccountId +
           ". Got transaction status: " + txStatus.name()
       );
-//      throw new IllegalStateException(
-//          "Could not register user " + userAccountId +
-//              ". Got transaction status: " + txStatus.name()
-//      );
+      throw new IllegalStateException(
+          "Could not register user " + userAccountId +
+              ". Got transaction status: " + txStatus.name()
+      );
     }
   }
 
@@ -333,22 +347,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   @Override
   public Iterable<BrvsData> getBrvsInstances() {
     return getAccountsFrom(brvsInstancesHolderAccount, this::brvsAccountProcessor);
-  }
-
-  @Override
-  public void addBrvsInstance(BrvsData brvsData) {
-    TxStatus txStatus = sendWithLastStatusWaiting(
-        Transaction.builder(accountId)
-            .addSignatory(accountId, DatatypeConverter.parseHexBinary(brvsData.getHexPubKey()))
-            .build()
-            .build()
-    );
-    if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.error("Unable to register %s. Got %s.", brvsData.getHostname(), txStatus.name());
-      throw new IllegalStateException(
-          "Could not register new BRVS instance. Got wrong status response: " + txStatus.name());
-    }
-    logger.info("%s registered successfully", brvsData.getHostname());
   }
 
   private Endpoint.TxStatus sendWithLastStatusWaiting(

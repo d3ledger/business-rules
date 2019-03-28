@@ -15,7 +15,6 @@ services:
       WAIT_HOSTS: brvs-mongodb:27017, brvs-rmq:5672
       WAIT_BEFORE_HOSTS: 10
 
-
   brvs-mongodb:
     image: mongo:4.0.6
     container_name: "brvs-mongodb"
@@ -39,4 +38,4 @@ networks:
   # Specify the network Iroha is present in if needed
   default:
     external:
-      name: deploy_bt-network
+      name: deploy_d3-network

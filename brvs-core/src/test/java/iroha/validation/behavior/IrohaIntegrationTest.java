@@ -115,8 +115,10 @@ class IrohaIntegrationTest {
                 .createAccount(senderName, domainName, senderKeypair.getPublic())
                 // account holder
                 .createAccount(domainName, domainName, crypto.generateKeypair().getPublic())
-                .setAccountDetail(domainName+"@"+domainName, receiverName+domainName, domainName)
-                .setAccountDetail(domainName+"@"+domainName, senderName+domainName, domainName)
+                .setAccountDetail(domainName + "@" + domainName, receiverName + domainName,
+                    domainName)
+                .setAccountDetail(domainName + "@" + domainName, senderName + domainName,
+                    domainName)
                 .createAsset(asset, domainName, 0)
                 // transactions in genesis block can be unsigned
                 .build()
@@ -153,7 +155,7 @@ class IrohaIntegrationTest {
   private ValidationService getService(IrohaAPI irohaAPI) {
     final String accountsHolderAccount = String.format("%s@%s", domainName, domainName);
     accountManager = new AccountManager(validatorId, validatorKeypair, irohaAPI,
-        "uq", accountsHolderAccount, accountsHolderAccount);
+        "uq", domainName, accountsHolderAccount, accountsHolderAccount);
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
@@ -176,8 +178,7 @@ class IrohaIntegrationTest {
             transactionVerdictStorage
         ),
         accountManager,
-        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost"),
-        "true"
+        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost")
     ));
   }
 

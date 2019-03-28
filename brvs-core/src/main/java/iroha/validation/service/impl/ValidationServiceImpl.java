@@ -22,7 +22,6 @@ public class ValidationServiceImpl implements ValidationService {
   private final TransactionSigner transactionSigner;
   private final RegistrationProvider registrationProvider;
   private final BrvsData brvsData;
-  private final boolean isRoot;
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
@@ -32,7 +31,6 @@ public class ValidationServiceImpl implements ValidationService {
     this.transactionSigner = validationServiceContext.getTransactionSigner();
     this.registrationProvider = validationServiceContext.getRegistrationProvider();
     this.brvsData = validationServiceContext.getBrvsData();
-    this.isRoot = validationServiceContext.isRoot();
   }
 
   /**
@@ -40,10 +38,6 @@ public class ValidationServiceImpl implements ValidationService {
    */
   @Override
   public void verifyTransactions() {
-    // if this instance is not the first in the network
-    if (!isRoot) {
-      registerBrvs();
-    }
     registerExistentAccounts();
     transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
         {
@@ -70,17 +64,19 @@ public class ValidationServiceImpl implements ValidationService {
 
   private void registerExistentAccounts() {
     logger.info("Going to register existent user accounts in BRVS: " + brvsData.getHostname());
-    registrationProvider.getUserAccounts().forEach(account -> {
+    final Iterable<String> userAccounts;
+    try {
+      userAccounts = registrationProvider.getUserAccounts();
+    } catch (Exception e) {
+      logger.warn("Couldn't query existing accounts. Please add them manually", e);
+      return;
+    }
+    userAccounts.forEach(account -> {
       try {
         registrationProvider.register(account);
       } catch (Exception e) {
         logger.warn("Couldn't add existing account " + account + " Please add it manually", e);
       }
     });
-  }
-
-  private void registerBrvs() {
-    logger.info("Trying to register new brvs instance (self)");
-    registrationProvider.addBrvsInstance(brvsData);
   }
 }
