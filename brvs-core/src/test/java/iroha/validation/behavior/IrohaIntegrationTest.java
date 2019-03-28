@@ -155,7 +155,8 @@ class IrohaIntegrationTest {
   private ValidationService getService(IrohaAPI irohaAPI) {
     final String accountsHolderAccount = String.format("%s@%s", domainName, domainName);
     accountManager = new AccountManager(validatorId, validatorKeypair, irohaAPI,
-        "uq", domainName, accountsHolderAccount, accountsHolderAccount);
+        "uq", domainName, accountsHolderAccount, accountsHolderAccount,
+        Collections.singletonList(validatorKeypair));
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
@@ -174,6 +175,8 @@ class IrohaIntegrationTest {
         ),
         new TransactionSignerImpl(
             irohaAPI,
+            Collections.singletonList(validatorKeypair),
+            validatorId,
             validatorKeypair,
             transactionVerdictStorage
         ),

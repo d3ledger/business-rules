@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,7 +83,7 @@ public class BasicTransactionProvider implements TransactionProvider {
         .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
         .forEach(transaction -> {
               // if only BRVS signatory remains
-              if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorum(
+              if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorumDetail(
                   transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
                 String hex = ValidationUtils.hexHash(transaction);
                 if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
@@ -119,6 +120,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     if (blockTransactions != null) {
       blockTransactions.forEach(transaction -> {
             tryToRemoveLock(transaction);
+            modifyUserQuorumIfNeeded(transaction);
             try {
               registerCreatedAccountByTransactionScanning(transaction);
             } catch (Exception e) {
@@ -127,6 +129,31 @@ public class BasicTransactionProvider implements TransactionProvider {
           }
       );
     }
+  }
+
+  private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
+    final String creatorAccountId = blockTransaction.getPayload().getReducedPayload()
+        .getCreatorAccountId();
+    final Stream<Command> commandStream = blockTransaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList()
+        .stream()
+        .filter(command -> userDomains.contains(creatorAccountId));
+
+    commandStream
+        .filter(Command::hasAddSignatory)
+        .map(Command::getAddSignatory)
+        .forEach(command -> userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+            userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
+            blockTransaction.getPayload().getReducedPayload().getCreatedTime()));
+
+    commandStream
+        .filter(Command::hasRemoveSignatory)
+        .map(Command::getRemoveSignatory)
+        .forEach(command -> userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+            userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
+            blockTransaction.getPayload().getReducedPayload().getCreatedTime()));
   }
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
@@ -139,7 +166,8 @@ public class BasicTransactionProvider implements TransactionProvider {
         .map(Command::getCreateAccount)
         .filter(command -> userDomains.contains(command.getDomainId()))
         .forEach(command -> registrationProvider
-            .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()))
+            .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()),
+                blockTransaction.getPayload().getReducedPayload().getCreatedTime())
         );
   }
 

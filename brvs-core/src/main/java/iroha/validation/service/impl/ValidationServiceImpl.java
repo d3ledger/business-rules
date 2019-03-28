@@ -73,7 +73,9 @@ public class ValidationServiceImpl implements ValidationService {
     }
     userAccounts.forEach(account -> {
       try {
-        registrationProvider.register(account);
+        final long currentTimeMillis = System.currentTimeMillis();
+        // sync on midnight
+        registrationProvider.register(account, currentTimeMillis - currentTimeMillis % 1000);
       } catch (Exception e) {
         logger.warn("Couldn't add existing account " + account + " Please add it manually", e);
       }

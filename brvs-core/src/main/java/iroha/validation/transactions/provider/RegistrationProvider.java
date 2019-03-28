@@ -8,8 +8,9 @@ public interface RegistrationProvider {
    * Method for registering user account for the service
    *
    * @param accountId client account id in Iroha
+   * @param creationTimeMillis time to synchronize operation
    */
-  void register(String accountId);
+  void register(String accountId, long creationTimeMillis);
 
   /**
    * Method for getting all the registered user accounts
