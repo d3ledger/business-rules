@@ -15,6 +15,7 @@ services:
       WAIT_HOSTS: brvs-mongodb:27017, brvs-rmq:5672
       WAIT_BEFORE_HOSTS: 10
 
+
   brvs-mongodb:
     image: mongo:4.0.6
     container_name: "brvs-mongodb"
@@ -29,10 +30,13 @@ services:
 
   brvs-rmq:
     image: rabbitmq:3-management
+    ports:
+      - 5672:5672
+      - 15672:15672
     container_name: "brvs-rmq"
 
 networks:
   # Specify the network Iroha is present in if needed
   default:
     external:
-      name: deploy_d3-network
+      name: deploy_bt-network

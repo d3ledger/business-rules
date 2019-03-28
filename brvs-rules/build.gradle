@@ -7,6 +7,10 @@ dependencies {
     compile('org.slf4j:slf4j-api:1.7.25')
     compile('org.slf4j:slf4j-simple:1.7.25')
 
+    compile "javax.json:javax.json-api:1.0"
+    compile 'org.glassfish:javax.json:1.0.4'
+    compileOnly 'javax.json:javax.json-api:1.0'
+
     // unit tests
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
@@ -14,6 +18,7 @@ dependencies {
     testCompile('org.mockito:mockito-core:2.24.0')
     testCompile('org.mockito:mockito-junit-jupiter:2.24.0')
 }
+
 
 test {
     useJUnitPlatform {}

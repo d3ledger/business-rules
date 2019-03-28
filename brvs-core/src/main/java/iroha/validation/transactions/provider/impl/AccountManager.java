@@ -107,6 +107,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       return UNREACHABLE_QUORUM;
     }
     try {
+      System.out.println(queryResponse.getAccountDetailResponse());
       return Integer.parseInt(queryResponse.getAccountDetailResponse().getDetail().split("\"")[5]);
     } catch (ArrayIndexOutOfBoundsException e) {
       logger.warn(

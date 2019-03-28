@@ -106,9 +106,18 @@
     <constructor-arg index="1" ref="keyPair"/>
     <constructor-arg index="2" ref="irohaAPI"/>
   </bean>
+  <bean id="blockRule"
+    class="iroha.validation.rules.impl.BlockRule">
+    <constructor-arg index="0" ref="irohaAPI"/>
+    <constructor-arg index="1" value="blocker"/>
+    <constructor-arg index="2" value="${credential.accountId}"/>
+    <constructor-arg index="3" ref="keyPair"/>
+  </bean>
+
   <util:list id="rules" value-type="iroha.validation.rules.Rule">
     <ref bean="sampleRule"/>
-    <ref bean="newBrvsRule"/>
+    <ref bean="blockRule"/>
+
     <!-- More can be added -->
   </util:list>
 
@@ -121,4 +130,6 @@
     <ref bean="simpleAggregationValidator"/>
     <!-- More can be added -->
   </util:list>
+
+
 </beans>

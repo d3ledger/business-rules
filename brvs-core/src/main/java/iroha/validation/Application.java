@@ -12,7 +12,7 @@ import org.springframework.context.support.FileSystemXmlApplicationContext;
 
 public class Application {
 
-  private static final String BASE_URI = "http://0.0.0.0:8080/brvs/rest";
+  private static final String BASE_URI = "http://0.0.0.0:8081/brvs/rest";
 
   public static void main(String[] args) {
     if (args.length == 0) {
