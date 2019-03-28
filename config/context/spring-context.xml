@@ -111,7 +111,7 @@
     class="iroha.validation.rules.impl.BlockRule">
     <constructor-arg name="irohaAPI" ref="irohaAPI"/>
     <constructor-arg name="brvsAccountId" value="${credential.accountId}"/>
-    <constructor-arg name="keypair" ref="keyPair"/>
+    <constructor-arg name="keyPair" ref="keyPair"/>
   </bean>
 
   <util:list id="rules" value-type="iroha.validation.rules.Rule">
