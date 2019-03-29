@@ -82,7 +82,7 @@ public class BasicTransactionProvider implements TransactionProvider {
         .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
         .forEach(transaction -> {
               // if only BRVS signatory remains
-              if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorum(
+              if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorumDetail(
                   transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
                 String hex = ValidationUtils.hexHash(transaction);
                 if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
@@ -120,13 +120,53 @@ public class BasicTransactionProvider implements TransactionProvider {
       blockTransactions.forEach(transaction -> {
             tryToRemoveLock(transaction);
             try {
+              modifyUserQuorumIfNeeded(transaction);
               registerCreatedAccountByTransactionScanning(transaction);
             } catch (Exception e) {
-              logger.warn("Couldn't register account from the processed block", e);
+              logger.warn("Couldn't process account changes from the committed block", e);
             }
           }
       );
     }
+  }
+
+  private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
+    final String creatorAccountId = blockTransaction.getPayload().getReducedPayload()
+        .getCreatorAccountId();
+
+    final long createdTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
+    final long syncTime = createdTime - createdTime % 1000000;
+    blockTransaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList()
+        .stream()
+        .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
+        .filter(Command::hasAddSignatory)
+        .map(Command::getAddSignatory)
+        .forEach(command -> {
+          userQuorumProvider
+              .setUserQuorumDetail(creatorAccountId,
+                  userQuorumProvider.getUserQuorumDetail(creatorAccountId) + 1, syncTime);
+          userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+              userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
+        });
+
+    blockTransaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList()
+        .stream()
+        .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
+        .filter(Command::hasRemoveSignatory)
+        .map(Command::getRemoveSignatory)
+        .forEach(command -> {
+          userQuorumProvider
+              .setUserQuorumDetail(creatorAccountId,
+                  userQuorumProvider.getUserQuorumDetail(creatorAccountId) - 1, syncTime);
+          userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+              userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
+        });
   }
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
@@ -152,6 +192,10 @@ public class BasicTransactionProvider implements TransactionProvider {
     if (account != null) {
       cacheProvider.unlockPendingAccount(account);
     }
+  }
+
+  private String getDomain(String accountId) {
+    return accountId.split("@")[1];
   }
 
   @Override
