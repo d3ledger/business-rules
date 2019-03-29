@@ -1,5 +1,6 @@
 package iroha.validation.transactions.provider.impl.util;
 
+import com.google.common.collect.Iterables;
 import io.reactivex.Observable;
 import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.Commands.Command;
@@ -68,5 +69,9 @@ public class CacheProvider {
 
   public synchronized Observable<Transaction> getObservable() {
     return subject;
+  }
+
+  public synchronized Iterable<Transaction> getTransactions() {
+    return Iterables.concat(cache.values());
   }
 }

@@ -1,27 +1,39 @@
 package iroha.validation.rest;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.util.JsonFormat;
+import com.google.protobuf.util.JsonFormat.Parser;
+import com.google.protobuf.util.JsonFormat.Printer;
+import io.reactivex.internal.functions.Functions;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
+import iroha.protocol.TransactionOuterClass.Transaction.Builder;
 import iroha.validation.transactions.provider.RegistrationProvider;
+import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import javax.ws.rs.DefaultValue;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.Utils;
 
 @Singleton
 @Path("")
 public class RestService {
+
+  private final static Printer printer = JsonFormat.printer()
+      .omittingInsignificantWhitespace()
+      .preservingProtoFieldNames();
+  private final static Parser parser = JsonFormat.parser().ignoringUnknownFields();
 
   @Inject
   private RegistrationProvider registrationProvider;
@@ -29,6 +41,8 @@ public class RestService {
   private TransactionVerdictStorage verdictStorage;
   @Inject
   private IrohaAPI irohaAPI;
+  @Inject
+  private CacheProvider cacheProvider;
 
   @GET
   @Path("/status/{txHash}")
@@ -54,28 +68,46 @@ public class RestService {
 
   @POST
   @Path("/transaction")
-  public Response sendTransactionSync(@QueryParam("async") @DefaultValue("false") String async,
-      final byte[] transaction) {
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendTransaction(String transaction) {
     try {
-      final Transaction tx = Transaction.parseFrom(transaction);
-      if (Boolean.parseBoolean(async)) {
-        irohaAPI.transactionSync(tx);
-      } else {
-        irohaAPI.transaction(tx);
-      }
+      final Builder builder = Transaction.newBuilder();
+      parser.merge(transaction, builder);
+      final Transaction tx = builder.build();
+      StreamingOutput streamingOutput = output -> irohaAPI.transaction(tx)
+          .blockingSubscribe(
+              toriiResponse -> output.write((toriiResponse.toString() + "\n").getBytes()),
+              Functions.ON_ERROR_MISSING,
+              output::close
+          );
+      return Response.status(200).entity(streamingOutput).build();
+    } catch (InvalidProtocolBufferException e) {
+      return Response.status(422).build();
     } catch (Throwable t) {
       return Response.status(500).build();
     }
-    return Response.status(204).build();
+  }
+
+  @GET
+  @Path("/transactions")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getTransactions() throws InvalidProtocolBufferException {
+    return Response.status(200)
+        .entity(printer.print(Utils.createTxList(cacheProvider.getTransactions()))).build();
   }
 
   @POST
   @Path("/query")
-  public Response query(final byte[] query) {
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response query(String query) {
     try {
-      return Response.status(200).entity(irohaAPI.query(Query.parseFrom(query)).toString()).build();
+      final Query.Builder builder = Query.newBuilder();
+      parser.merge(query, builder);
+      return Response.status(200).entity(printer.print(irohaAPI.query(builder.build()))).build();
     } catch (InvalidProtocolBufferException e) {
-      return Response.status(404).build();
+      return Response.status(422).build();
     } catch (Throwable t) {
       return Response.status(500).build();
     }
