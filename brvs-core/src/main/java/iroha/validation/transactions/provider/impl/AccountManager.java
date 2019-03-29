@@ -252,13 +252,20 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException(
           "Account " + accountId + " does not exist or an error during querying process occurred.");
     }
+    int quorum = getUserQuorumDetail(accountId);
+    if (quorum == UNREACHABLE_QUORUM) {
+      quorum = INITIAL_KEYS_AMOUNT;
+      setUserQuorumDetail(accountId, quorum, System.currentTimeMillis());
+    }
     try {
-      int quorum = getUserQuorumDetail(accountId);
-      if (quorum == UNREACHABLE_QUORUM) {
-        quorum = INITIAL_KEYS_AMOUNT;
-        setUserQuorumDetail(accountId, quorum, System.currentTimeMillis());
-      }
       setBrvsSignatoriesToUser(accountId, quorum);
+    } catch (IllegalStateException e) {
+      logger.warn("Probably, the account " + accountId + " was registered before", e);
+    } catch (Exception e) {
+      logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
+      throw e;
+    }
+    try {
       modifyQuorumOnRegistration(accountId);
     } catch (Exception e) {
       logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
