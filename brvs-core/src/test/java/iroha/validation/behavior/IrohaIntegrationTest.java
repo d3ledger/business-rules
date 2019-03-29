@@ -42,6 +42,7 @@ import jp.co.soramitsu.iroha.testcontainers.PeerConfig;
 import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 
@@ -372,6 +373,8 @@ class IrohaIntegrationTest {
    * @then two {@link BlockOuterClass} arrive
    */
   @Test
+  // Since there is no MQ producer
+  @Disabled
   void irohaReliableChainListenerTest() throws InterruptedException, IOException {
     IrohaReliableChainListener listener = new IrohaReliableChainListener(
         irohaAPI,
