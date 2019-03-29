@@ -43,7 +43,7 @@ public class RestService {
       long syncTime;
       if (StringUtils.isEmpty(time)) {
         final long currentTimeMillis = System.currentTimeMillis();
-        syncTime = currentTimeMillis - currentTimeMillis % 1000;
+        syncTime = currentTimeMillis - currentTimeMillis % 10000000;
       } else {
         syncTime = Long.parseLong(time);
       }
