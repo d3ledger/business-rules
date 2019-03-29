@@ -79,11 +79,18 @@ public class TransactionSignerImpl implements TransactionSigner {
 
   private void sendBrvsTransaction(Transaction transaction) {
     for (Command command : transaction.getPayload().getReducedPayload().getCommandsList()) {
-      // Do not sign set acc quorum about user account
+      // Do not sign set acc quorum about user account if its time is synchronized
       // There will be a multisig transaction sync on time
       // Instead of many fully signed same transactions
-      if (command.hasSetAccountQuorum() && !brvsAccountId
-          .equals(command.getSetAccountQuorum().getAccountId())) {
+      if (transaction.getPayload().getReducedPayload().getCreatedTime() % 1000000 == 0 &&
+          (
+              (command.hasSetAccountQuorum() && !brvsAccountId
+                  .equals(command.getSetAccountQuorum().getAccountId()))
+                  ||
+                  // Do not sign setAccDetails (user quorum) for same reason
+                  (command.hasSetAccountDetail())
+          )
+      ) {
         return;
       }
     }

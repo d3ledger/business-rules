@@ -15,8 +15,9 @@ public interface UserQuorumProvider {
    *
    * @param targetAccount account id in Iroha
    * @param quorum user quorum to be set
+   * @param creationTimeMillis time to synchronize operation
    */
-  void setUserQuorumDetail(String targetAccount, int quorum);
+  void setUserQuorumDetail(String targetAccount, int quorum, long creationTimeMillis);
 
   /**
    * Method for setting relevant user Iroha account quorum

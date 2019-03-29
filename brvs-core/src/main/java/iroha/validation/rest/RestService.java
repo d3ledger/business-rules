@@ -10,10 +10,8 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import org.springframework.util.StringUtils;
 
 @Singleton
 @Path("")
@@ -37,17 +35,9 @@ public class RestService {
 
   @POST
   @Path("/register/{accountId}")
-  public Response register(@PathParam("accountId") String accountId,
-      @QueryParam("time") String time) {
+  public Response register(@PathParam("accountId") String accountId) {
     try {
-      long syncTime;
-      if (StringUtils.isEmpty(time)) {
-        final long currentTimeMillis = System.currentTimeMillis();
-        syncTime = currentTimeMillis - currentTimeMillis % 10000000;
-      } else {
-        syncTime = Long.parseLong(time);
-      }
-      registrationProvider.register(accountId, syncTime);
+      registrationProvider.register(accountId);
     } catch (Exception e) {
       return Response.status(422).entity(e).build();
     }

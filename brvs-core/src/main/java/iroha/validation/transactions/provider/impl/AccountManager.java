@@ -11,6 +11,7 @@ import iroha.protocol.TransactionOuterClass;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
+import java.security.Key;
 import java.security.KeyPair;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -25,6 +26,7 @@ import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
 import jp.co.soramitsu.iroha.java.Transaction;
 import jp.co.soramitsu.iroha.java.TransactionBuilder;
+import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 import org.slf4j.Logger;
@@ -38,9 +40,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   // Max quorum is 128
   private static final int UNREACHABLE_QUORUM = 129;
   private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
-  private static final float PROPORTION = 2f / 3;
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
+  // BRVS keys count = User keys count
+  private static final int PROPORTION = 2;
   private static final JsonParser parser = new JsonParser();
   private static final SubscriptionStrategy subscriptionStrategy = new WaitForTerminalStatus(
       Arrays.asList(
@@ -64,6 +67,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private final String userAccountsHolderAccount;
   private final String brvsInstancesHolderAccount;
   private final List<KeyPair> keyPairs;
+  private final Set<String> pubKeys;
 
   public AccountManager(String brvsAccountId,
       KeyPair brvsAccountKeyPair,
@@ -105,6 +109,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     this.userAccountsHolderAccount = userAccountsHolderAccount;
     this.brvsInstancesHolderAccount = brvsInstancesHolderAccount;
     this.keyPairs = keyPairs;
+    pubKeys = this.keyPairs
+        .stream()
+        .map(KeyPair::getPublic)
+        .map(Key::getEncoded)
+        .map(Utils::toHex)
+        .collect(Collectors.toSet());
 
     registeredAccounts.add(brvsAccountId);
   }
@@ -144,10 +154,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public void setUserQuorumDetail(String targetAccount, int quorum) {
+  public void setUserQuorumDetail(String targetAccount, int quorum, long creationTimeMillis) {
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
-            .builder(brvsAccountId)
+            .builder(brvsAccountId, creationTimeMillis)
             .setAccountDetail(targetAccount, userQuorumAttribute, String.valueOf(quorum))
             .sign(brvsAccountKeyPair)
             .build()
@@ -222,7 +232,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public synchronized void register(String accountId, long creationTimeMillis) {
+  public synchronized void register(String accountId) {
     logger.info("Going to register " + accountId);
     if (registeredAccounts.contains(accountId)) {
       throw new IllegalArgumentException("User " + accountId + " is already registered.");
@@ -244,10 +254,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       int quorum = getUserQuorumDetail(accountId);
       if (quorum == UNREACHABLE_QUORUM) {
         quorum = INITIAL_KEYS_AMOUNT;
-        setUserQuorumDetail(accountId, quorum);
+        setUserQuorumDetail(accountId, quorum, System.currentTimeMillis());
       }
       setBrvsSignatoriesToUser(accountId, quorum);
-      modifyQuorumOnRegistration(accountId, creationTimeMillis);
+      modifyQuorumOnRegistration(accountId);
     } catch (Exception e) {
       logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
       throw e;
@@ -261,9 +271,27 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException(
           "Signatories count must be at least 1 and not more than key list size.");
     }
+    final int containedCount = (int) getAccountSignatories(userAccountId)
+        .stream()
+        .filter(pubKeys::contains)
+        .count();
+    if (containedCount == count) {
+      logger.warn(
+          "User account " + userAccountId + " has already got " + count + " brvs instance keys.");
+      return;
+    }
+    int toAppend = count - containedCount;
+
     final TransactionBuilder transactionBuilder = Transaction.builder(brvsAccountId);
-    for (int i = 0; i < count; i++) {
-      transactionBuilder.addSignatory(userAccountId, keyPairs.get(i).getPublic());
+    if (toAppend > 0) {
+      for (int i = containedCount; i < toAppend; i++) {
+        transactionBuilder.addSignatory(userAccountId, keyPairs.get(i).getPublic());
+      }
+    } else {
+      toAppend *= -1;
+      for (int i = containedCount - 1; i > toAppend; i--) {
+        transactionBuilder.removeSignatory(userAccountId, keyPairs.get(i).getPublic());
+      }
     }
     TxStatus txStatus = sendWithLastStatusWaiting(
         transactionBuilder
@@ -271,31 +299,30 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             .build()
     );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.error("Could not add signatory to user " + userAccountId +
+      logger.error("Could not set signatories to user " + userAccountId +
           ". Got transaction status: " + txStatus.name()
       );
       throw new IllegalStateException(
-          "Could not add signatory to user " + userAccountId +
+          "Could not set signatories to user " + userAccountId +
               ". Got transaction status: " + txStatus.name()
       );
     }
   }
 
-  private synchronized void modifyQuorumOnRegistration(String userAccountId, long creationTime) {
+  private synchronized void modifyQuorumOnRegistration(String userAccountId) {
     setUserAccountQuorum(
         userAccountId,
-        getValidQuorumForUserAccount(userAccountId,
-            true),
-        creationTime
+        getValidQuorumForUserAccount(userAccountId, true),
+        System.currentTimeMillis()
     );
   }
 
   private int getValidQuorumForUserAccount(String accountId, boolean onRegistration) {
     int userQuorum = getUserQuorumDetail(accountId);
     if (userQuorum == UNREACHABLE_QUORUM && onRegistration) {
-      userQuorum = 1;
+      userQuorum = INITIAL_USER_QUORUM_VALUE;
     }
-    return (int) (userQuorum + Math.ceil((PROPORTION) * getAccountQuorum(brvsAccountId)));
+    return (PROPORTION * userQuorum * getAccountQuorum(brvsAccountId));
   }
 
   private int getAccountQuorum(String targetAccountId) {
@@ -304,6 +331,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
         .getAccount(targetAccountId)
         .buildSigned(brvsAccountKeyPair)
     ).getAccountResponse().getAccount().getQuorum();
+  }
+
+  private List<String> getAccountSignatories(String targetAccountId) {
+    return irohaAPI.query(Query
+        .builder(brvsAccountId, 1L)
+        .getSignatories(targetAccountId)
+        .buildSigned(brvsAccountKeyPair)
+    ).getSignatoriesResponse().getKeysList();
   }
 
   /**

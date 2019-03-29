@@ -141,19 +141,29 @@ public class BasicTransactionProvider implements TransactionProvider {
         .stream()
         .filter(command -> userDomains.contains(creatorAccountId));
 
+    final long createdTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
+    final long syncTime = createdTime - createdTime % 1000000;
     commandStream
         .filter(Command::hasAddSignatory)
         .map(Command::getAddSignatory)
-        .forEach(command -> userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-            userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
-            blockTransaction.getPayload().getReducedPayload().getCreatedTime()));
+        .forEach(command -> {
+          userQuorumProvider
+              .setUserQuorumDetail(creatorAccountId,
+                  userQuorumProvider.getUserQuorumDetail(creatorAccountId) + 1, syncTime);
+          userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+              userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
+        });
 
     commandStream
         .filter(Command::hasRemoveSignatory)
         .map(Command::getRemoveSignatory)
-        .forEach(command -> userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-            userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
-            blockTransaction.getPayload().getReducedPayload().getCreatedTime()));
+        .forEach(command -> {
+          userQuorumProvider
+              .setUserQuorumDetail(creatorAccountId,
+                  userQuorumProvider.getUserQuorumDetail(creatorAccountId) - 1, syncTime);
+          userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+              userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
+        });
   }
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
@@ -166,8 +176,7 @@ public class BasicTransactionProvider implements TransactionProvider {
         .map(Command::getCreateAccount)
         .filter(command -> userDomains.contains(command.getDomainId()))
         .forEach(command -> registrationProvider
-            .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()),
-                blockTransaction.getPayload().getReducedPayload().getCreatedTime())
+            .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()))
         );
   }
 
