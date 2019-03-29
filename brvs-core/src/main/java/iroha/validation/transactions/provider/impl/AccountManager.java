@@ -56,7 +56,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   private final Set<String> registeredAccounts = new HashSet<>();
 
-  private final String accountId;
+  private final String brvsAccountId;
   private final KeyPair brvsAccountKeyPair;
   private final IrohaAPI irohaAPI;
   private final String userQuorumAttribute;
@@ -65,7 +65,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private final String brvsInstancesHolderAccount;
   private final List<KeyPair> keyPairs;
 
-  public AccountManager(String accountId,
+  public AccountManager(String brvsAccountId,
       KeyPair brvsAccountKeyPair,
       IrohaAPI irohaAPI,
       String userQuorumAttribute,
@@ -73,7 +73,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       String userAccountsHolderAccount,
       String brvsInstancesHolderAccount, List<KeyPair> keyPairs) {
 
-    if (Strings.isNullOrEmpty(accountId)) {
+    if (Strings.isNullOrEmpty(brvsAccountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
     Objects.requireNonNull(brvsAccountKeyPair, "Key pair must not be null");
@@ -97,7 +97,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException("Keypairs must not be neither null nor empty");
     }
 
-    this.accountId = accountId;
+    this.brvsAccountId = brvsAccountId;
     this.brvsAccountKeyPair = brvsAccountKeyPair;
     this.irohaAPI = irohaAPI;
     this.userQuorumAttribute = userQuorumAttribute;
@@ -106,7 +106,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     this.brvsInstancesHolderAccount = brvsInstancesHolderAccount;
     this.keyPairs = keyPairs;
 
-    registeredAccounts.add(accountId);
+    registeredAccounts.add(brvsAccountId);
   }
 
   /**
@@ -116,8 +116,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   public int getUserQuorumDetail(String targetAccount) {
     QueryResponse queryResponse = irohaAPI.query(
         Query
-            .builder(accountId, 1L)
-            .getAccountDetail(targetAccount, accountId, userQuorumAttribute)
+            .builder(brvsAccountId, 1L)
+            .getAccountDetail(targetAccount, brvsAccountId, userQuorumAttribute)
             .buildSigned(brvsAccountKeyPair)
     );
     if (!queryResponse.hasAccountDetailResponse()) {
@@ -147,7 +147,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   public void setUserQuorumDetail(String targetAccount, int quorum) {
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
-            .builder(accountId)
+            .builder(brvsAccountId)
             .setAccountDetail(targetAccount, userQuorumAttribute, String.valueOf(quorum))
             .sign(brvsAccountKeyPair)
             .build()
@@ -168,9 +168,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    */
   @Override
   public void setUserAccountQuorum(String targetAccount, int quorum, long createdTimeMillis) {
+    if (getAccountQuorum(targetAccount) == quorum) {
+      logger.warn("Quorum already has been set to the value provided. Account: " + targetAccount
+          + " Quorum: " + quorum);
+      return;
+    }
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
-            .builder(accountId, createdTimeMillis)
+            .builder(brvsAccountId, createdTimeMillis)
             .setAccountQuorum(targetAccount, quorum)
             .sign(brvsAccountKeyPair)
             .build()
@@ -197,7 +202,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private boolean existsInIroha(String userAccountId) {
     return irohaAPI
         .query(
-            Query.builder(accountId, 1L)
+            Query.builder(brvsAccountId, 1L)
                 .getAccount(userAccountId)
                 .buildSigned(brvsAccountKeyPair)
         )
@@ -236,7 +241,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
           "Account " + accountId + " does not exist or an error during querying process occurred.");
     }
     try {
-      setBrvsSignatoriesToUser(accountId, INITIAL_KEYS_AMOUNT);
+      int quorum = getUserQuorumDetail(accountId);
+      if (quorum == UNREACHABLE_QUORUM) {
+        quorum = INITIAL_KEYS_AMOUNT;
+        setUserQuorumDetail(accountId, quorum);
+      }
+      setBrvsSignatoriesToUser(accountId, quorum);
       modifyQuorumOnRegistration(accountId, creationTimeMillis);
     } catch (Exception e) {
       logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
@@ -251,7 +261,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException(
           "Signatories count must be at least 1 and not more than key list size.");
     }
-    final TransactionBuilder transactionBuilder = Transaction.builder(accountId);
+    final TransactionBuilder transactionBuilder = Transaction.builder(brvsAccountId);
     for (int i = 0; i < count; i++) {
       transactionBuilder.addSignatory(userAccountId, keyPairs.get(i).getPublic());
     }
@@ -278,9 +288,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             true),
         creationTime
     );
-    if (getUserQuorumDetail(accountId) == UNREACHABLE_QUORUM) {
-      setUserQuorumDetail(userAccountId, INITIAL_USER_QUORUM_VALUE);
-    }
   }
 
   private int getValidQuorumForUserAccount(String accountId, boolean onRegistration) {
@@ -288,13 +295,13 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     if (userQuorum == UNREACHABLE_QUORUM && onRegistration) {
       userQuorum = 1;
     }
-    return (int) (userQuorum + Math.ceil((PROPORTION) * getBrvsAccountQuorum()));
+    return (int) (userQuorum + Math.ceil((PROPORTION) * getAccountQuorum(brvsAccountId)));
   }
 
-  private int getBrvsAccountQuorum() {
+  private int getAccountQuorum(String targetAccountId) {
     return irohaAPI.query(Query
-        .builder(accountId, 1L)
-        .getAccount(accountId)
+        .builder(brvsAccountId, 1L)
+        .getAccount(targetAccountId)
         .buildSigned(brvsAccountKeyPair)
     ).getAccountResponse().getAccount().getQuorum();
   }
@@ -312,7 +319,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
     Set<T> resultSet = new HashSet<>();
     QueryResponse queryResponse = irohaAPI.query(Query
-        .builder(accountId, 1L)
+        .builder(brvsAccountId, 1L)
         .getAccount(accountsHolderAccount)
         .buildSigned(brvsAccountKeyPair)
     );
