@@ -20,8 +20,9 @@
     <constructor-arg name="privKeyPath" value="${credential.privkeyFilePath}"/>
   </bean>
   <bean id="keysList" class="iroha.validation.utils.ValidationUtils"
-    factory-method="generateKeypairs">
-    <constructor-arg name="amount" value="10"/>
+    factory-method="generateOrImportKeypairs">
+    <constructor-arg name="amount" value="${brvs.userKeysCount}"/>
+    <constructor-arg name="path" value="${brvs.userKeysPath}"/>
   </bean>
 
   <!-- IROHA API IPJ CONFIG -->
@@ -40,7 +41,7 @@
   <!-- USER ACCOUNTS MANAGER CONFIG -->
   <bean id="accountManager"
     class="iroha.validation.transactions.provider.impl.AccountManager">
-    <constructor-arg name="accountId" value="${credential.accountId}"/>
+    <constructor-arg name="brvsAccountId" value="${credential.accountId}"/>
     <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
     <constructor-arg name="irohaAPI" ref="irohaAPI"/>
     <constructor-arg name="userQuorumAttribute" value="${quorum.key}"/>
