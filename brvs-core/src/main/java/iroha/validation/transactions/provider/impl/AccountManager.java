@@ -171,6 +171,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
               " quorum (ACC_DETAILS). Got transaction status: " + txStatus.name()
       );
     }
+    logger.info("Successfully set user quorum DETAIL: " + targetAccount + ", " + quorum);
   }
 
   /**
@@ -199,6 +200,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
               " quorum. Got transaction status: " + txStatus.name()
       );
     }
+    logger.info("Successfully set user quorum: " + targetAccount + ", " + quorum);
   }
 
   /**
