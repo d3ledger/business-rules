@@ -20,7 +20,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,11 +119,11 @@ public class BasicTransactionProvider implements TransactionProvider {
     if (blockTransactions != null) {
       blockTransactions.forEach(transaction -> {
             tryToRemoveLock(transaction);
-            modifyUserQuorumIfNeeded(transaction);
             try {
+              modifyUserQuorumIfNeeded(transaction);
               registerCreatedAccountByTransactionScanning(transaction);
             } catch (Exception e) {
-              logger.warn("Couldn't register account from the processed block", e);
+              logger.warn("Couldn't process account changes from the committed block", e);
             }
           }
       );
@@ -134,16 +133,15 @@ public class BasicTransactionProvider implements TransactionProvider {
   private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
     final String creatorAccountId = blockTransaction.getPayload().getReducedPayload()
         .getCreatorAccountId();
-    final Stream<Command> commandStream = blockTransaction
+
+    final long createdTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
+    final long syncTime = createdTime - createdTime % 1000000;
+    blockTransaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList()
         .stream()
-        .filter(command -> userDomains.contains(creatorAccountId));
-
-    final long createdTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
-    final long syncTime = createdTime - createdTime % 1000000;
-    commandStream
+        .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
         .filter(Command::hasAddSignatory)
         .map(Command::getAddSignatory)
         .forEach(command -> {
@@ -154,7 +152,12 @@ public class BasicTransactionProvider implements TransactionProvider {
               userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
         });
 
-    commandStream
+    blockTransaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList()
+        .stream()
+        .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
         .filter(Command::hasRemoveSignatory)
         .map(Command::getRemoveSignatory)
         .forEach(command -> {
@@ -189,6 +192,10 @@ public class BasicTransactionProvider implements TransactionProvider {
     if (account != null) {
       cacheProvider.unlockPendingAccount(account);
     }
+  }
+
+  private String getDomain(String accountId) {
+    return accountId.split("@")[1];
   }
 
   @Override

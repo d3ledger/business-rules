@@ -114,6 +114,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
         .map(KeyPair::getPublic)
         .map(Key::getEncoded)
         .map(Utils::toHex)
+        .map(String::toLowerCase)
         .collect(Collectors.toSet());
 
     registeredAccounts.add(brvsAccountId);
@@ -155,6 +156,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    */
   @Override
   public void setUserQuorumDetail(String targetAccount, int quorum, long creationTimeMillis) {
+    final int currentQuorum = getUserQuorumDetail(targetAccount);
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
             .builder(brvsAccountId, creationTimeMillis)
@@ -172,6 +174,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       );
     }
     logger.info("Successfully set user quorum DETAIL: " + targetAccount + ", " + quorum);
+    // If we increase user quorum
+    if (quorum > currentQuorum) {
+      setBrvsSignatoriesToUser(targetAccount, quorum);
+    }
   }
 
   /**
@@ -179,7 +185,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    */
   @Override
   public void setUserAccountQuorum(String targetAccount, int quorum, long createdTimeMillis) {
-    if (getAccountQuorum(targetAccount) == quorum) {
+    if (quorum < 1) {
+      throw new IllegalArgumentException("Quorum must be positive, got: " + quorum);
+    }
+    final int currentQuorum = getAccountQuorum(targetAccount);
+    if (currentQuorum == quorum) {
       logger.warn("Quorum already has been set to the value provided. Account: " + targetAccount
           + " Quorum: " + quorum);
       return;
@@ -201,6 +211,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       );
     }
     logger.info("Successfully set user quorum: " + targetAccount + ", " + quorum);
+    // If we decrease user quorum
+    if (quorum < currentQuorum) {
+      setBrvsSignatoriesToUser(targetAccount, getUserQuorumDetail(targetAccount));
+    }
   }
 
   /**
@@ -282,6 +296,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     }
     final int containedCount = (int) getAccountSignatories(userAccountId)
         .stream()
+        .map(String::toLowerCase)
         .filter(pubKeys::contains)
         .count();
     if (containedCount == count) {
@@ -289,17 +304,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
           "User account " + userAccountId + " has already got " + count + " brvs instance keys.");
       return;
     }
-    int toAppend = count - containedCount;
-
     final TransactionBuilder transactionBuilder = Transaction.builder(brvsAccountId);
-    if (toAppend > 0) {
-      for (int i = containedCount; i < toAppend; i++) {
+    if (count > containedCount) {
+      for (int i = containedCount; i < count; i++) {
         transactionBuilder.addSignatory(userAccountId, keyPairs.get(i).getPublic());
       }
     } else {
-      toAppend *= -1;
-      for (int i = containedCount - 1; i > toAppend; i--) {
-        transactionBuilder.removeSignatory(userAccountId, keyPairs.get(i).getPublic());
+      for (int i = containedCount; i > count; i--) {
+        transactionBuilder.removeSignatory(userAccountId, keyPairs.get(i - 1).getPublic());
       }
     }
     TxStatus txStatus = sendWithLastStatusWaiting(
