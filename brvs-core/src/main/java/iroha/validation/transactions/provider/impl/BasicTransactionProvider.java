@@ -9,6 +9,7 @@ import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
+import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.IOException;
@@ -31,8 +32,9 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final CacheProvider cacheProvider;
   private final UserQuorumProvider userQuorumProvider;
   private final RegistrationProvider registrationProvider;
-  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
+  private final BlockStorage blockStorage;
   private final IrohaReliableChainListener irohaReliableChainListener;
+  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   private final Set<String> userDomains;
   private boolean isStarted;
 
@@ -41,6 +43,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       CacheProvider cacheProvider,
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
+      BlockStorage blockStorage,
       IrohaReliableChainListener irohaReliableChainListener,
       String userDomains
   ) {
@@ -58,6 +61,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.cacheProvider = cacheProvider;
     this.userQuorumProvider = userQuorumProvider;
     this.registrationProvider = registrationProvider;
+    this.blockStorage = blockStorage;
     this.irohaReliableChainListener = irohaReliableChainListener;
     this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
   }
@@ -100,18 +104,21 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void processBlockTransactions() {
-    irohaReliableChainListener.getBlockStreaming().subscribe(block ->
+    irohaReliableChainListener.getBlockStreaming().subscribe(block -> {
           /*
           We do not process rejected hashes of blocks in order to support fail fast behavior
           BRVS fake key pair leads to STATELESS_INVALID status so such transactions
           are not presented in ledger blocks at all
            */
-        processCommitted(
-            block
-                .getBlockV1()
-                .getPayload()
-                .getTransactionsList()
-        )
+          // Store new block first
+          blockStorage.store(block);
+          processCommitted(
+              block
+                  .getBlockV1()
+                  .getPayload()
+                  .getTransactionsList()
+          );
+        }
     );
   }
 

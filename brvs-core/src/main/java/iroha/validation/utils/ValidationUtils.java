@@ -1,6 +1,7 @@
 package iroha.validation.utils;
 
 import com.google.common.collect.ImmutableList;
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,6 +24,10 @@ public interface ValidationUtils {
 
   static String hexHash(Transaction transaction) {
     return Utils.toHex(Utils.hash(transaction));
+  }
+
+  static String hexHash(Block block) {
+    return Utils.toHex(Utils.hash(block));
   }
 
   static KeyPair readKeyPairFromFiles(String pubKeyPath, String privKeyPath) {
