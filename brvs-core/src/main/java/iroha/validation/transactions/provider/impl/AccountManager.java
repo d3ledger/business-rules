@@ -156,7 +156,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    */
   @Override
   public void setUserQuorumDetail(String targetAccount, int quorum, long creationTimeMillis) {
-    final int currentQuorum = getUserQuorumDetail(targetAccount);
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
             .builder(brvsAccountId, creationTimeMillis)
@@ -174,10 +173,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       );
     }
     logger.info("Successfully set user quorum DETAIL: " + targetAccount + ", " + quorum);
-    // If we increase user quorum
-    if (quorum > currentQuorum) {
-      setBrvsSignatoriesToUser(targetAccount, quorum);
-    }
   }
 
   /**
@@ -194,6 +189,19 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
           + " Quorum: " + quorum);
       return;
     }
+    final int userQuorumDetail = getUserQuorumDetail(targetAccount);
+    // If we increase user quorum set signatures first to be equal to user keys count
+    // Otherwise set quorum first
+    if (quorum > currentQuorum) {
+      setBrvsSignatoriesToUser(targetAccount, userQuorumDetail);
+      setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
+    } else {
+      setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
+      setBrvsSignatoriesToUser(targetAccount, userQuorumDetail);
+    }
+  }
+
+  private void setUserQuorumIroha(String targetAccount, int quorum, long createdTimeMillis) {
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
             .builder(brvsAccountId, createdTimeMillis)
@@ -211,10 +219,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       );
     }
     logger.info("Successfully set user quorum: " + targetAccount + ", " + quorum);
-    // If we decrease user quorum
-    if (quorum < currentQuorum) {
-      setBrvsSignatoriesToUser(targetAccount, getUserQuorumDetail(targetAccount));
-    }
   }
 
   /**
