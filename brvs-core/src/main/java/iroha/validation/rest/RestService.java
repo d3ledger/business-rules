@@ -4,7 +4,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
 import com.google.protobuf.util.JsonFormat.Printer;
-import io.reactivex.internal.functions.Functions;
+import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.protocol.TransactionOuterClass.Transaction.Builder;
@@ -12,6 +12,8 @@ import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
+import java.security.KeyPair;
+import java.util.concurrent.Executors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
@@ -76,10 +78,11 @@ public class RestService {
       parser.merge(transaction, builder);
       final Transaction tx = builder.build();
       StreamingOutput streamingOutput = output -> irohaAPI.transaction(tx)
-          .blockingSubscribe(
-              toriiResponse -> output.write((toriiResponse.toString() + "\n").getBytes()),
-              Functions.ON_ERROR_MISSING,
-              output::close
+          .subscribeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
+          .blockingSubscribe(toriiResponse -> {
+                output.write(printer.print(toriiResponse).getBytes());
+                output.flush();
+              }
           );
       return Response.status(200).entity(streamingOutput).build();
     } catch (InvalidProtocolBufferException e) {

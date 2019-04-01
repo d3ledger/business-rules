@@ -39,8 +39,8 @@
   </bean>
   <bean id="mongoBlockStorage"
     class="iroha.validation.transactions.storage.impl.mongo.MongoBlockStorage">
-    <constructor-arg index="mongoHost" value="${mongo.host}"/>
-    <constructor-arg index="mongoPort" value="${mongo.port}"/>
+    <constructor-arg name="mongoHost" value="${mongo.host}"/>
+    <constructor-arg name="mongoPort" value="${mongo.port}"/>
   </bean>
 
   <!-- USER ACCOUNTS MANAGER CONFIG -->
