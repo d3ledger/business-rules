@@ -172,8 +172,14 @@ class IrohaIntegrationTest {
             accountManager,
             accountManager,
             new MongoBlockStorage(mongoHost, mongoPort),
-            new IrohaReliableChainListener(irohaAPI, validatorId, validatorKeypair, rmqHost,
-                rmqPort),
+            new IrohaReliableChainListener(
+                irohaAPI,
+                validatorId,
+                validatorKeypair,
+                validatorKeypair,
+                rmqHost,
+                rmqPort
+            ),
             domainName
         ),
         new TransactionSignerImpl(
@@ -381,6 +387,7 @@ class IrohaIntegrationTest {
     IrohaReliableChainListener listener = new IrohaReliableChainListener(
         irohaAPI,
         senderId,
+        senderKeypair,
         senderKeypair,
         rmqHost,
         rmqPort
