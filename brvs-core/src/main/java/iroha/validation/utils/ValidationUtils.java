@@ -44,6 +44,10 @@ public interface ValidationUtils {
     return new String(Files.readAllBytes(Paths.get(keyPath)));
   }
 
+  static List<KeyPair> generateOrImportKeypairs(String amount, String path) throws IOException {
+    return generateOrImportKeypairs(Integer.parseInt(amount), path);
+  }
+
   static List<KeyPair> generateOrImportKeypairs(int amount, String path) throws IOException {
     if (amount < 1) {
       throw new IllegalArgumentException("Amount must be more than zero");

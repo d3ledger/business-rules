@@ -14,7 +14,7 @@ dependencies {
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
     // Test containers iroha
-    testCompile('com.github.hyperledger.iroha-java:testcontainers:3.2.1')
+    testCompile('com.github.hyperledger.iroha-java:testcontainers:4.0.0')
 }
 
 test {
