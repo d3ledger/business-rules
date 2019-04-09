@@ -14,12 +14,12 @@ import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.BlockOuterClass;
 import iroha.protocol.QryResponses;
 import iroha.protocol.Queries;
-import iroha.protocol.TransactionOuterClass;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import java.io.Closeable;
 import java.io.IOException;
 import java.security.KeyPair;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -40,21 +40,25 @@ public class IrohaReliableChainListener implements Closeable {
 
   private final IrohaAPI irohaAPI;
   // BRVS keypair to query Iroha
-  private final KeyPair keyPair;
+  private final KeyPair brvsKeyPair;
+  private final String brvsAccountId;
+  private final KeyPair userKeyPair;
   private final Connection connection;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
 
   public IrohaReliableChainListener(
       IrohaAPI irohaAPI,
-      String accountId,
-      KeyPair keyPair,
+      String brvsAccountId,
+      KeyPair brvsKeyPair,
+      KeyPair userKeyPair,
       String rmqHost,
       int rmqPort) {
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
-    if (Strings.isNullOrEmpty(accountId)) {
+    if (Strings.isNullOrEmpty(brvsAccountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
-    Objects.requireNonNull(keyPair, "Keypair must not be null");
+    Objects.requireNonNull(brvsKeyPair, "Brvs Keypair must not be null");
+    Objects.requireNonNull(userKeyPair, "User Keypair must not be null");
     if (Strings.isNullOrEmpty(rmqHost)) {
       throw new IllegalArgumentException("RMQ host must not be neither null nor empty");
     }
@@ -62,8 +66,10 @@ public class IrohaReliableChainListener implements Closeable {
       throw new IllegalArgumentException("RMQ port must be valid");
     }
 
+    this.brvsAccountId = brvsAccountId;
     this.irohaAPI = irohaAPI;
-    this.keyPair = keyPair;
+    this.brvsKeyPair = brvsKeyPair;
+    this.userKeyPair = userKeyPair;
 
     ConnectionFactory factory = new ConnectionFactory();
     factory.setHost(rmqHost);
@@ -83,19 +89,29 @@ public class IrohaReliableChainListener implements Closeable {
    * @return set of transactions that are in pending state
    */
   public Set<Transaction> getAllPendingTransactions(Iterable<String> accountsToMonitor) {
-    Set<TransactionOuterClass.Transaction> pendingTransactions = new HashSet<>();
-    accountsToMonitor.forEach(account -> {
-          Queries.Query query = Query.builder(account, 1)
-              .getPendingTransactions()
-              .buildSigned(keyPair);
-          pendingTransactions
-              .addAll(irohaAPI.query(query)
-                  .getTransactionsResponse()
-                  .getTransactionsList()
-              );
-        }
+    Set<Transaction> pendingTransactions = new HashSet<>(
+        getPendingTransactions(brvsAccountId, brvsKeyPair)
+    );
+    accountsToMonitor.forEach(account ->
+        pendingTransactions.addAll(getPendingTransactions(account, userKeyPair))
     );
     return pendingTransactions;
+  }
+
+  /**
+   * Queries pending transactions for a specified account and keypair
+   *
+   * @param accountId user that transactions should be queried for
+   * @param keyPair user keypair
+   * @return list of user transactions that are in pending state
+   */
+  private List<Transaction> getPendingTransactions(String accountId, KeyPair keyPair) {
+    Queries.Query query = Query.builder(accountId, 1)
+        .getPendingTransactions()
+        .buildSigned(keyPair);
+    return irohaAPI.query(query)
+        .getTransactionsResponse()
+        .getTransactionsList();
   }
 
   /**

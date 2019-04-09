@@ -25,6 +25,10 @@
     <constructor-arg name="amount" value="${brvs.userKeysCount}"/>
     <constructor-arg name="path" value="${brvs.userKeysPath}"/>
   </bean>
+  <bean id="firstUserKey" class="iroha.validation.utils.ValidationUtils"
+    factory-method="generateOrImportFirstKeypair">
+    <constructor-arg name="path" value="${brvs.userKeysPath}"/>
+  </bean>
 
   <!-- IROHA API IPJ CONFIG -->
   <bean id="irohaAPI" class="jp.co.soramitsu.iroha.java.IrohaAPI">
@@ -73,8 +77,9 @@
   <bean id="irohaReliableChainListener"
     class="iroha.validation.listener.IrohaReliableChainListener">
     <constructor-arg name="irohaAPI" ref="irohaAPI"/>
-    <constructor-arg name="accountId" value="${credential.accountId}"/>
-    <constructor-arg name="keyPair" ref="brvsAccountKeyPair"/>
+    <constructor-arg name="brvsAccountId" value="${credential.accountId}"/>
+    <constructor-arg name="brvsKeyPair" ref="brvsAccountKeyPair"/>
+    <constructor-arg name="userKeyPair" ref="firstUserKey"/>
     <constructor-arg name="rmqHost" value="${rmq.host}"/>
     <constructor-arg name="rmqPort" value="${rmq.port}"/>
   </bean>

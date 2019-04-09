@@ -116,8 +116,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
         .map(Utils::toHex)
         .map(String::toLowerCase)
         .collect(Collectors.toSet());
-
-    registeredAccounts.add(brvsAccountId);
   }
 
   /**
