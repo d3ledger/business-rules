@@ -9,4 +9,4 @@ ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait
 RUN chmod +x /wait
 ## Launch the wait tool and then the application
 ADD ./deploy/brvs_run.sh /brvs_run.sh
-CMD /wait && /brvs_run.sh
+ENTRYPOINT ["/brvs_run.sh"]
