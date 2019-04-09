@@ -44,6 +44,10 @@ public interface ValidationUtils {
     return new String(Files.readAllBytes(Paths.get(keyPath)));
   }
 
+  static KeyPair generateOrImportFirstKeypair(String path) throws IOException {
+    return generateOrImportKeypairs(1, path).get(0);
+  }
+
   static List<KeyPair> generateOrImportKeypairs(String amount, String path) throws IOException {
     return generateOrImportKeypairs(Integer.parseInt(amount), path);
   }
