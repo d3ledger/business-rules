@@ -57,8 +57,8 @@ public class IrohaReliableChainListener implements Closeable {
     if (Strings.isNullOrEmpty(brvsAccountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
-    Objects.requireNonNull(brvsKeyPair, "Keypair must not be null");
-    Objects.requireNonNull(userKeyPair, "Keypair must not be null");
+    Objects.requireNonNull(brvsKeyPair, "Brvs Keypair must not be null");
+    Objects.requireNonNull(userKeyPair, "User Keypair must not be null");
     if (Strings.isNullOrEmpty(rmqHost)) {
       throw new IllegalArgumentException("RMQ host must not be neither null nor empty");
     }
