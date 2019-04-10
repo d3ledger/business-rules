@@ -5,6 +5,8 @@
 */build/
 */out/
 deploy/data
+config/context/key*.priv
+config/context/key*.pub
 
 # Ignore Gradle GUI config
 gradle-app.setting
