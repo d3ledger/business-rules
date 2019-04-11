@@ -12,10 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.security.KeyPair;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -58,6 +57,7 @@ public class UpdateWhitelistRule implements Rule {
      * Updates BRVS whitelist according to *client whitelist*
      * - if client added an address -> add the address to BRVS whitelist with new validation time
      * - if client removed an address -> remove it from BRVS whitelist
+     *
      * @param transaction Iroha proto transaction
      * @return true
      */
@@ -91,8 +91,8 @@ public class UpdateWhitelistRule implements Rule {
                                     + clientId + " setter " + clientId + "key " + whitelistKey);
 
                         String detail = queryResponse.getAccountDetailResponse().getDetail();
-                        List<AddressValidation> oldWhitelistValidated =
-                                AddressValidation.deserializeBRVSWhitelist(detail, brvsAccountId, whitelistKey);
+                        Map<String, Long> oldWhitelistValidated =
+                                WhitelistUtils.deserializeBRVSWhitelist(detail, brvsAccountId, whitelistKey);
 
                         // When whitelist is validated
                         long validationTime = System.currentTimeMillis() + validationPeriod;
@@ -100,25 +100,21 @@ public class UpdateWhitelistRule implements Rule {
 
                         // Prepare new whitelist
                         // remove old addresses that user has removed
-                        Set<AddressValidation> newWhitelistValidated = oldWhitelistValidated.stream()
-                                .filter(address -> clientWhitelist.contains(address.getAddress()))
-                                .collect(Collectors.toSet());
+                        Map<String, Long> newWhitelistValidated = oldWhitelistValidated.entrySet().stream()
+                                .filter(address -> clientWhitelist.contains(address.getKey()))
+                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
                         // add new from user whitelist with new validationTime
-                        newWhitelistValidated.addAll(
+                        newWhitelistValidated.putAll(
                                 clientWhitelist.stream()
-                                        .filter(address ->
-                                                oldWhitelistValidated.stream()
-                                                        .noneMatch(pair -> pair.getAddress().equals(address))
-                                        )
-                                        .map(address -> new AddressValidation(address, validationTime))
-                                        .collect(Collectors.toSet())
+                                        .filter(address -> !oldWhitelistValidated.containsKey(address))
+                                        .collect(Collectors.toMap(a -> a, t -> validationTime))
                         );
 
-                        if (newWhitelistValidated.equals(new HashSet<>(oldWhitelistValidated))) {
+                        if (newWhitelistValidated.equals(oldWhitelistValidated)) {
                             logger.debug("No changes in whitelist, nothing to update");
                         } else {
-                            String jsonFin = AddressValidation.serializeBRVSWhitelist(newWhitelistValidated);
+                            String jsonFin = WhitelistUtils.serializeBRVSWhitelist(newWhitelistValidated);
                             logger.debug("Send whitelist to Iroha: " + jsonFin);
 
                             irohaAPI.transactionSync(
@@ -128,7 +124,6 @@ public class UpdateWhitelistRule implements Rule {
                                             .build()
                             );
                         }
-
                     } catch (Exception e) {
                         logger.error("Error during parsing JSON ", e);
                     }
