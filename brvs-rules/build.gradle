@@ -6,6 +6,8 @@ dependencies {
     //Logging
     compile('org.slf4j:slf4j-api:1.7.25')
     compile('org.slf4j:slf4j-simple:1.7.25')
+    // RMQ
+    compile "com.rabbitmq:amqp-client:5.6.0"
 
     // unit tests
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
