@@ -1,15 +1,33 @@
-package iroha.validation.rules.whitelist;
+package iroha.validation.rules.impl.whitelist;
 
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import iroha.protocol.QryResponses;
+import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.Query;
 
+import java.security.KeyPair;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 class WhitelistUtils {
+
+    static final String ETH_WHITELIST_KEY = "eth_whitelist";
+    static final String BTC_WHITELIST_KEY = "btc_whitelist";
+
+    static final Map<String, String> assetToWhitelistKey;
+
+    static {
+        assetToWhitelistKey = new HashMap<>();
+        assetToWhitelistKey.put("ethereum", "eth_whitelist");
+        assetToWhitelistKey.put("sora", "eth_whitelist");
+        assetToWhitelistKey.put("bitcoin", "btc_whitelist");
+    }
+
 
     // Iroha friendly symbols
     private static String IROHA_FRIENDLY_QUOTE = "\\\"";
@@ -17,6 +35,34 @@ class WhitelistUtils {
 
     private static Gson gson = new GsonBuilder().create();
     private static JsonParser parser = new JsonParser();
+
+    /**
+     * Get whitelist that was set by BRVS
+     * @param brvsAccountId - brvs account id is query creator
+     * @param brvsAccountKeyPair - for signing the query
+     * @param irohaAPI - to send query
+     * @param clientId - storage of details
+     * @param whitelistKey - details key
+     * @return Map of (address to validation time)
+     * @throws Exception on invalid response from Iroha
+     */
+    static Map<String, Long> getBRVSWhitelist(
+            String brvsAccountId,
+            KeyPair brvsAccountKeyPair,
+            IrohaAPI irohaAPI,
+            String clientId,
+            String whitelistKey) throws Exception {
+        QryResponses.QueryResponse queryResponse = irohaAPI.query(Query
+                .builder(brvsAccountId, 1L)
+                .getAccountDetail(clientId, brvsAccountId, whitelistKey)
+                .buildSigned(brvsAccountKeyPair));
+        if (!queryResponse.hasAccountDetailResponse())
+            throw new IllegalAccessException("There is no valid response from Iroha about account details in account "
+                    + clientId + " setter " + clientId + "key " + whitelistKey);
+
+        String detail = queryResponse.getAccountDetailResponse().getDetail();
+        return deserializeBRVSWhitelist(detail, brvsAccountId, whitelistKey);
+    }
 
     /**
      * Deserialize BRVS whitelist from JSON
