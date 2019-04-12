@@ -14,6 +14,7 @@ dependencies {
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
     // Mockito
     testCompile('org.mockito:mockito-core:2.24.0')
+    testCompile('org.powermock:powermock-api-mockito2:2.0.0')
     testCompile('org.mockito:mockito-junit-jupiter:2.24.0')
 }
 

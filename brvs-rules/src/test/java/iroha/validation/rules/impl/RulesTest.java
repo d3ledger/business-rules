@@ -10,33 +10,56 @@ import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
+import iroha.validation.rules.impl.billing.BillingRule;
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.api.support.membermodification.MemberMatcher;
 
 class RulesTest {
 
   private String asset;
   private Transaction transaction;
   private TransferAsset transferAsset;
+  private List<Command> commands;
   private Rule rule;
 
-  private void initTransferTxVolumeTest() {
+  private void init() {
     asset = "asset";
-    rule = new TransferTxVolumeRule(asset, BigDecimal.TEN);
     // transfer mock
     transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
-    Command command = mock(Command.class);
+    final Command command = mock(Command.class);
+    commands = Collections.singletonList(command);
     transferAsset = mock(TransferAsset.class);
 
     when(transaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList())
-        .thenReturn(Collections.singletonList(command));
+        .thenReturn(commands);
 
     when(command.hasTransferAsset()).thenReturn(true);
     when(command.getTransferAsset()).thenReturn(transferAsset);
+    when(transferAsset.getSrcAccountId()).thenReturn("user@users");
+    when(transferAsset.getDestAccountId()).thenReturn("transfer_billing@users");
+  }
+
+  private void initTransferTxVolumeTest() {
+    init();
+    rule = new TransferTxVolumeRule(asset, BigDecimal.TEN);
+  }
+
+  private void initBillingTest() {
+    init();
+    PowerMockito.suppress(MemberMatcher
+        .methods(BillingRule.class,
+            "runCacheUpdater",
+            "readBillingOnStartup",
+            "executeGetRequest")
+    );
+    rule = PowerMockito.mock(BillingRule.class);
   }
 
   /**
@@ -94,6 +117,21 @@ class RulesTest {
   @Test
   void violatedTransferTxVolumeRuleTest() {
     initTransferTxVolumeTest();
+
+    when(transferAsset.getAssetId()).thenReturn(asset);
+    when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
+
+    assertFalse(rule.isSatisfiedBy(transaction));
+  }
+
+  /**
+   * @given {@link BillingRule} instance with no billing data
+   * @when {@link Transaction} with {@link Command TransferAsset} command of 100 "asset" passed
+   * @then {@link BillingRule} is satisfied by such {@link Transaction}
+   */
+  @Test
+  void emptyBillingRuleTest() {
+    initBillingTest();
 
     when(transferAsset.getAssetId()).thenReturn(asset);
     when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());

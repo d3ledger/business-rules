@@ -95,9 +95,10 @@ public class BillingRule implements Rule {
   }
 
   private void runCacheUpdater() throws IOException {
-    if (!isRunning) {
-      isRunning = true;
+    if (isRunning) {
+      return;
     }
+    isRunning = true;
     readBillingOnStartup();
     getMqUpdatesObservable().subscribeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
         .subscribe(update -> {
