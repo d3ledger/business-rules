@@ -1,4 +1,4 @@
-package iroha.validation.rules;
+package iroha.validation.rules.impl.whitelist;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,8 +14,7 @@ import iroha.protocol.Commands.Command;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
-import iroha.validation.rules.impl.whitelist.UpdateWhitelistRule;
-import iroha.validation.rules.impl.whitelist.WhitelistUtils;
+import iroha.validation.rules.Rule;
 import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.Collections;

@@ -1,4 +1,4 @@
-package iroha.validation.rules;
+package iroha.validation.rules.impl.whitelist;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,13 +11,14 @@ import iroha.protocol.Commands;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
+import iroha.validation.rules.Rule;
 import java.security.KeyPair;
 import java.util.Collections;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import org.junit.jupiter.api.Test;
 
-class CheckWhitelistRule {
+class CheckWhitelistRuleTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
 
@@ -35,8 +36,8 @@ class CheckWhitelistRule {
   private final Transaction transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
   private final QueryResponse queryResponse = mock(QueryResponse.class, RETURNS_DEEP_STUBS);
 
-  private Rule rule = new iroha.validation.rules.impl.whitelist.CheckWhitelistRule(brvsAccountId,
-      brvsAccountKeyPair, irohaAPI);
+  private Rule rule = new CheckWhitelistRule(brvsAccountId,
+      brvsAccountKeyPair, irohaAPI, withdrawalClientId);
 
   private void setEnvironmentTest(String clientListResponse) {
     when(transaction

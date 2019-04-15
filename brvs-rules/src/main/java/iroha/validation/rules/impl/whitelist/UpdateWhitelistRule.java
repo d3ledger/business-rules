@@ -120,7 +120,7 @@ public class UpdateWhitelistRule implements Rule {
               );
             }
           } catch (Exception e) {
-            logger.error("Error during parsing JSON ", e);
+            logger.error("Error while updating whitelist ", e);
             return false;
           }
 
