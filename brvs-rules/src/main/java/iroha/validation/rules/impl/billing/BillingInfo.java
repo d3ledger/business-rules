@@ -1,11 +1,13 @@
 package iroha.validation.rules.impl.billing;
 
+import com.google.common.base.Strings;
 import com.google.gson.JsonObject;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class BillingInfo {
@@ -31,6 +33,16 @@ public class BillingInfo {
       BigDecimal feeFraction,
       LocalDateTime updated) {
 
+    if (Strings.isNullOrEmpty(domain)) {
+      throw new IllegalArgumentException("Domain must not be neither null nor empty");
+    }
+    Objects.requireNonNull(billingType, "Billing type must not be null");
+    if (Strings.isNullOrEmpty(asset)) {
+      throw new IllegalArgumentException("Asset must not be neither null nor empty");
+    }
+    Objects.requireNonNull(feeFraction, "Fee fraction must not be null");
+    Objects.requireNonNull(updated, "Updated time must not be null");
+
     this.domain = domain;
     this.billingType = billingType;
     this.asset = asset;
@@ -51,7 +63,8 @@ public class BillingInfo {
       this.label = label;
     }
 
-    /* default */ static BillingTypeEnum valueOfLabel(String label) {
+    /* default */
+    static BillingTypeEnum valueOfLabel(String label) {
       for (BillingTypeEnum e : values()) {
         if (e.label.equals(label)) {
           return e;
@@ -68,7 +81,8 @@ public class BillingInfo {
     }
   }
 
-  /* default */ static Set<BillingInfo> parseBillingHttpDto(String billingType,
+  /* default */
+  static Set<BillingInfo> parseBillingHttpDto(String billingType,
       Map<String, Map<String, JsonObject>> domainsMap) {
 
     final Set<BillingInfo> result = new HashSet<>();
@@ -94,7 +108,8 @@ public class BillingInfo {
     return LocalDateTime.parse(s.substring(0, 22), isoLocalDateTime);
   }
 
-  /* default */ static BillingInfo parseBillingMqDto(JsonObject object) {
+  /* default */
+  static BillingInfo parseBillingMqDto(JsonObject object) {
     return new BillingInfo(
         getDomain(object.getAsJsonPrimitive(ACCOUNT_ID_ATTRIBUTE).getAsString()),
         BillingTypeEnum.valueOfLabel(object.getAsJsonPrimitive(BILLING_TYPE_ATTRIBUTE)
@@ -105,11 +120,13 @@ public class BillingInfo {
     );
   }
 
-  /* default */ static String getDomain(String accountId) {
+  /* default */
+  static String getDomain(String accountId) {
     return accountId.split("@")[1];
   }
 
-  /* default */ static String getName(String accountId) {
+  /* default */
+  static String getName(String accountId) {
     return accountId.split("@")[0];
   }
 
@@ -126,7 +143,11 @@ public class BillingInfo {
     if (!this.getClass().isAssignableFrom(other.getClass())) {
       return false;
     }
-    return other.hashCode() == this.hashCode();
+    BillingInfo otherObj = (BillingInfo) other;
+    return otherObj.asset.equals(this.asset)
+        && otherObj.billingType.equals(this.billingType)
+        && otherObj.domain.equals(this.domain)
+        && otherObj.feeFraction.equals(this.feeFraction);
   }
 
   /* default */ String getDomain() {

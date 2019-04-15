@@ -104,12 +104,13 @@ public class BillingRule implements Rule {
         .subscribe(update -> {
               final BillingInfo currentBillingInfo = cache
                   .stream()
+                  // equality check does not check the date
                   .filter(entry -> entry.equals(update))
                   .findAny()
                   .orElse(null);
               if (currentBillingInfo == null
                   || currentBillingInfo.getUpdated().isBefore(update.getUpdated())) {
-                // Will be replaced, see BillingInfo#hashCode
+                cache.remove(update);
                 cache.add(update);
               }
             }
