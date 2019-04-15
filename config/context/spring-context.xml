@@ -145,7 +145,7 @@
     <constructor-arg name="withdrawalAccount" value="${btcCheckWhitelist.withdrawalAccount}"/>
   </bean>
   <bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">
-    <constructor-arg name="getBillingURL" value="http://localhost:8080/cache/get/billing"/>
+    <constructor-arg name="getBillingURL" value="${billing.url}"/>
     <constructor-arg name="rmqHost" value="${rmq.host}"/>
     <constructor-arg name="rmqPort" value="${rmq.port}"/>
     <constructor-arg name="rmqExchange" value="${billing.rmq.exchange}"/>
