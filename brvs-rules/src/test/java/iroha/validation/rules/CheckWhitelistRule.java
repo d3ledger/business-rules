@@ -11,7 +11,6 @@ import iroha.protocol.Commands;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
-import iroha.validation.rules.impl.whitelist.WhitelistUtils;
 import java.security.KeyPair;
 import java.util.Collections;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;

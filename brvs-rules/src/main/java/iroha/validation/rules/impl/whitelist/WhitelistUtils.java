@@ -84,6 +84,7 @@ public class WhitelistUtils {
 
   /**
    * Get domain from asset id
+   *
    * @param assetId - string in form 'asset#domain'
    * @return domain of asset
    */

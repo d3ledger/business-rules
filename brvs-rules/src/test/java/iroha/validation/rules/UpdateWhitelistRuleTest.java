@@ -151,5 +151,4 @@ class UpdateWhitelistRuleTest {
         WhitelistUtils.deserializeBRVSWhitelist(cmd.getSetAccountDetail().getValue()).keySet(),
         whitelistSet);
   }
-
 }
