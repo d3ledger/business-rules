@@ -136,13 +136,13 @@
     <constructor-arg name="brvsAccountId" value="${credential.accountId}"/>
     <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
     <constructor-arg name="irohaAPI" ref="irohaAPI"/>
-    <constructor-arg name="withdrawalAccount" ref="${ethCheckWhitelist.withdrawalAccount}"/>
+    <constructor-arg name="withdrawalAccount" value="${ethCheckWhitelist.withdrawalAccount}"/>
   </bean>
   <bean id="checkBtcWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
     <constructor-arg name="brvsAccountId" value="${credential.accountId}"/>
     <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
     <constructor-arg name="irohaAPI" ref="irohaAPI"/>
-    <constructor-arg name="withdrawalAccount" ref="${btcCheckWhitelist.withdrawalAccount}"/>
+    <constructor-arg name="withdrawalAccount" value="${btcCheckWhitelist.withdrawalAccount}"/>
   </bean>
   <util:list id="rules" value-type="iroha.validation.rules.Rule">
     <ref bean="sampleRule"/>
