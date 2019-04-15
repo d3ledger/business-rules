@@ -374,7 +374,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   private <T> Iterable<T> getAccountsFrom(String accountsHolderAccount,
       Function<Entry, T> processor) {
-
+    logger.info("Going to read accounts data from " + accountsHolderAccount);
     Set<T> resultSet = new HashSet<>();
     QueryResponse queryResponse = irohaAPI.query(Query
         .builder(brvsAccountId, 1L)
