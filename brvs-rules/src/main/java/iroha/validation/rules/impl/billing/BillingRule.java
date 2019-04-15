@@ -35,9 +35,12 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BillingRule implements Rule {
 
+  private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
   private static final String QUEUE_NAME = "brvs_billing_updates";
   private static final String TRANSFER_BILLING_ACCOUNT_NAME = "transfer_billing";
   private static final String CUSTODY_BILLING_ACCOUNT_NAME = "custody_billing";
@@ -96,12 +99,14 @@ public class BillingRule implements Rule {
 
   private void runCacheUpdater() throws IOException {
     if (isRunning) {
+      logger.warn("Cache updater is already running");
       return;
     }
     isRunning = true;
     readBillingOnStartup();
     getMqUpdatesObservable().subscribeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
         .subscribe(update -> {
+              logger.info("Got billing data update from MQ: " + update.toString());
               final BillingInfo currentBillingInfo = cache
                   .stream()
                   // equality check does not check the date
@@ -115,10 +120,12 @@ public class BillingRule implements Rule {
               }
             }
         );
+    logger.info("Billing cache updater has been started");
   }
 
   private void readBillingOnStartup() throws IOException {
     final JsonObject root = jsonParser.parse(executeGetRequest()).getAsJsonObject();
+    logger.info("Got billing data response from HTTP server: " + root);
     for (BillingTypeEnum billingType : BillingTypeEnum.values()) {
       final String label = billingType.label;
       cache.addAll(
@@ -225,7 +232,7 @@ public class BillingRule implements Rule {
       if (fee.getSrcAccountId().equals(srcAccountId)
           && fee.getAssetId().equals(assetId)
           && new BigDecimal(fee.getAmount())
-          .equals(amount.multiply(feeFraction))) {
+          .compareTo(amount.multiply(feeFraction)) == 0) {
         return fee;
       }
     }

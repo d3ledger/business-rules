@@ -88,15 +88,17 @@ public class BillingInfo {
     final Set<BillingInfo> result = new HashSet<>();
     domainsMap.forEach(
         (domain, assetsMap) -> assetsMap.forEach(
-            (asset, info) -> result.add(
-                new BillingInfo(
-                    domain,
-                    BillingTypeEnum.valueOfLabel(billingType),
-                    asset,
-                    info.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
-                    parseDateTime(info.get(CREATED_ATTRIBUTE).getAsString())
-                )
-            )
+            (asset, info) -> {
+              result.add(
+                  new BillingInfo(
+                      domain,
+                      BillingTypeEnum.valueOfLabel(billingType),
+                      asset,
+                      info.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
+                      parseDateTime(info.get(CREATED_ATTRIBUTE).getAsString())
+                  )
+              );
+            }
         )
     );
 
@@ -111,12 +113,11 @@ public class BillingInfo {
   /* default */
   static BillingInfo parseBillingMqDto(JsonObject object) {
     return new BillingInfo(
-        getDomain(object.getAsJsonPrimitive(ACCOUNT_ID_ATTRIBUTE).getAsString()),
-        BillingTypeEnum.valueOfLabel(object.getAsJsonPrimitive(BILLING_TYPE_ATTRIBUTE)
-            .getAsString()),
-        object.getAsJsonPrimitive(ASSET_ATTRIBUTE).getAsString(),
-        object.getAsJsonPrimitive(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
-        parseDateTime(object.getAsJsonPrimitive(UPDATED_ATTRIBUTE).getAsString())
+        getDomain(object.get(ACCOUNT_ID_ATTRIBUTE).getAsString()),
+        BillingTypeEnum.valueOfLabel(object.get(BILLING_TYPE_ATTRIBUTE).getAsString()),
+        object.get(ASSET_ATTRIBUTE).getAsString(),
+        object.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
+        parseDateTime(object.get(UPDATED_ATTRIBUTE).getAsString())
     );
   }
 
@@ -148,6 +149,15 @@ public class BillingInfo {
         && otherObj.billingType.equals(this.billingType)
         && otherObj.domain.equals(this.domain)
         && otherObj.feeFraction.equals(this.feeFraction);
+  }
+
+  @Override
+  public String toString() {
+    return "Domain=" + domain +
+        ";Type=" + billingType.name() +
+        ";Asset=" + asset +
+        ";FeeFraction=" + feeFraction.toPlainString() +
+        ";Updated=" + updated.toString();
   }
 
   /* default */ String getDomain() {
