@@ -18,13 +18,13 @@ public class CheckWhitelistRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(UpdateWhitelistRule.class);
 
-  private static final String withdrawalAccount = "notary@notary";
-
   private final String brvsAccountId;
   private final KeyPair brvsAccountKeyPair;
   private final IrohaAPI irohaAPI;
+  private final String withdrawalAccount;
 
-  public CheckWhitelistRule(String brvsAccountId, KeyPair brvsAccountKeyPair, IrohaAPI irohaAPI) {
+  public CheckWhitelistRule(String brvsAccountId, KeyPair brvsAccountKeyPair, IrohaAPI irohaAPI,
+      String withdrawalAccount) {
     if (Strings.isNullOrEmpty(brvsAccountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
@@ -35,6 +35,8 @@ public class CheckWhitelistRule implements Rule {
 
     Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
     this.irohaAPI = irohaAPI;
+
+    this.withdrawalAccount = withdrawalAccount;
   }
 
   @Override
