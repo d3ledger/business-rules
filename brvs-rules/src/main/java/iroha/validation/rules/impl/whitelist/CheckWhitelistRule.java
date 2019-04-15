@@ -18,14 +18,13 @@ public class CheckWhitelistRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(UpdateWhitelistRule.class);
 
-  private String withdrawalAccount = "notary@notary";
+  private static final String withdrawalAccount = "notary@notary";
 
   private String brvsAccountId;
   private KeyPair brvsAccountKeyPair;
   private IrohaAPI irohaAPI;
 
   public CheckWhitelistRule(String brvsAccountId, KeyPair brvsAccountKeyPair, IrohaAPI irohaAPI) {
-    logger.info("START CheckWhitelistRule");
     if (Strings.isNullOrEmpty(brvsAccountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
@@ -55,7 +54,7 @@ public class CheckWhitelistRule implements Rule {
                 String clientId = transfer.getSrcAccountId();
                 String address = transfer.getDescription();
                 String asset = transfer.getAssetId();
-                String assetDomain = asset.substring(asset.lastIndexOf("#") + 1);
+                String assetDomain = WhitelistUtils.getAssetDomain(asset);
 
                 String whitelistKey = WhitelistUtils.assetToWhitelistKey.get(assetDomain);
 
@@ -79,7 +78,7 @@ public class CheckWhitelistRule implements Rule {
                   logger.info("Transfer allowed.");
                   return true;
                 } else {
-                  logger.info("Not allowed. Address " + address + "will be validated after "
+                  logger.info("Not allowed. Address " + address + " will be validated after "
                       + whitelistValidated.get(address) + " now " + now);
                   return false;
                 }

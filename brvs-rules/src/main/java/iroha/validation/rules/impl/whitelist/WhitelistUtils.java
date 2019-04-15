@@ -48,14 +48,14 @@ public class WhitelistUtils {
    * @param clientId - storage of details
    * @param whitelistKey - details key
    * @return Map of (address to validation time)
-   * @throws Exception on invalid response from Iroha
+   * @throws IllegalAccessException on invalid response from Iroha
    */
   static Map<String, Long> getBRVSWhitelist(
       String brvsAccountId,
       KeyPair brvsAccountKeyPair,
       IrohaAPI irohaAPI,
       String clientId,
-      String whitelistKey) throws Exception {
+      String whitelistKey) throws IllegalAccessException {
     QryResponses.QueryResponse queryResponse = irohaAPI.query(Query
         .builder(brvsAccountId, 1L)
         .getAccountDetail(clientId, brvsAccountId, whitelistKey)
@@ -80,6 +80,15 @@ public class WhitelistUtils {
     String whitelistJSON = keyNode.getAsJsonPrimitive(whitelistKey).getAsString();
 
     return deserializeBRVSWhitelist(whitelistJSON);
+  }
+
+  /**
+   * Get domain from asset id
+   * @param assetId - string in form 'asset#domain'
+   * @return domain of asset
+   */
+  public static String getAssetDomain(String assetId) {
+    return assetId.substring(assetId.lastIndexOf("#") + 1);
   }
 
   /**
@@ -133,5 +142,4 @@ public class WhitelistUtils {
     return str.replace(IROHA_FRIENDLY_QUOTE, "\"")
         .replace(IROHA_FRIENDLY_EOL, "\n");
   }
-
 }

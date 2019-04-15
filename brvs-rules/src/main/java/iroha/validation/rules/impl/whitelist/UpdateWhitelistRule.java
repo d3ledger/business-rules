@@ -22,18 +22,17 @@ public class UpdateWhitelistRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(UpdateWhitelistRule.class);
 
-  private String brvsAccountId;
-  private KeyPair brvsAccountKeyPair;
-  private IrohaAPI irohaAPI;
+  private final String brvsAccountId;
+  private final KeyPair brvsAccountKeyPair;
+  private final IrohaAPI irohaAPI;
 
   /**
    * When new address will be valid
    */
-  private long validationPeriod;
+  private final long validationPeriod;
 
   public UpdateWhitelistRule(String brvsAccountId, KeyPair brvsAccountKeyPair, IrohaAPI irohaAPI,
       long validationPeriod) {
-    logger.info("START UpdateWhitelistRule");
     if (Strings.isNullOrEmpty(brvsAccountId)) {
       throw new IllegalArgumentException("Account ID must not be neither null nor empty");
     }
@@ -59,6 +58,7 @@ public class UpdateWhitelistRule implements Rule {
   @Override
   public boolean isSatisfiedBy(TransactionOuterClass.Transaction transaction) {
     String clientId = transaction.getPayload().getReducedPayload().getCreatorAccountId();
+    long createdTime = transaction.getPayload().getReducedPayload().getCreatedTime();
 
     return transaction
         .getPayload()
@@ -106,12 +106,15 @@ public class UpdateWhitelistRule implements Rule {
             if (newWhitelistValidated.equals(oldWhitelistValidated)) {
               logger.info("No changes in whitelist, nothing to update");
             } else {
-              String jsonFin = WhitelistUtils.serializeBRVSWhitelist(newWhitelistValidated);
-              logger.info("Send whitelist to Iroha: " + jsonFin);
+              String jsonNewBrvsWhitelist = WhitelistUtils
+                  .serializeBRVSWhitelist(newWhitelistValidated);
+              logger.info("Send whitelist to Iroha: " + jsonNewBrvsWhitelist);
 
               irohaAPI.transactionSync(
                   Transaction.builder(brvsAccountId)
-                      .setAccountDetail(clientId, whitelistKey, WhitelistUtils.irohaEscape(jsonFin))
+                      .setCreatedTime(createdTime)
+                      .setAccountDetail(clientId, whitelistKey,
+                          WhitelistUtils.irohaEscape(jsonNewBrvsWhitelist))
                       .sign(brvsAccountKeyPair)
                       .build()
               );

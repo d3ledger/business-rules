@@ -32,21 +32,21 @@ class UpdateWhitelistRuleTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
 
-  private String brvsAccountId = "brvs@brvs";
-  private KeyPair brvsAccountKeyPair = crypto.generateKeypair();
-  private IrohaAPI irohaAPI = mock(IrohaAPI.class);
-  private long validationPeriod = 10;
+  private final String brvsAccountId = "brvs@brvs";
+  private final KeyPair brvsAccountKeyPair = crypto.generateKeypair();
+  private final IrohaAPI irohaAPI = mock(IrohaAPI.class);
+  private final long validationPeriod = 10;
 
   private String clientId = "client@d3";
 
-  private Commands.Command command = mock(Commands.Command.class, RETURNS_DEEP_STUBS);
-  private Transaction transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
-  private QueryResponse queryResponse = mock(QueryResponse.class, RETURNS_DEEP_STUBS);
+  private final Commands.Command command = mock(Commands.Command.class, RETURNS_DEEP_STUBS);
+  private final Transaction transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
+  private final QueryResponse queryResponse = mock(QueryResponse.class, RETURNS_DEEP_STUBS);
 
   @Captor
-  private ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
+  private final ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
 
-  private Rule rule = new UpdateWhitelistRule(brvsAccountId, brvsAccountKeyPair, irohaAPI,
+  private final Rule rule = new UpdateWhitelistRule(brvsAccountId, brvsAccountKeyPair, irohaAPI,
       validationPeriod);
 
   private void setEnvironmentTest(List<String> whitelist, String key, String clientListResponse) {
@@ -107,9 +107,9 @@ class UpdateWhitelistRuleTest {
     assertEquals(key, cmd.getSetAccountDetail().getKey());
 
     Set<String> whitelistSet = new HashSet<>(ethWhitelist);
-    assertTrue(
-        WhitelistUtils.deserializeBRVSWhitelist(cmd.getSetAccountDetail().getValue()).keySet()
-            .equals(whitelistSet));
+    assertEquals(
+        WhitelistUtils.deserializeBRVSWhitelist(cmd.getSetAccountDetail().getValue()).keySet(),
+        whitelistSet);
   }
 
   /**
@@ -147,9 +147,9 @@ class UpdateWhitelistRuleTest {
     assertEquals(key, cmd.getSetAccountDetail().getKey());
 
     Set<String> whitelistSet = new HashSet<>(ethWhitelist);
-    assertTrue(
-        WhitelistUtils.deserializeBRVSWhitelist(cmd.getSetAccountDetail().getValue()).keySet()
-            .equals(whitelistSet));
+    assertEquals(
+        WhitelistUtils.deserializeBRVSWhitelist(cmd.getSetAccountDetail().getValue()).keySet(),
+        whitelistSet);
   }
 
 }

@@ -17,32 +17,29 @@ import java.util.Collections;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 
 class CheckWhitelistRule {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
 
-  private String brvsAccountId = "brvs@brvs";
-  private KeyPair brvsAccountKeyPair = crypto.generateKeypair();
-  private IrohaAPI irohaAPI = mock(IrohaAPI.class);
-  private long validationPeriod = 10;
+  private final String brvsAccountId = "brvs@brvs";
+  private final KeyPair brvsAccountKeyPair = crypto.generateKeypair();
+  private final IrohaAPI irohaAPI = mock(IrohaAPI.class);
 
-  private String clientId = "client@d3";
-  private String amount = "123";
-  private String witdrawalAddress = "0x6826d84158e516f631bBf14586a9BE7e255b2D20";
-  private String assetId = "ether#ethereum";
-  private String withdrawalClientId = "notary@notary";
+  private final String clientId = "client@d3";
+  private final String amount = "123";
+  private final String witdrawalAddress = "0x6826d84158e516f631bBf14586a9BE7e255b2D20";
+  private final String assetId = "ether#ethereum";
+  private final String withdrawalClientId = "notary@notary";
 
-  private Commands.Command command = mock(Commands.Command.class, RETURNS_DEEP_STUBS);
-  private Transaction transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
-  private QueryResponse queryResponse = mock(QueryResponse.class, RETURNS_DEEP_STUBS);
+  private final Commands.Command command = mock(Commands.Command.class, RETURNS_DEEP_STUBS);
+  private final Transaction transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
+  private final QueryResponse queryResponse = mock(QueryResponse.class, RETURNS_DEEP_STUBS);
 
   private Rule rule = new iroha.validation.rules.impl.whitelist.CheckWhitelistRule(brvsAccountId,
       brvsAccountKeyPair, irohaAPI);
 
-  private void setEnvironmentTest(String key, String clientListResponse) {
+  private void setEnvironmentTest(String clientListResponse) {
     when(transaction
         .getPayload()
         .getReducedPayload()
@@ -70,12 +67,10 @@ class CheckWhitelistRule {
    */
   @Test
   void withdrawalTest() {
-    String key = WhitelistUtils.ETH_WHITELIST_KEY;
-
     // BRVS response with whitelist
     String clientListResponse = "{\"brvs@brvs\" : {\"eth_whitelist\" : \"{\\\"0x6826d84158e516f631bBf14586a9BE7e255b2D20\\\":1}\"}}";
 
-    setEnvironmentTest(key, clientListResponse);
+    setEnvironmentTest(clientListResponse);
 
     assertTrue(rule.isSatisfiedBy(transaction));
   }
@@ -89,12 +84,10 @@ class CheckWhitelistRule {
    */
   @Test
   void withdrawalNotWhitelistedTest() {
-    String key = WhitelistUtils.ETH_WHITELIST_KEY;
-
     // BRVS response with whitelist with different address
     String clientListResponse = "{\"brvs@brvs\" : {\"eth_whitelist\" : \"{\\\"0x6826d84158e516f631bBf14586a9BE7e255b2D22\\\":1}\"}}";
 
-    setEnvironmentTest(key, clientListResponse);
+    setEnvironmentTest(clientListResponse);
 
     assertFalse(rule.isSatisfiedBy(transaction));
   }
@@ -108,14 +101,11 @@ class CheckWhitelistRule {
    */
   @Test
   void withdrawalNotValidatedTest() {
-    String key = WhitelistUtils.ETH_WHITELIST_KEY;
-
     // BRVS response with whitelist with different address
     String clientListResponse = "{\"brvs@brvs\" : {\"eth_whitelist\" : \"{\\\"0x6826d84158e516f631bBf14586a9BE7e255b2D22\\\":999999999999}\"}}";
 
-    setEnvironmentTest(key, clientListResponse);
+    setEnvironmentTest(clientListResponse);
 
     assertFalse(rule.isSatisfiedBy(transaction));
   }
-
 }
