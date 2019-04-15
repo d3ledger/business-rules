@@ -1,4 +1,4 @@
-package iroha.validation.rules;
+package iroha.validation.rules.impl;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,8 +9,7 @@ import static org.mockito.Mockito.when;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
-import iroha.validation.rules.impl.SampleRule;
-import iroha.validation.rules.impl.TransferTxVolumeRule;
+import iroha.validation.rules.Rule;
 import java.math.BigDecimal;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
