@@ -54,14 +54,14 @@ public class BillingRule implements Rule {
   private static final JsonParser jsonParser = new JsonParser();
   private static final TransferAsset FEE_NOT_NEEDED = TransferAsset.getDefaultInstance();
   private static final BigDecimal NO_FEE = BigDecimal.ZERO;
+  private static final Gson gson = new Gson();
 
-  private boolean isRunning = false;
+  private boolean isRunning;
   private final String getBillingURL;
   private final String rmqHost;
   private final int rmqPort;
   private final String rmqExchange;
   private final String rmqRoutingKey;
-  private final Gson gson = new Gson();
   private final Set<BillingInfo> cache = new HashSet<>();
 
   public BillingRule(String getBillingURL,
@@ -170,7 +170,7 @@ public class BillingRule implements Rule {
     // start consumer
     try {
       Channel channel = connection.createChannel();
-      channel.exchangeDeclare(rmqExchange, BuiltinExchangeType.FANOUT, true);
+      channel.exchangeDeclare(rmqExchange, BuiltinExchangeType.TOPIC, true);
       String queue = channel.queueDeclare(QUEUE_NAME, true, false, false, null).getQueue();
       channel.queueBind(queue, rmqExchange, rmqRoutingKey);
       channel.basicConsume(queue, true, deliverCallback, cancelCallback);
