@@ -20,9 +20,9 @@ public class CheckWhitelistRule implements Rule {
 
   private static final String withdrawalAccount = "notary@notary";
 
-  private String brvsAccountId;
-  private KeyPair brvsAccountKeyPair;
-  private IrohaAPI irohaAPI;
+  private final String brvsAccountId;
+  private final KeyPair brvsAccountKeyPair;
+  private final IrohaAPI irohaAPI;
 
   public CheckWhitelistRule(String brvsAccountId, KeyPair brvsAccountKeyPair, IrohaAPI irohaAPI) {
     if (Strings.isNullOrEmpty(brvsAccountId)) {
