@@ -114,7 +114,7 @@ public class BillingRule implements Rule {
                   .findAny()
                   .orElse(null);
               if (currentBillingInfo == null
-                  || currentBillingInfo.getUpdated().isBefore(update.getUpdated())) {
+                  || currentBillingInfo.getUpdated() < update.getUpdated()) {
                 cache.remove(update);
                 cache.add(update);
               }

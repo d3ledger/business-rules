@@ -24,14 +24,14 @@ public class BillingInfo {
   private BillingTypeEnum billingType;
   private String asset;
   private BigDecimal feeFraction;
-  private LocalDateTime updated;
+  private long updated;
 
   private BillingInfo(
       String domain,
       BillingTypeEnum billingType,
       String asset,
       BigDecimal feeFraction,
-      LocalDateTime updated) {
+      long updated) {
 
     if (Strings.isNullOrEmpty(domain)) {
       throw new IllegalArgumentException("Domain must not be neither null nor empty");
@@ -41,7 +41,6 @@ public class BillingInfo {
       throw new IllegalArgumentException("Asset must not be neither null nor empty");
     }
     Objects.requireNonNull(feeFraction, "Fee fraction must not be null");
-    Objects.requireNonNull(updated, "Updated time must not be null");
 
     this.domain = domain;
     this.billingType = billingType;
@@ -93,7 +92,7 @@ public class BillingInfo {
                       BillingTypeEnum.valueOfLabel(billingType),
                       asset,
                       info.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
-                      parseDateTime(info.get(CREATED_ATTRIBUTE).getAsString())
+                      info.get(CREATED_ATTRIBUTE).getAsLong()
                   )
               );
             }
@@ -103,18 +102,13 @@ public class BillingInfo {
     return result;
   }
 
-  private static LocalDateTime parseDateTime(String s) {
-    // We take (0,22) since Z is not processed by the formatter
-    return LocalDateTime.parse(s.substring(0, 22), isoLocalDateTime);
-  }
-
   /* default */ static BillingInfo parseBillingMqDto(JsonObject object) {
     return new BillingInfo(
         getDomain(object.get(ACCOUNT_ID_ATTRIBUTE).getAsString()),
         BillingTypeEnum.valueOfLabel(object.get(BILLING_TYPE_ATTRIBUTE).getAsString()),
         object.get(ASSET_ATTRIBUTE).getAsString(),
         object.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
-        parseDateTime(object.get(UPDATED_ATTRIBUTE).getAsString())
+        object.get(UPDATED_ATTRIBUTE).getAsLong()
     );
   }
 
@@ -152,7 +146,7 @@ public class BillingInfo {
         ";Type=" + billingType.name() +
         ";Asset=" + asset +
         ";FeeFraction=" + feeFraction.toPlainString() +
-        ";Updated=" + updated.toString();
+        ";Updated=" + updated;
   }
 
   /* default */ String getDomain() {
@@ -171,7 +165,7 @@ public class BillingInfo {
     return feeFraction;
   }
 
-  /* default */ LocalDateTime getUpdated() {
+  /* default */ long getUpdated() {
     return updated;
   }
 }
