@@ -63,8 +63,7 @@ public class BillingInfo {
       this.label = label;
     }
 
-    /* default */
-    static BillingTypeEnum valueOfLabel(String label) {
+    /* default */ static BillingTypeEnum valueOfLabel(String label) {
       for (BillingTypeEnum e : values()) {
         if (e.label.equals(label)) {
           return e;
@@ -81,8 +80,7 @@ public class BillingInfo {
     }
   }
 
-  /* default */
-  static Set<BillingInfo> parseBillingHttpDto(String billingType,
+  /* default */ static Set<BillingInfo> parseBillingHttpDto(String billingType,
       Map<String, Map<String, JsonObject>> domainsMap) {
 
     final Set<BillingInfo> result = new HashSet<>();
@@ -110,8 +108,7 @@ public class BillingInfo {
     return LocalDateTime.parse(s.substring(0, 22), isoLocalDateTime);
   }
 
-  /* default */
-  static BillingInfo parseBillingMqDto(JsonObject object) {
+  /* default */ static BillingInfo parseBillingMqDto(JsonObject object) {
     return new BillingInfo(
         getDomain(object.get(ACCOUNT_ID_ATTRIBUTE).getAsString()),
         BillingTypeEnum.valueOfLabel(object.get(BILLING_TYPE_ATTRIBUTE).getAsString()),
@@ -121,13 +118,11 @@ public class BillingInfo {
     );
   }
 
-  /* default */
-  static String getDomain(String accountId) {
+  /* default */ static String getDomain(String accountId) {
     return accountId.split("@")[1];
   }
 
-  /* default */
-  static String getName(String accountId) {
+  /* default */ static String getName(String accountId) {
     return accountId.split("@")[0];
   }
 
