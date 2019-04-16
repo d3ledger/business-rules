@@ -27,6 +27,7 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,28 +36,28 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import jp.co.soramitsu.iroha.java.detail.Const;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BillingRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
+  private static final String SEPARATOR = ",";
   private static final String QUEUE_NAME = "brvs_billing_updates";
   private static final String TRANSFER_BILLING_ACCOUNT_NAME = "transfer_billing";
   private static final String CUSTODY_BILLING_ACCOUNT_NAME = "custody_billing";
   private static final String ACCOUNT_CREATION_BILLING_ACCOUNT_NAME = "account_creation_billing";
   private static final String EXCHANGE_BILLING_ACCOUNT_NAME = "exchange_billing";
   private static final String WITHDRAWAL_BILLING_ACCOUNT_NAME = "withdrawal_billing";
-  private static final Map<String, BillingTypeEnum> feeAccounts = new HashMap<String, BillingTypeEnum>() {{
-    put(TRANSFER_BILLING_ACCOUNT_NAME, BillingTypeEnum.TRANSFER);
-    put(CUSTODY_BILLING_ACCOUNT_NAME, BillingTypeEnum.CUSTODY);
-    put(ACCOUNT_CREATION_BILLING_ACCOUNT_NAME, BillingTypeEnum.ACCOUNT_CREATION);
-    put(EXCHANGE_BILLING_ACCOUNT_NAME, BillingTypeEnum.EXCHANGE);
-    put(WITHDRAWAL_BILLING_ACCOUNT_NAME, BillingTypeEnum.WITHDRAWAL);
+  private static final Map<BillingTypeEnum, String> feeTypesAccounts = new HashMap<BillingTypeEnum, String>() {{
+    put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
+    put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
+    put(BillingTypeEnum.ACCOUNT_CREATION, ACCOUNT_CREATION_BILLING_ACCOUNT_NAME);
+    put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
+    put(BillingTypeEnum.WITHDRAWAL, WITHDRAWAL_BILLING_ACCOUNT_NAME);
   }};
   private static final JsonParser jsonParser = new JsonParser();
-  private static final TransferAsset FEE_NOT_NEEDED = TransferAsset.getDefaultInstance();
-  private static final BigDecimal NO_FEE = BigDecimal.ZERO;
   private static final Gson gson = new Gson();
 
   private boolean isRunning;
@@ -65,13 +66,19 @@ public class BillingRule implements Rule {
   private final int rmqPort;
   private final String rmqExchange;
   private final String rmqRoutingKey;
+  private final Set<String> userDomains;
+  private final Set<String> depositAccounts;
+  private final Set<String> withdrawalAccounts;
   private final Set<BillingInfo> cache = new HashSet<>();
 
   public BillingRule(String getBillingURL,
       String rmqHost,
       int rmqPort,
       String rmqExchange,
-      String rmqRoutingKey) throws IOException {
+      String rmqRoutingKey,
+      String userDomains,
+      String depositAccounts,
+      String withdrawalAccounts) throws IOException {
 
     if (Strings.isNullOrEmpty(getBillingURL)) {
       throw new IllegalArgumentException("Billing URL must not be neither null nor empty");
@@ -88,12 +95,25 @@ public class BillingRule implements Rule {
     if (Strings.isNullOrEmpty(rmqRoutingKey)) {
       throw new IllegalArgumentException("RMQ routing key must not be neither null nor empty");
     }
+    if (Strings.isNullOrEmpty(userDomains)) {
+      throw new IllegalArgumentException("User domains key must not be neither null nor empty");
+    }
+    if (Strings.isNullOrEmpty(depositAccounts)) {
+      throw new IllegalArgumentException("Deposit accounts key must not be neither null nor empty");
+    }
+    if (Strings.isNullOrEmpty(withdrawalAccounts)) {
+      throw new IllegalArgumentException(
+          "Withdrawal accounts key must not be neither null nor empty");
+    }
 
     this.getBillingURL = getBillingURL;
     this.rmqHost = rmqHost;
     this.rmqPort = rmqPort;
     this.rmqExchange = rmqExchange;
     this.rmqRoutingKey = rmqRoutingKey;
+    this.userDomains = new HashSet<>(Arrays.asList(userDomains.split(SEPARATOR)));
+    this.depositAccounts = new HashSet<>(Arrays.asList(depositAccounts.split(SEPARATOR)));
+    this.withdrawalAccounts = new HashSet<>(Arrays.asList(withdrawalAccounts.split(SEPARATOR)));
     runCacheUpdater();
   }
 
@@ -203,52 +223,95 @@ public class BillingRule implements Rule {
         .filter(Command::hasTransferAsset)
         .map(Command::getTransferAsset)
         .collect(Collectors.groupingBy(transferAsset ->
-            feeAccounts.keySet().contains(BillingInfo.getName(transferAsset.getDestAccountId())))
+            feeTypesAccounts.values()
+                .contains(BillingInfo.getName(transferAsset.getDestAccountId())))
         );
 
     List<TransferAsset> fees = transactionsGroups.get(true);
+    final String userDomain = BillingInfo
+        .getDomain(transaction.getPayload().getReducedPayload().getCreatorAccountId());
+    final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
 
     for (TransferAsset transferAsset : transactionsGroups.get(false)) {
-      final TransferAsset feeFor = findFeeFor(transferAsset, fees);
-      if (feeFor == null) {
-        return false;
+      final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
+      if (originalType != null) {
+        final BillingInfo billingInfo = getBillingInfoFor(userDomain,
+            transferAsset.getAssetId(),
+            originalType
+        );
+        // Not billable operation
+        if (billingInfo == null) {
+          continue;
+        }
+
+        final TransferAsset feeCandidate = filterFee(transferAsset, fees, billingInfo);
+        // If operation is billable but there is no corresponding fee attached
+        if (feeCandidate == null) {
+          return false;
+        }
+        // To prevent case when there are two identical operations and only one fee
+        fees.remove(feeCandidate);
       }
-      // To prevent case when there are two identical transfers and only one fee
-      fees.remove(feeFor);
     }
     return true;
   }
 
-  private TransferAsset findFeeFor(TransferAsset transfer, List<TransferAsset> fees) {
+  private TransferAsset filterFee(TransferAsset transfer,
+      List<TransferAsset> fees,
+      BillingInfo billingInfo) {
+
     final String srcAccountId = transfer.getSrcAccountId();
     final String assetId = transfer.getAssetId();
     final BigDecimal amount = new BigDecimal(transfer.getAmount());
+    final String destAccountName = feeTypesAccounts.get(billingInfo.getBillingType())
+        .concat(Const.accountIdDelimiter)
+        .concat(billingInfo.getDomain());
 
     for (TransferAsset fee : fees) {
-      // TODO This logic is not accurate in a sense of billing type determination
-      final BigDecimal feeFraction = getFeeFractionFor(fee.getDestAccountId(), fee.getAssetId());
-      if (feeFraction.equals(NO_FEE)) {
-        return FEE_NOT_NEEDED;
-      }
       if (fee.getSrcAccountId().equals(srcAccountId)
           && fee.getAssetId().equals(assetId)
+          && fee.getDestAccountId().equals(destAccountName)
           && new BigDecimal(fee.getAmount())
-          .compareTo(amount.multiply(feeFraction)) == 0) {
+          .compareTo(amount.multiply(billingInfo.getFeeFraction())) == 0) {
         return fee;
       }
     }
     return null;
   }
 
-  private BigDecimal getFeeFractionFor(String accountId, String asset) {
+  private BillingTypeEnum getBillingType(TransferAsset transfer, boolean isBatch) {
+    final String srcAccountId = transfer.getSrcAccountId();
+    final String destAccountId = transfer.getDestAccountId();
+    final String srcDomain = BillingInfo.getDomain(srcAccountId);
+    final String destDomain = BillingInfo.getDomain(destAccountId);
+
+    if (depositAccounts.contains(srcAccountId)
+        && userDomains.contains(destDomain)) {
+      // TODO Not yet decided for sure
+      return BillingTypeEnum.ACCOUNT_CREATION;
+    }
+    if (withdrawalAccounts.contains(destAccountId)
+        && userDomains.contains(destDomain)) {
+      return BillingTypeEnum.WITHDRAWAL;
+    }
+    if (userDomains.contains(srcDomain)
+        && userDomains.contains(destDomain)) {
+      if (isBatch) {
+        return BillingTypeEnum.EXCHANGE;
+      }
+      return BillingTypeEnum.TRANSFER;
+    }
+    return null;
+  }
+
+  private BillingInfo getBillingInfoFor(String domain, String asset, BillingTypeEnum originalType) {
     return cache
         .stream()
-        .filter(entry -> entry.getDomain().equals(BillingInfo.getDomain(accountId))
-            && entry.getBillingType().equals(feeAccounts.get(BillingInfo.getName(accountId)))
+        .filter(entry -> entry.getDomain().equals(domain)
+            && entry.getBillingType().equals(originalType)
             && entry.getAsset().equals(asset))
         .findAny()
-        .map(BillingInfo::getFeeFraction)
-        .orElse(NO_FEE);
+        .orElse(null);
   }
 
   private static class BillingRuleException extends RuntimeException {

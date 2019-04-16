@@ -150,6 +150,9 @@
     <constructor-arg name="rmqPort" value="${rmq.port}"/>
     <constructor-arg name="rmqExchange" value="${billing.rmq.exchange}"/>
     <constructor-arg name="rmqRoutingKey" value="${billing.rmq.routingKey}"/>
+    <constructor-arg name="userDomains" value="${brvs.userDomains}"/>
+    <constructor-arg name="depositAccounts" value="${billing.depositAccounts}"/>
+    <constructor-arg name="withdrawalAccounts" value="${billing.withdrawalAccounts}"/>
   </bean>
   <util:list id="rules" value-type="iroha.validation.rules.Rule">
     <ref bean="sampleRule"/>

@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import jp.co.soramitsu.iroha.java.detail.Const;
 
 public class BillingInfo {
 
@@ -110,11 +111,11 @@ public class BillingInfo {
   }
 
   /* default */ static String getDomain(String accountId) {
-    return accountId.split("@")[1];
+    return accountId.split(Const.accountIdDelimiter)[1];
   }
 
   /* default */ static String getName(String accountId) {
-    return accountId.split("@")[0];
+    return accountId.split(Const.accountIdDelimiter)[0];
   }
 
   @Override
