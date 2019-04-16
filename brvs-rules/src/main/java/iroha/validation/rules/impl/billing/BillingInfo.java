@@ -3,8 +3,6 @@ package iroha.validation.rules.impl.billing;
 import com.google.common.base.Strings;
 import com.google.gson.JsonObject;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -12,7 +10,6 @@ import java.util.Set;
 
 public class BillingInfo {
 
-  private static final DateTimeFormatter isoLocalDateTime = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
   private static final String ACCOUNT_ID_ATTRIBUTE = "accountId";
   private static final String BILLING_TYPE_ATTRIBUTE = "billingType";
   private static final String ASSET_ATTRIBUTE = "asset";

@@ -225,6 +225,7 @@ public class BillingRule implements Rule {
     final BigDecimal amount = new BigDecimal(transfer.getAmount());
 
     for (TransferAsset fee : fees) {
+      // TODO This logic is not accurate in a sense of billing type determination
       final BigDecimal feeFraction = getFeeFractionFor(fee.getDestAccountId(), fee.getAssetId());
       if (feeFraction.equals(NO_FEE)) {
         return FEE_NOT_NEEDED;
