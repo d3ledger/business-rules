@@ -55,7 +55,7 @@ public class Application {
     try {
       portBean = Integer.parseInt(context.getBean(BRVS_PORT_BEAN_NAME, String.class));
       if (portBean < 0 || portBean > 65535) {
-        throw new Exception();
+        throw new Exception("Got port out of range: " + portBean);
       }
     } catch (Exception e) {
       logger.warn("Couldn't read the port. Reason: " + e.getMessage());
