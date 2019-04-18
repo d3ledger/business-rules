@@ -10,12 +10,17 @@ import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.FileSystemXmlApplicationContext;
 
 public class Application {
 
+  private static final Logger logger = LoggerFactory.getLogger(Application.class);
   private static final String BRVS_PORT_BEAN_NAME = "brvsPort";
+  private static final String DEFAULT_PORT = "8080";
   private static final String BASE_URI_FORMAT = "http://0.0.0.0:%s/brvs/rest";
 
   public static void main(String[] args) {
@@ -39,10 +44,16 @@ public class Application {
       }
     });
     resourceConfig.property(ServerProperties.OUTBOUND_CONTENT_LENGTH_BUFFER, 0);
+
+    String portBean = DEFAULT_PORT;
+    try {
+      portBean = context.getBean(BRVS_PORT_BEAN_NAME, String.class);
+    } catch (BeansException e) {
+      logger.warn("Couldn't read the port");
+    }
+    logger.info("Going to establish HTTP server on port " + portBean);
+
     GrizzlyHttpServerFactory
-        .createHttpServer(URI.create(
-            String.format(BASE_URI_FORMAT, context.getBean(BRVS_PORT_BEAN_NAME, String.class))),
-            resourceConfig
-        );
+        .createHttpServer(URI.create(String.format(BASE_URI_FORMAT, portBean)), resourceConfig);
   }
 }
