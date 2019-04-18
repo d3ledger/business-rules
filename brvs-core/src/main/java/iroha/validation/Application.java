@@ -12,7 +12,6 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.BeansException;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.FileSystemXmlApplicationContext;
 
@@ -20,8 +19,8 @@ public class Application {
 
   private static final Logger logger = LoggerFactory.getLogger(Application.class);
   private static final String BRVS_PORT_BEAN_NAME = "brvsPort";
-  private static final String DEFAULT_PORT = "8080";
-  private static final String BASE_URI_FORMAT = "http://0.0.0.0:%s/brvs/rest";
+  private static final int DEFAULT_PORT = 8080;
+  private static final String BASE_URI_FORMAT = "http://0.0.0.0:%d/brvs/rest";
 
   public static void main(String[] args) {
     if (args.length == 0) {
@@ -45,15 +44,22 @@ public class Application {
     });
     resourceConfig.property(ServerProperties.OUTBOUND_CONTENT_LENGTH_BUFFER, 0);
 
-    String portBean = DEFAULT_PORT;
-    try {
-      portBean = context.getBean(BRVS_PORT_BEAN_NAME, String.class);
-    } catch (BeansException e) {
-      logger.warn("Couldn't read the port");
-    }
-    logger.info("Going to establish HTTP server on port " + portBean);
-
+    int port = getPort(context);
+    logger.info("Going to establish HTTP server on port " + port);
     GrizzlyHttpServerFactory
-        .createHttpServer(URI.create(String.format(BASE_URI_FORMAT, portBean)), resourceConfig);
+        .createHttpServer(URI.create(String.format(BASE_URI_FORMAT, port)), resourceConfig);
+  }
+
+  private static int getPort(AbstractApplicationContext context) {
+    int portBean = DEFAULT_PORT;
+    try {
+      portBean = Integer.parseInt(context.getBean(BRVS_PORT_BEAN_NAME, String.class));
+      if (portBean < 0 || portBean > 65535) {
+        throw new Exception();
+      }
+    } catch (Exception e) {
+      logger.warn("Couldn't read the port. Reason: " + e.getMessage());
+    }
+    return portBean;
   }
 }
