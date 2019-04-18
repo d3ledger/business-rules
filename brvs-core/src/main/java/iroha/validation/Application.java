@@ -15,7 +15,8 @@ import org.springframework.context.support.FileSystemXmlApplicationContext;
 
 public class Application {
 
-  private static final String BASE_URI = "http://0.0.0.0:8081/brvs/rest";
+  private static final String BRVS_PORT_BEAN_NAME = "brvsPort";
+  private static final String BASE_URI_FORMAT = "http://0.0.0.0:%s/brvs/rest";
 
   public static void main(String[] args) {
     if (args.length == 0) {
@@ -38,6 +39,10 @@ public class Application {
       }
     });
     resourceConfig.property(ServerProperties.OUTBOUND_CONTENT_LENGTH_BUFFER, 0);
-    GrizzlyHttpServerFactory.createHttpServer(URI.create(BASE_URI), resourceConfig);
+    GrizzlyHttpServerFactory
+        .createHttpServer(URI.create(
+            String.format(BASE_URI_FORMAT, context.getBean(BRVS_PORT_BEAN_NAME, String.class))),
+            resourceConfig
+        );
   }
 }
