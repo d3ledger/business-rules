@@ -5,6 +5,7 @@ import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import java.net.URI;
+import java.util.logging.LogManager;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
@@ -12,10 +13,16 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.FileSystemXmlApplicationContext;
 
 public class Application {
+
+  static {
+    LogManager.getLogManager().reset();
+    SLF4JBridgeHandler.install();
+  }
 
   private static final Logger logger = LoggerFactory.getLogger(Application.class);
   private static final String BRVS_PORT_BEAN_NAME = "brvsPort";
