@@ -26,9 +26,11 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
+import org.pac4j.jax.rs.annotations.Pac4JSecurity;
 
 @Singleton
 @Path("")
+@Pac4JSecurity(authorizers = "isAuthenticated")
 public class RestService {
 
   private final static Printer printer = JsonFormat.printer()

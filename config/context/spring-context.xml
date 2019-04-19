@@ -19,6 +19,12 @@
     <constructor-arg name="original" value="${brvs.port}"/>
   </bean>
 
+  <!-- BRVS REST CREDENTIALS -->
+  <bean id="credentials" class="org.pac4j.core.credentials.UsernamePasswordCredentials">
+    <constructor-arg name="username" value="${rest.username}"/>
+    <constructor-arg name="password" value="${rest.password}"/>
+  </bean>
+
   <!-- KEY PAIR DEFINITION -->
   <bean id="brvsAccountKeyPair" class="iroha.validation.utils.ValidationUtils"
     factory-method="readKeyPairFromFiles">

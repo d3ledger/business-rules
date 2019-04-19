@@ -7,6 +7,9 @@ dependencies {
     compile('org.glassfish.jersey.containers:jersey-container-grizzly2-http:2.28')
     compile('org.glassfish.jersey.inject:jersey-hk2:2.28')
     compile('org.glassfish.jersey.media:jersey-media-json-jackson:2.28')
+    // Security
+    compile('org.pac4j:jersey-pac4j:3.0.0')
+    compile('org.pac4j:pac4j-http:3.6.1')
 
     // unit tests
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
