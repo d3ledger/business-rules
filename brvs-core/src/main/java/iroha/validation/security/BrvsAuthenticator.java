@@ -20,21 +20,24 @@ public class BrvsAuthenticator implements Authenticator<UsernamePasswordCredenti
 
   private final String correctPassword;
 
-  public BrvsAuthenticator(String username, String password) {
+  private BrvsAuthenticator(String correctUsername, String correctPassword) {
+    this.correctUsername = correctUsername;
+    this.correctPassword = correctPassword;
+  }
+
+  public static BrvsAuthenticator getInstance(String username, String password) {
     if (Strings.isNullOrEmpty(username)) {
       throw new IllegalArgumentException("Username must not be null nor empty");
     }
     if (Strings.isNullOrEmpty(password)) {
       throw new IllegalArgumentException("Password must not be null nor empty");
     }
-    this.correctUsername = username;
-    this.correctPassword = password;
+    return new BrvsAuthenticator(username, password);
   }
 
-  public BrvsAuthenticator(UsernamePasswordCredentials credentials) {
+  public static BrvsAuthenticator getInstance(UsernamePasswordCredentials credentials) {
     Objects.requireNonNull(credentials, "Credentials must not be null");
-    this.correctUsername = credentials.getUsername();
-    this.correctPassword = credentials.getPassword();
+    return getInstance(credentials.getUsername(), credentials.getPassword());
   }
 
   @Override

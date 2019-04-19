@@ -79,7 +79,7 @@ public class Application {
 
   private static Config getSecurityConfig(UsernamePasswordCredentials credentials) {
     DirectBasicAuthClient basicAuthClient = new DirectBasicAuthClient(
-        new BrvsAuthenticator(credentials)
+        BrvsAuthenticator.getInstance(credentials)
     );
     Config config = new Config(basicAuthClient);
     config.addAuthorizer("brvs", new IsAuthenticatedAuthorizer());
