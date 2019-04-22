@@ -15,6 +15,7 @@ import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
+import iroha.validation.verdict.Verdict;
 import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -93,7 +94,7 @@ class UpdateWhitelistRuleTest {
 
     doNothing().when(irohaAPI).transactionSync(isA(Transaction.class));
 
-    assertTrue(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
 
     verify(irohaAPI).transactionSync(captor.capture());
 
@@ -133,7 +134,7 @@ class UpdateWhitelistRuleTest {
 
     doNothing().when(irohaAPI).transactionSync(isA(Transaction.class));
 
-    assertTrue(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
 
     verify(irohaAPI).transactionSync(captor.capture());
 

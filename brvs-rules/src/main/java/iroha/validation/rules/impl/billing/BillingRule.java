@@ -21,6 +21,7 @@ import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.billing.BillingInfo.BillingTypeEnum;
+import iroha.validation.verdict.ValidationResult;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -117,7 +118,7 @@ public class BillingRule implements Rule {
     runCacheUpdater();
   }
 
-  private void runCacheUpdater() throws IOException {
+  protected void runCacheUpdater() throws IOException {
     if (isRunning) {
       logger.warn("Cache updater is already running");
       return;
@@ -211,8 +212,11 @@ public class BillingRule implements Rule {
     );
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
-  public boolean isSatisfiedBy(Transaction transaction) {
+  public ValidationResult isSatisfiedBy(Transaction transaction) {
     // Group 'true' means fee transfers
     // Group 'false' means original transfers
     final Map<Boolean, List<TransferAsset>> transactionsGroups = transaction
@@ -227,12 +231,19 @@ public class BillingRule implements Rule {
                 .contains(BillingInfo.getName(transferAsset.getDestAccountId())))
         );
 
-    List<TransferAsset> fees = transactionsGroups.get(true);
+    final List<TransferAsset> fees = transactionsGroups.get(true);
+    final List<TransferAsset> transfers = transactionsGroups.get(false);
+
+    if (transfers == null) {
+      logger.warn("No transfers found: " + transactionsGroups);
+      return ValidationResult.REJECTED("No transfers found: " + transactionsGroups);
+    }
+
     final String userDomain = BillingInfo
         .getDomain(transaction.getPayload().getReducedPayload().getCreatorAccountId());
     final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
 
-    for (TransferAsset transferAsset : transactionsGroups.get(false)) {
+    for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
       if (originalType != null) {
         final BillingInfo billingInfo = getBillingInfoFor(userDomain,
@@ -247,13 +258,14 @@ public class BillingRule implements Rule {
         final TransferAsset feeCandidate = filterFee(transferAsset, fees, billingInfo);
         // If operation is billable but there is no corresponding fee attached
         if (feeCandidate == null) {
-          return false;
+          logger.error("There is no fee for " + transferAsset);
+          return ValidationResult.REJECTED("There is no fee for " + transferAsset);
         }
         // To prevent case when there are two identical operations and only one fee
         fees.remove(feeCandidate);
       }
     }
-    return true;
+    return ValidationResult.VALIDATED;
   }
 
   private TransferAsset filterFee(TransferAsset transfer,

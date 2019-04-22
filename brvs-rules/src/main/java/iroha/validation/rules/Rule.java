@@ -1,6 +1,7 @@
 package iroha.validation.rules;
 
 import iroha.protocol.TransactionOuterClass;
+import iroha.validation.verdict.ValidationResult;
 
 /**
  * Rule interface
@@ -11,8 +12,7 @@ public interface Rule {
    * Method for checking transaction rule satisfiability
    *
    * @param transaction Iroha proto transaction
-   * @return <code>true</code> if the transaction satisfies rule;
-   * <code>false</code> otherwise
+   * @return {@link ValidationResult} corresponding to satisfiability checking outcome
    */
-  boolean isSatisfiedBy(TransactionOuterClass.Transaction transaction);
+  ValidationResult isSatisfiedBy(TransactionOuterClass.Transaction transaction);
 }

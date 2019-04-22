@@ -8,6 +8,8 @@ import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
+import iroha.validation.verdict.ValidationResult;
+import iroha.validation.verdict.Verdict;
 import java.util.Collection;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -45,11 +47,11 @@ public class ValidationServiceImpl implements ValidationService {
           final String hex = ValidationUtils.hexHash(transaction);
           logger.info("Got transaction to validate: " + hex);
           for (Validator validator : validators) {
-            if (!validator.validate(transaction)) {
-              final String canonicalName = validator.getClass().getCanonicalName();
-              transactionSigner.rejectAndSend(transaction, canonicalName);
-              logger.info(
-                  "Transaction has been rejected by the service. Failed validator: " + canonicalName);
+            final ValidationResult validationResult = validator.validate(transaction);
+            if (Verdict.VALIDATED != validationResult.getStatus()) {
+              final String reason = validationResult.getReason();
+              transactionSigner.rejectAndSend(transaction, reason);
+              logger.info("Transaction has been rejected by the service. Reason: " + reason);
               verdict = false;
               break;
             }
