@@ -1,5 +1,6 @@
 package iroha.validation.rules.impl.whitelist;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.isA;
@@ -12,6 +13,7 @@ import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
+import iroha.validation.verdict.Verdict;
 import java.security.KeyPair;
 import java.util.Collections;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
@@ -72,7 +74,7 @@ class CheckWhitelistRuleTest {
 
     setEnvironmentTest(clientListResponse);
 
-    assertTrue(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
 
   /**
@@ -89,7 +91,7 @@ class CheckWhitelistRuleTest {
 
     setEnvironmentTest(clientListResponse);
 
-    assertFalse(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
 
   /**
@@ -106,6 +108,6 @@ class CheckWhitelistRuleTest {
 
     setEnvironmentTest(clientListResponse);
 
-    assertFalse(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
 }

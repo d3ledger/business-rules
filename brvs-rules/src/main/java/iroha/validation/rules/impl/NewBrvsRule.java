@@ -1,15 +1,16 @@
 package iroha.validation.rules.impl;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
+import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
 import org.slf4j.Logger;
@@ -36,10 +37,10 @@ public class NewBrvsRule implements Rule {
    * {@inheritDoc}
    */
   @Override
-  public boolean isSatisfiedBy(Transaction transaction) {
+  public ValidationResult isSatisfiedBy(Transaction transaction) {
     try {
-      Set<String> brvsPubKeys = getPubKeys();
-      return transaction
+      final Set<String> brvsPubKeys = getPubKeys();
+      final Set<String> newKeys = transaction
           .getPayload()
           .getReducedPayload()
           .getCommandsList()
@@ -47,10 +48,18 @@ public class NewBrvsRule implements Rule {
           .filter(Command::hasAddSignatory)
           .filter(command -> command.getAddSignatory().getAccountId().equals(brvsAccountId))
           .map(command -> command.getAddSignatory().getPublicKey())
-          .allMatch(brvsPubKeys::contains);
+          .collect(Collectors.toSet());
+      for (String key : newKeys) {
+        if (!brvsPubKeys.contains(key)) {
+          return ValidationResult.REJECTED(
+              "Key " + key + " is not known as BRVS pubkey"
+          );
+        }
+      }
+      return ValidationResult.VALIDATED;
     } catch (Exception e) {
       logger.error("Couldn't read brvs keys from Iroha", e);
-      return false;
+      return ValidationResult.REJECTED("Couldn't read brvs keys from Iroha. " + e.getMessage());
     }
   }
 

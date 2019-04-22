@@ -1,7 +1,6 @@
 package iroha.validation.rules.impl;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -11,12 +10,12 @@ import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.billing.BillingRule;
+import iroha.validation.verdict.Verdict;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.api.support.membermodification.MemberMatcher;
 
 class RulesTest {
 
@@ -30,20 +29,23 @@ class RulesTest {
     asset = "asset";
     // transfer mock
     transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
-    final Command command = mock(Command.class);
-    commands = Collections.singletonList(command);
     transferAsset = mock(TransferAsset.class);
+
+    when(transferAsset.getSrcAccountId()).thenReturn("user@users");
+    when(transferAsset.getDestAccountId()).thenReturn("destination@users");
+
+    final Command command = mock(Command.class);
+
+    when(command.hasTransferAsset()).thenReturn(true);
+    when(command.getTransferAsset()).thenReturn(transferAsset);
+
+    commands = Collections.singletonList(command);
 
     when(transaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList())
         .thenReturn(commands);
-
-    when(command.hasTransferAsset()).thenReturn(true);
-    when(command.getTransferAsset()).thenReturn(transferAsset);
-    when(transferAsset.getSrcAccountId()).thenReturn("user@users");
-    when(transferAsset.getDestAccountId()).thenReturn("transfer_billing@users");
   }
 
   private void initTransferTxVolumeTest() {
@@ -51,15 +53,24 @@ class RulesTest {
     rule = new TransferTxVolumeRule(asset, BigDecimal.TEN);
   }
 
-  private void initBillingTest() {
+  private void initBillingTest() throws IOException {
     init();
-    PowerMockito.suppress(MemberMatcher
-        .methods(BillingRule.class,
-            "runCacheUpdater",
-            "readBillingOnStartup",
-            "executeGetRequest")
-    );
-    rule = PowerMockito.mock(BillingRule.class);
+    when(transaction.getPayload().getReducedPayload().getCreatorAccountId())
+        .thenReturn("user@users");
+    when(transaction.getPayload().getBatch().getReducedHashesCount()).thenReturn(1);
+    rule = new BillingRule("url",
+        "rmqHost",
+        1,
+        "exchange",
+        "key",
+        "users",
+        "deposit@users",
+        "withdrawal@users"
+    ) {
+      @Override
+      protected void runCacheUpdater() {
+      }
+    };
   }
 
   /**
@@ -72,7 +83,7 @@ class RulesTest {
     rule = new SampleRule();
     // any transaction
     transaction = mock(Transaction.class);
-    assertTrue(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
 
   /**
@@ -88,7 +99,7 @@ class RulesTest {
     when(transferAsset.getAssetId()).thenReturn(asset);
     when(transferAsset.getAmount()).thenReturn(BigDecimal.ONE.toPlainString());
 
-    assertTrue(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
 
   /**
@@ -105,7 +116,7 @@ class RulesTest {
     when(transferAsset.getAssetId()).thenReturn("otherAsset");
     when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
 
-    assertTrue(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
 
   /**
@@ -121,21 +132,39 @@ class RulesTest {
     when(transferAsset.getAssetId()).thenReturn(asset);
     when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
 
-    assertFalse(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
 
   /**
    * @given {@link BillingRule} instance with no billing data
-   * @when {@link Transaction} with {@link Command TransferAsset} command of 100 "asset" passed
+   * @when {@link Transaction} with the only {@link Command TransferAsset} command of 100 "asset"
+   * passed
    * @then {@link BillingRule} is satisfied by such {@link Transaction}
    */
   @Test
-  void emptyBillingRuleTest() {
+  void emptyBillingRuleGoodTest() throws IOException {
     initBillingTest();
 
     when(transferAsset.getAssetId()).thenReturn(asset);
     when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
 
-    assertFalse(rule.isSatisfiedBy(transaction));
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link BillingRule} instance with no billing data
+   * @when {@link Transaction} with the only {@link Command TransferAsset} command to destination of
+   * a billing account
+   * @then {@link BillingRule} is satisfied by such {@link Transaction}
+   */
+  @Test
+  void emptyBillingRuleBadTest() throws IOException {
+    initBillingTest();
+
+    when(transferAsset.getAssetId()).thenReturn(asset);
+    when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
+    when(transferAsset.getDestAccountId()).thenReturn("transfer_billing@users");
+
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
 }
