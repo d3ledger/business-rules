@@ -72,7 +72,10 @@ localhost:8080/brvs/rest/status/123
 Result:
 (404)
 Body:
-Transaction hash is not known.
+{
+    "status": "UNKNOWN",
+    "reason": ""
+}
 ```
 - Querying transaction known by BRVS but not yet processed
 ```
@@ -82,7 +85,7 @@ Result:
 (200)
 Body:
 {
-    "status": "PENDING",
+    "status": "UNKNOWN",
     "reason": ""
 }
 ```
