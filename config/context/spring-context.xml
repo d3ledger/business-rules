@@ -149,23 +149,23 @@
     <constructor-arg name="irohaAPI" ref="irohaAPI"/>
     <constructor-arg name="withdrawalAccount" value="${btcCheckWhitelist.withdrawalAccount}"/>
   </bean>
-  <bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">
-    <constructor-arg name="getBillingURL" value="${billing.url}"/>
-    <constructor-arg name="rmqHost" value="${rmq.host}"/>
-    <constructor-arg name="rmqPort" value="${rmq.port}"/>
-    <constructor-arg name="rmqExchange" value="${billing.rmq.exchange}"/>
-    <constructor-arg name="rmqRoutingKey" value="${billing.rmq.routingKey}"/>
-    <constructor-arg name="userDomains" value="${brvs.userDomains}"/>
-    <constructor-arg name="depositAccounts" value="${billing.depositAccounts}"/>
-    <constructor-arg name="withdrawalAccounts" value="${billing.withdrawalAccounts}"/>
-  </bean>
+  <!--<bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">-->
+    <!--<constructor-arg name="getBillingURL" value="${billing.url}"/>-->
+    <!--<constructor-arg name="rmqHost" value="${rmq.host}"/>-->
+    <!--<constructor-arg name="rmqPort" value="${rmq.port}"/>-->
+    <!--<constructor-arg name="rmqExchange" value="${billing.rmq.exchange}"/>-->
+    <!--<constructor-arg name="rmqRoutingKey" value="${billing.rmq.routingKey}"/>-->
+    <!--<constructor-arg name="userDomains" value="${brvs.userDomains}"/>-->
+    <!--<constructor-arg name="depositAccounts" value="${billing.depositAccounts}"/>-->
+    <!--<constructor-arg name="withdrawalAccounts" value="${billing.withdrawalAccounts}"/>-->
+  <!--</bean>-->
   <util:list id="rules" value-type="iroha.validation.rules.Rule">
     <ref bean="sampleRule"/>
     <ref bean="newBrvsRule"/>
     <ref bean="updateWhitelistRule"/>
     <ref bean="checkEthWhitelistRule"/>
     <ref bean="checkBtcWhitelistRule"/>
-    <ref bean="billingRule"/>
+    <!--<ref bean="billingRule"/>-->
     <!-- More can be added -->
   </util:list>
 
