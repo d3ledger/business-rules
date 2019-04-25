@@ -11,6 +11,7 @@ import iroha.protocol.TransactionOuterClass;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
+import iroha.validation.utils.ValidationUtils;
 import java.security.Key;
 import java.security.KeyPair;
 import java.util.Arrays;
@@ -45,16 +46,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   // BRVS keys count = User keys count
   private static final int PROPORTION = 2;
   private static final JsonParser parser = new JsonParser();
-  private static final SubscriptionStrategy subscriptionStrategy = new WaitForTerminalStatus(
-      Arrays.asList(
-          TxStatus.STATELESS_VALIDATION_FAILED,
-          TxStatus.STATEFUL_VALIDATION_FAILED,
-          TxStatus.COMMITTED,
-          TxStatus.MST_EXPIRED,
-          TxStatus.REJECTED,
-          TxStatus.UNRECOGNIZED
-      )
-  );
   private static final int INITIAL_KEYS_AMOUNT = 1;
 
   private final Set<String> registeredAccounts = new HashSet<>();
@@ -449,7 +440,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       TransactionOuterClass.Transaction transaction) {
     return irohaAPI.transaction(
         transaction,
-        subscriptionStrategy
+        ValidationUtils.subscriptionStrategy
     ).blockingLast().getTxStatus();
   }
 }

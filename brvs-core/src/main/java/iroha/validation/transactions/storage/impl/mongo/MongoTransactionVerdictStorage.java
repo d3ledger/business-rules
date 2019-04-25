@@ -77,6 +77,13 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
     subject.onNext(upperCaseHash);
   }
 
+  @Override
+  public void markTransactionFailed(String txHash, String reason) {
+    final String upperCaseHash = txHash.toUpperCase();
+    store(upperCaseHash, ValidationResult.FAILED(reason));
+    subject.onNext(upperCaseHash);
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -90,7 +97,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    * {@inheritDoc}
    */
   @Override
-  public Observable<String> getRejectedTransactionsHashesStreaming() {
+  public Observable<String> getRejectedOrFailedTransactionsHashesStreaming() {
     return subject;
   }
 
