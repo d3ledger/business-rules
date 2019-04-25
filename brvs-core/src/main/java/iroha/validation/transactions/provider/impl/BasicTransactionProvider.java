@@ -119,7 +119,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void processRejectedTransactions() {
-    transactionVerdictStorage.getRejectedTransactionsHashesStreaming()
+    transactionVerdictStorage.getRejectedOrFailedTransactionsHashesStreaming()
         .subscribe(this::tryToRemoveLock);
   }
 

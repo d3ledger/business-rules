@@ -1,6 +1,10 @@
 package iroha.validation.transactions.signatory.impl;
 
+import io.reactivex.Scheduler;
+import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Endpoint.ToriiResponse;
+import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.signatory.TransactionSigner;
@@ -10,16 +14,20 @@ import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.detail.BuildableAndSignable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 public class TransactionSignerImpl implements TransactionSigner {
 
+  private static final Logger logger = LoggerFactory.getLogger(TransactionSignerImpl.class);
   private static final KeyPair fakeKeyPair = Utils.parseHexKeypair(
       "0000000000000000000000000000000000000000000000000000000000000000",
       "0000000000000000000000000000000000000000000000000000000000000000"
@@ -30,6 +38,7 @@ public class TransactionSignerImpl implements TransactionSigner {
   private final KeyPair brvsAccountKeyPair;
   private final List<KeyPair> keyPairs;
   private final TransactionVerdictStorage transactionVerdictStorage;
+  private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
 
   public TransactionSignerImpl(IrohaAPI irohaAPI,
       List<KeyPair> keyPairs,
@@ -61,6 +70,7 @@ public class TransactionSignerImpl implements TransactionSigner {
     for (Transaction transaction : transactionBatch) {
       transactionVerdictStorage.markTransactionValidated(ValidationUtils.hexHash(transaction));
     }
+    logger.info("Transactions has been successfully validated and signed");
     if (isCreatedByBrvs(transactionBatch)) {
       sendBrvsTransactionBatch(transactionBatch, brvsAccountKeyPair);
     } else {
@@ -93,10 +103,37 @@ public class TransactionSignerImpl implements TransactionSigner {
       }
       transactions.add(parsedTransaction.build());
     }
+    sendTransactions(transactions, true);
+  }
+
+  private void sendTransactions(List<Transaction> transactions, boolean check) {
     if (transactions.size() > 1) {
       irohaAPI.transactionListSync(transactions);
+      for (Transaction transaction : transactions) {
+        if (check) {
+          checkIrohaStatus(transaction);
+        }
+      }
     } else {
-      irohaAPI.transactionSync(transactions.get(0));
+      final Transaction transaction = transactions.get(0);
+      irohaAPI.transactionSync(transaction);
+      if (check) {
+        checkIrohaStatus(transaction);
+      }
+    }
+  }
+
+  private void checkIrohaStatus(Transaction transaction) {
+    final ToriiResponse statusResponse = ValidationUtils.subscriptionStrategy
+        .subscribe(irohaAPI, Utils.hash(transaction))
+        .subscribeOn(scheduler).blockingLast();
+    if (!statusResponse.getTxStatus().equals(TxStatus.COMMITTED)) {
+      logger.warn("Transaction " + ValidationUtils.hexHash(transaction) + " failed in Iroha: "
+          + statusResponse.getTxStatus());
+      transactionVerdictStorage.markTransactionFailed(
+          ValidationUtils.hexHash(transaction),
+          statusResponse.getTxStatus() + " : " + statusResponse.getErrOrCmdName()
+      );
     }
   }
 
@@ -115,11 +152,7 @@ public class TransactionSignerImpl implements TransactionSigner {
       }
       transactions.add(parsedTransaction.build());
     }
-    if (transactions.size() > 1) {
-      irohaAPI.transactionListSync(transactions);
-    } else {
-      irohaAPI.transactionSync(transactions.get(0));
-    }
+    sendTransactions(transactions, false);
   }
 
   private void sendBrvsTransactionBatch(TransactionBatch transactionBatch, KeyPair keyPair) {
@@ -142,24 +175,14 @@ public class TransactionSignerImpl implements TransactionSigner {
       }
     }
 
-    final List<Transaction> transactionList = transactionBatch.getTransactionList();
-    if (transactionList.size() > 1) {
-      irohaAPI.transactionListSync(
-          transactionList
-              .stream()
-              .map(jp.co.soramitsu.iroha.java.Transaction::parseFrom)
-              .map(transaction -> transaction.sign(brvsAccountKeyPair))
-              .map(BuildableAndSignable::build)
-              .collect(Collectors.toList())
-      );
-    } else {
-      irohaAPI.transactionSync(
-          jp.co.soramitsu.iroha.java.Transaction
-              .parseFrom(transactionList.get(0))
-              .sign(brvsAccountKeyPair)
-              .build()
-      );
-    }
+    final List<Transaction> transactions = transactionBatch.getTransactionList()
+        .stream()
+        .map(jp.co.soramitsu.iroha.java.Transaction::parseFrom)
+        .map(transaction -> transaction.sign(keyPair))
+        .map(BuildableAndSignable::build)
+        .collect(Collectors.toList());
+
+    sendTransactions(transactions, true);
   }
 
   /**
@@ -173,6 +196,7 @@ public class TransactionSignerImpl implements TransactionSigner {
           reason
       );
     }
+    logger.info("Transactions has been rejected by the service. Reason: " + reason);
     if (isCreatedByBrvs(transactionBatch)) {
       sendBrvsTransactionBatch(transactionBatch, fakeKeyPair);
     } else {

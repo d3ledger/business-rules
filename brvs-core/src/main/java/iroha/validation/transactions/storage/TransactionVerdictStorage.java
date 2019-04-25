@@ -36,6 +36,14 @@ public interface TransactionVerdictStorage extends Closeable {
   void markTransactionRejected(String txHash, String reason);
 
   /**
+   * Method for saving transaction verdict as failed by a reason to a storage
+   *
+   * @param txHash transaction hash
+   * @param reason reason
+   */
+  void markTransactionFailed(String txHash, String reason);
+
+  /**
    * Method for retrieving transaction validation verdict
    *
    * @param txHash transaction hash
@@ -47,5 +55,5 @@ public interface TransactionVerdictStorage extends Closeable {
    *
    * @return {@link Observable} of transactions hashes
    */
-  Observable<String> getRejectedTransactionsHashesStreaming();
+  Observable<String> getRejectedOrFailedTransactionsHashesStreaming();
 }

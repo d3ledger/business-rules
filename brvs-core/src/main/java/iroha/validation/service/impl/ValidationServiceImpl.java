@@ -54,7 +54,6 @@ public class ValidationServiceImpl implements ValidationService {
               if (Verdict.VALIDATED != validationResult.getStatus()) {
                 final String reason = validationResult.getReason();
                 transactionSigner.rejectAndSend(transactionBatch, reason);
-                logger.info("Transactions has been rejected by the service. Reason: " + reason);
                 verdict = false;
                 break;
               }
@@ -62,7 +61,6 @@ public class ValidationServiceImpl implements ValidationService {
           }
           if (verdict) {
             transactionSigner.signAndSend(transactionBatch);
-            logger.info("Transactions has been successfully validated and signed");
           }
         }
     );

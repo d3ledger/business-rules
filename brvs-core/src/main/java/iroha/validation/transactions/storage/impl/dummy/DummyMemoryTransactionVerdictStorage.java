@@ -45,6 +45,12 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
     subject.onNext(txHash);
   }
 
+  @Override
+  public void markTransactionFailed(String txHash, String reason) {
+    validationResultMap.put(txHash.toUpperCase(), ValidationResult.FAILED(reason));
+    subject.onNext(txHash);
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -57,7 +63,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    * {@inheritDoc}
    */
   @Override
-  public Observable<String> getRejectedTransactionsHashesStreaming() {
+  public Observable<String> getRejectedOrFailedTransactionsHashesStreaming() {
     return subject;
   }
 
