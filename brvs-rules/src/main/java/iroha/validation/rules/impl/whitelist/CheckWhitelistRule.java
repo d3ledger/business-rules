@@ -101,7 +101,6 @@ public class CheckWhitelistRule implements Rule {
         return ValidationResult.REJECTED("Error on parsing transfer: " + e.getMessage());
       }
     }
-    logger.info("Transfer allowed.");
     return ValidationResult.VALIDATED;
   }
 }

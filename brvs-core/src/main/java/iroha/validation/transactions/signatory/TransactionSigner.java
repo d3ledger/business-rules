@@ -1,21 +1,21 @@
 package iroha.validation.transactions.signatory;
 
-import iroha.protocol.TransactionOuterClass;
+import iroha.validation.transactions.TransactionBatch;
 
 public interface TransactionSigner {
 
   /**
    * Method for signing validated transaction and sending it to Iroha peer
    *
-   * @param transaction Iroha proto transaction
+   * @param transactionBatch Iroha proto transaction batch in brvs representation
    */
-  void signAndSend(TransactionOuterClass.Transaction transaction);
+  void signAndSend(TransactionBatch transactionBatch);
 
   /**
    * Method for rejecting transaction with a reason
    *
-   * @param transaction Iroha proto transaction
+   * @param transactionBatch Iroha proto transaction batch in brvs representation
    * @param reason reason
    */
-  void rejectAndSend(TransactionOuterClass.Transaction transaction, String reason);
+  void rejectAndSend(TransactionBatch transactionBatch, String reason);
 }
