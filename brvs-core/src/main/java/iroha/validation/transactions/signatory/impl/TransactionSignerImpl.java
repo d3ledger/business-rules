@@ -152,7 +152,7 @@ public class TransactionSignerImpl implements TransactionSigner {
       }
       transactions.add(parsedTransaction.build());
     }
-    sendTransactions(transactions, true);
+    sendTransactions(transactions, false);
   }
 
   private void sendBrvsTransactionBatch(TransactionBatch transactionBatch, KeyPair keyPair) {
