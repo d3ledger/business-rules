@@ -2,24 +2,49 @@ package iroha.validation.utils;
 
 import com.google.common.collect.ImmutableList;
 import iroha.protocol.BlockOuterClass.Block;
+import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
+import iroha.validation.transactions.TransactionBatch;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.xml.bind.DatatypeConverter;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.Utils;
+import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
+import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 
 public interface ValidationUtils {
 
   Ed25519Sha3 crypto = new Ed25519Sha3();
 
+  SubscriptionStrategy subscriptionStrategy = new WaitForTerminalStatus(
+      Arrays.asList(
+          TxStatus.STATELESS_VALIDATION_FAILED,
+          TxStatus.STATEFUL_VALIDATION_FAILED,
+          TxStatus.COMMITTED,
+          TxStatus.MST_EXPIRED,
+          TxStatus.REJECTED,
+          TxStatus.UNRECOGNIZED
+      )
+  );
+
   static String getTxAccountId(final Transaction transaction) {
     return transaction.getPayload().getReducedPayload().getCreatorAccountId();
+  }
+
+  static List<String> hexHash(TransactionBatch transactionBatch) {
+    return transactionBatch
+        .getTransactionList()
+        .stream()
+        .map(ValidationUtils::hexHash)
+        .collect(Collectors.toList());
   }
 
   static String hexHash(Transaction transaction) {

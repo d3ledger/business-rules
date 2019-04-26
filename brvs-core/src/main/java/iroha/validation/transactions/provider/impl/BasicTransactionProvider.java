@@ -5,6 +5,7 @@ import io.reactivex.Observable;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.IrohaReliableChainListener;
+import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
@@ -70,7 +71,7 @@ public class BasicTransactionProvider implements TransactionProvider {
    * {@inheritDoc}
    */
   @Override
-  public synchronized Observable<Transaction> getPendingTransactionsStreaming() {
+  public synchronized Observable<TransactionBatch> getPendingTransactionsStreaming() {
     if (!isStarted) {
       logger.info("Starting pending transactions streaming");
       executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
@@ -84,22 +85,41 @@ public class BasicTransactionProvider implements TransactionProvider {
   private void monitorIrohaPending() {
     irohaReliableChainListener
         .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
-        .forEach(transaction -> {
+        .forEach(transactionBatch -> {
               // if only BRVS signatory remains
-              if (transaction.getSignaturesCount() >= userQuorumProvider.getUserQuorumDetail(
-                  transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
-                String hex = ValidationUtils.hexHash(transaction);
-                if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
-                  transactionVerdictStorage.markTransactionPending(hex);
-                  cacheProvider.put(transaction);
+              if (isBatchSignedByUsers(transactionBatch)) {
+                if (savedMissingInStorage(transactionBatch)) {
+                  cacheProvider.put(transactionBatch);
                 }
               }
             }
         );
   }
 
+  private boolean isBatchSignedByUsers(TransactionBatch transactionBatch) {
+    for (Transaction transaction : transactionBatch) {
+      if (transaction.getSignaturesCount() < userQuorumProvider.getUserQuorumDetail(
+          transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private boolean savedMissingInStorage(TransactionBatch transactionBatch) {
+    boolean result = false;
+    for (Transaction transaction : transactionBatch) {
+      final String hex = ValidationUtils.hexHash(transaction);
+      if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
+        transactionVerdictStorage.markTransactionPending(hex);
+        result = true;
+      }
+    }
+    return result;
+  }
+
   private void processRejectedTransactions() {
-    transactionVerdictStorage.getRejectedTransactionsHashesStreaming()
+    transactionVerdictStorage.getRejectedOrFailedTransactionsHashesStreaming()
         .subscribe(this::tryToRemoveLock);
   }
 

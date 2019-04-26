@@ -2,8 +2,10 @@ package iroha.validation.rules.impl.whitelist;
 
 import com.google.common.base.Strings;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.SetAccountDetail;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.rules.Rule;
+import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
 import java.util.List;
 import java.util.Map;
@@ -53,14 +55,14 @@ public class UpdateWhitelistRule implements Rule {
    * from BRVS whitelist
    *
    * @param transaction Iroha proto transaction
-   * @return true
+   * @return {@link ValidationResult}
    */
   @Override
-  public boolean isSatisfiedBy(TransactionOuterClass.Transaction transaction) {
+  public ValidationResult isSatisfiedBy(TransactionOuterClass.Transaction transaction) {
     String clientId = transaction.getPayload().getReducedPayload().getCreatorAccountId();
     long createdTime = transaction.getPayload().getReducedPayload().getCreatedTime();
 
-    return transaction
+    return checkDetails(transaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList()
@@ -70,61 +72,67 @@ public class UpdateWhitelistRule implements Rule {
         .filter(cmd -> cmd.getAccountId().equals(clientId)
             && (cmd.getKey().equals(WhitelistUtils.ETH_WHITELIST_KEY)
             || cmd.getKey().equals(WhitelistUtils.BTC_WHITELIST_KEY)))
-        .allMatch(tx -> {
-          try {
-            String whitelistKey = tx.getKey();
-            List<String> clientWhitelist = WhitelistUtils.deserializeClientWhitelist(tx.getValue());
-            logger.info("Client " + clientId + " changed whitelist " + whitelistKey + " to "
-                + clientWhitelist);
+        .collect(Collectors.toList()), clientId, createdTime);
+  }
 
-            // get old whitelist that was set by BRVS as Pairs(address -> validation_time)
-            Map<String, Long> oldWhitelistValidated = WhitelistUtils.getBRVSWhitelist(
-                brvsAccountId,
-                brvsAccountKeyPair,
-                irohaAPI,
-                clientId,
-                whitelistKey
-            );
+  private ValidationResult checkDetails(List<SetAccountDetail> details,
+      String clientId,
+      long createdTime) {
 
-            // When whitelist is validated
-            long validationTime = System.currentTimeMillis() / 1000 + validationPeriod;
-            logger.info("ValidationTime: " + validationTime);
+    for (SetAccountDetail detail : details) {
+      try {
+        String whitelistKey = detail.getKey();
+        List<String> clientWhitelist = WhitelistUtils.deserializeClientWhitelist(detail.getValue());
+        logger.info("Client " + clientId + " changed whitelist " + whitelistKey + " to "
+            + clientWhitelist);
 
-            // Prepare new whitelist
-            // remove old addresses that user has removed
-            Map<String, Long> newWhitelistValidated = oldWhitelistValidated.entrySet().stream()
-                .filter(address -> clientWhitelist.contains(address.getKey()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        // get old whitelist that was set by BRVS as Pairs(address -> validation_time)
+        Map<String, Long> oldWhitelistValidated = WhitelistUtils.getBRVSWhitelist(
+            brvsAccountId,
+            brvsAccountKeyPair,
+            irohaAPI,
+            clientId,
+            whitelistKey
+        );
 
-            // add new from user whitelist with new validationTime
-            newWhitelistValidated.putAll(
-                clientWhitelist.stream()
-                    .filter(address -> !oldWhitelistValidated.containsKey(address))
-                    .collect(Collectors.toMap(a -> a, t -> validationTime))
-            );
+        // When whitelist is validated
+        long validationTime = System.currentTimeMillis() / 1000 + validationPeriod;
+        logger.info("ValidationTime: " + validationTime);
 
-            if (newWhitelistValidated.equals(oldWhitelistValidated)) {
-              logger.info("No changes in whitelist, nothing to update");
-            } else {
-              String jsonNewBrvsWhitelist = WhitelistUtils
-                  .serializeBRVSWhitelist(newWhitelistValidated);
-              logger.info("Send whitelist to Iroha: " + jsonNewBrvsWhitelist);
+        // Prepare new whitelist
+        // remove old addresses that user has removed
+        Map<String, Long> newWhitelistValidated = oldWhitelistValidated.entrySet().stream()
+            .filter(address -> clientWhitelist.contains(address.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-              irohaAPI.transactionSync(
-                  Transaction.builder(brvsAccountId)
-                      .setCreatedTime(createdTime)
-                      .setAccountDetail(clientId, whitelistKey,
-                          WhitelistUtils.irohaEscape(jsonNewBrvsWhitelist))
-                      .sign(brvsAccountKeyPair)
-                      .build()
-              );
-            }
-          } catch (Exception e) {
-            logger.error("Error while updating whitelist ", e);
-            return false;
-          }
+        // add new from user whitelist with new validationTime
+        newWhitelistValidated.putAll(
+            clientWhitelist.stream()
+                .filter(address -> !oldWhitelistValidated.containsKey(address))
+                .collect(Collectors.toMap(a -> a, t -> validationTime))
+        );
 
-          return true;
-        });
+        if (newWhitelistValidated.equals(oldWhitelistValidated)) {
+          logger.info("No changes in whitelist, nothing to update");
+        } else {
+          String jsonNewBrvsWhitelist = WhitelistUtils
+              .serializeBRVSWhitelist(newWhitelistValidated);
+          logger.info("Send whitelist to Iroha: " + jsonNewBrvsWhitelist);
+
+          irohaAPI.transactionSync(
+              Transaction.builder(brvsAccountId)
+                  .setCreatedTime(createdTime)
+                  .setAccountDetail(clientId, whitelistKey,
+                      WhitelistUtils.irohaEscape(jsonNewBrvsWhitelist))
+                  .sign(brvsAccountKeyPair)
+                  .build()
+          );
+        }
+      } catch (Exception e) {
+        logger.error("Error while updating whitelist ", e);
+        return ValidationResult.REJECTED("Error while updating whitelist. " + e.getMessage());
+      }
+    }
+    return ValidationResult.VALIDATED;
   }
 }

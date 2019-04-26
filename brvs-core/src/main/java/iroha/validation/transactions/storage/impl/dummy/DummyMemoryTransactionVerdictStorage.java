@@ -17,7 +17,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public boolean isHashPresentInStorage(String txHash) {
-    return validationResultMap.containsKey(txHash);
+    return validationResultMap.containsKey(txHash.toUpperCase());
   }
 
   /**
@@ -25,7 +25,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public void markTransactionPending(String txHash) {
-    validationResultMap.put(txHash, ValidationResult.PENDING);
+    validationResultMap.put(txHash.toUpperCase(), ValidationResult.UNKNOWN);
   }
 
   /**
@@ -33,7 +33,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public void markTransactionValidated(String txHash) {
-    validationResultMap.put(txHash, ValidationResult.VALIDATED);
+    validationResultMap.put(txHash.toUpperCase(), ValidationResult.VALIDATED);
   }
 
   /**
@@ -41,7 +41,13 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public void markTransactionRejected(String txHash, String reason) {
-    validationResultMap.put(txHash, ValidationResult.REJECTED(reason));
+    validationResultMap.put(txHash.toUpperCase(), ValidationResult.REJECTED(reason));
+    subject.onNext(txHash);
+  }
+
+  @Override
+  public void markTransactionFailed(String txHash, String reason) {
+    validationResultMap.put(txHash.toUpperCase(), ValidationResult.FAILED(reason));
     subject.onNext(txHash);
   }
 
@@ -50,14 +56,14 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public ValidationResult getTransactionVerdict(String txHash) {
-    return validationResultMap.get(txHash);
+    return validationResultMap.get(txHash.toUpperCase());
   }
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public Observable<String> getRejectedTransactionsHashesStreaming() {
+  public Observable<String> getRejectedOrFailedTransactionsHashesStreaming() {
     return subject;
   }
 

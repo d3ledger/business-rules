@@ -15,9 +15,11 @@ import iroha.protocol.BlockOuterClass;
 import iroha.protocol.QryResponses;
 import iroha.protocol.Queries;
 import iroha.protocol.TransactionOuterClass.Transaction;
+import iroha.validation.transactions.TransactionBatch;
 import java.io.Closeable;
 import java.io.IOException;
 import java.security.KeyPair;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -88,8 +90,8 @@ public class IrohaReliableChainListener implements Closeable {
    * @param accountsToMonitor users that transactions should be queried for
    * @return set of transactions that are in pending state
    */
-  public Set<Transaction> getAllPendingTransactions(Iterable<String> accountsToMonitor) {
-    Set<Transaction> pendingTransactions = new HashSet<>(
+  public Set<TransactionBatch> getAllPendingTransactions(Iterable<String> accountsToMonitor) {
+    Set<TransactionBatch> pendingTransactions = new HashSet<>(
         getPendingTransactions(brvsAccountId, brvsKeyPair)
     );
     accountsToMonitor.forEach(account ->
@@ -105,13 +107,41 @@ public class IrohaReliableChainListener implements Closeable {
    * @param keyPair user keypair
    * @return list of user transactions that are in pending state
    */
-  private List<Transaction> getPendingTransactions(String accountId, KeyPair keyPair) {
+  private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
     Queries.Query query = Query.builder(accountId, 1)
         .getPendingTransactions()
         .buildSigned(keyPair);
-    return irohaAPI.query(query)
-        .getTransactionsResponse()
-        .getTransactionsList();
+    return constructBatches(
+        irohaAPI.query(query)
+            .getTransactionsResponse()
+            .getTransactionsList()
+    );
+  }
+
+  /**
+   * Converts Iroha transactions to brvs batches
+   *
+   * @param transactions transaction list to be converted
+   * @return {@link List} of {@link TransactionBatch} of input
+   */
+  private List<TransactionBatch> constructBatches(List<Transaction> transactions) {
+    List<TransactionBatch> transactionBatches = new ArrayList<>();
+    for (int i = 0; i < transactions.size(); ) {
+      final List<Transaction> transactionListForBatch = new ArrayList<>();
+      final int hashesCount = transactions
+          .get(i)
+          .getPayload()
+          .getBatch()
+          .getReducedHashesCount();
+      final int toInclude = hashesCount == 0 ? 1 : hashesCount;
+
+      for (int j = 0; j < toInclude; j++) {
+        transactionListForBatch.add(transactions.get(i + j));
+      }
+      i += toInclude;
+      transactionBatches.add(new TransactionBatch(transactionListForBatch));
+    }
+    return transactionBatches;
   }
 
   /**

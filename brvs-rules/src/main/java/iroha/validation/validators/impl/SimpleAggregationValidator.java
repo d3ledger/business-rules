@@ -3,6 +3,8 @@ package iroha.validation.validators.impl;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
 import iroha.validation.validators.Validator;
+import iroha.validation.verdict.ValidationResult;
+import iroha.validation.verdict.Verdict;
 import java.util.Collection;
 import org.springframework.util.CollectionUtils;
 
@@ -22,7 +24,13 @@ public class SimpleAggregationValidator implements Validator {
    * {@inheritDoc}
    */
   @Override
-  public boolean validate(Transaction transaction) {
-    return rules.stream().allMatch(rule -> rule.isSatisfiedBy(transaction));
+  public ValidationResult validate(Transaction transaction) {
+    for (Rule rule : rules) {
+      final ValidationResult validationResult = rule.isSatisfiedBy(transaction);
+      if (validationResult.getStatus().equals(Verdict.REJECTED)) {
+        return validationResult;
+      }
+    }
+    return ValidationResult.VALIDATED;
   }
 }
