@@ -8,9 +8,9 @@ import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.utils.ValidationUtils;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.springframework.util.CollectionUtils;
@@ -18,7 +18,7 @@ import org.springframework.util.CollectionUtils;
 public class CacheProvider {
 
   // Local BRVS cache
-  private final Map<String, List<TransactionBatch>> cache = new HashMap<>();
+  private final Map<String, Set<TransactionBatch>> cache = new HashMap<>();
   // Iroha accounts awaiting for the previous transaction completion
   private final Map<String, String> pendingAccounts = new HashMap<>();
   // Observable
@@ -30,23 +30,25 @@ public class CacheProvider {
       consumeAndLockAccountByTransactionIfNeeded(transactionBatch);
       return;
     }
-    transactionBatch.forEach(transaction -> {
-          final String accountId = ValidationUtils.getTxAccountId(transaction);
-          if (!cache.containsKey(accountId)) {
-            cache.put(accountId, new LinkedList<>());
-          }
-          cache.get(accountId).add(transactionBatch);
-        }
-    );
+    final String accountId = transactionBatch.getBatchInitiator();
+    if (!cache.containsKey(accountId)) {
+      cache.put(accountId, new HashSet<>());
+    }
+    cache.get(accountId).add(transactionBatch);
   }
 
   private synchronized void consumeNextTransactionBatch(String accountId) {
-    List<TransactionBatch> accountTransactions = cache.get(accountId);
+    Set<TransactionBatch> accountTransactions = cache.get(accountId);
     if (!CollectionUtils.isEmpty(accountTransactions)) {
       final TransactionBatch transactionBatch = accountTransactions.stream()
           .filter(this::isBatchUnlocked).findAny().orElse(null);
-      if (cache.get(accountId).isEmpty()) {
-        cache.remove(accountId);
+      if (transactionBatch != null) {
+        final String txAccountId = transactionBatch.getBatchInitiator();
+        final Set<TransactionBatch> accountBatches = cache.get(txAccountId);
+        accountBatches.remove(transactionBatch);
+        if (accountBatches.isEmpty()) {
+          cache.remove(txAccountId);
+        }
       }
       consumeAndLockAccountByTransactionIfNeeded(transactionBatch);
     }
