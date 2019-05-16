@@ -1,5 +1,6 @@
 package iroha.validation;
 
+import iroha.validation.security.BrvsAuthenticator;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
@@ -11,6 +12,13 @@ import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
+import org.pac4j.core.authorization.authorizer.IsAuthenticatedAuthorizer;
+import org.pac4j.core.config.Config;
+import org.pac4j.core.credentials.UsernamePasswordCredentials;
+import org.pac4j.http.client.direct.DirectBasicAuthClient;
+import org.pac4j.jax.rs.features.JaxRsConfigProvider;
+import org.pac4j.jax.rs.features.Pac4JSecurityFeature;
+import org.pac4j.jax.rs.grizzly.features.GrizzlyJaxRsContextFactoryProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -51,6 +59,12 @@ public class Application {
     });
     resourceConfig.property(ServerProperties.OUTBOUND_CONTENT_LENGTH_BUFFER, 0);
 
+    Config securityConfig = getSecurityConfig(context.getBean(UsernamePasswordCredentials.class));
+    resourceConfig
+        .register(new JaxRsConfigProvider(securityConfig))
+        .register(new GrizzlyJaxRsContextFactoryProvider())
+        .register(new Pac4JSecurityFeature());
+
     int port = getPort(context);
     logger.info("Going to establish HTTP server on port " + port);
     GrizzlyHttpServerFactory
@@ -68,5 +82,14 @@ public class Application {
       logger.warn("Couldn't read the port. Reason: " + e.getMessage());
     }
     return portBean;
+  }
+
+  private static Config getSecurityConfig(UsernamePasswordCredentials credentials) {
+    DirectBasicAuthClient basicAuthClient = new DirectBasicAuthClient(
+        BrvsAuthenticator.getInstance(credentials)
+    );
+    Config config = new Config(basicAuthClient);
+    config.addAuthorizer("brvs", new IsAuthenticatedAuthorizer());
+    return config;
   }
 }
