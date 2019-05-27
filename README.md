@@ -34,7 +34,7 @@ Perform ['Add Signatory'](https://iroha.readthedocs.io/en/latest/api/commands.ht
 
 Modify **BRVS** [configuration](./config/context/spring-context.xml) in a way you need. You can extend it by introducing new Rules and Validators implementations
 
-Submit correct data into [application.properties](./config/context/application.properties)
+Submit correct data using environment variables [application.properties](brvs-core/src/main/resources/application.properties)
 
 Run clean build and farJar gradle tasks
 
