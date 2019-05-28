@@ -36,12 +36,11 @@ Modify **BRVS** [configuration](./config/context/spring-context.xml) in a way yo
 
 Submit correct data using environment variables [application.properties](brvs-core/src/main/resources/application.properties)
 
-Run clean build and farJar gradle tasks
+Run `clean build shadowJar` gradle tasks
 
 ```
 cd ./business-rules
-./gradlew clean build
-./gradlew :brvs-core:shadowJar
+./gradlew clean build shadowJar
 ```
 
 Modify [Dockerfile](./Dockerfile) if needed
