@@ -55,16 +55,6 @@ public interface ValidationUtils {
     return Utils.toHex(Utils.hash(block));
   }
 
-  static KeyPair readKeyPairFromFiles(String pubKeyPath, String privKeyPath) {
-    try {
-      final String pubKeyHex = readKey(pubKeyPath);
-      final String privKeyHex = readKey(privKeyPath);
-      return Utils.parseHexKeypair(pubKeyHex, privKeyHex);
-    } catch (IOException e) {
-      throw new IllegalArgumentException("Couldn't read key files", e);
-    }
-  }
-
   static String readKey(String keyPath) throws IOException {
     return new String(Files.readAllBytes(Paths.get(keyPath)));
   }
