@@ -1,3 +1,8 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.transactions.signatory.impl;
 
 import io.reactivex.Scheduler;
@@ -28,10 +33,6 @@ import org.springframework.util.StringUtils;
 public class TransactionSignerImpl implements TransactionSigner {
 
   private static final Logger logger = LoggerFactory.getLogger(TransactionSignerImpl.class);
-  private static final KeyPair fakeKeyPair = Utils.parseHexKeypair(
-      "0000000000000000000000000000000000000000000000000000000000000000",
-      "0000000000000000000000000000000000000000000000000000000000000000"
-  );
 
   private final IrohaAPI irohaAPI;
   private final String brvsAccountId;
@@ -148,7 +149,7 @@ public class TransactionSignerImpl implements TransactionSigner {
 
       // Since we assume brvs signatures must be as many as users
       for (int i = 0; i < signaturesCount; i++) {
-        parsedTransaction.sign(fakeKeyPair);
+        parsedTransaction.sign(ValidationUtils.generateKeypair());
       }
       transactions.add(parsedTransaction.build());
     }
@@ -198,7 +199,7 @@ public class TransactionSignerImpl implements TransactionSigner {
     }
     logger.info("Transactions has been rejected by the service. Reason: " + reason);
     if (isCreatedByBrvs(transactionBatch)) {
-      sendBrvsTransactionBatch(transactionBatch, fakeKeyPair);
+      sendBrvsTransactionBatch(transactionBatch, ValidationUtils.generateKeypair());
     } else {
       sendRejectedUserTransaction(transactionBatch);
     }
