@@ -8,7 +8,10 @@ package iroha.validation.behavior;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import io.reactivex.Maybe;
 import iroha.protocol.BlockOuterClass;
+import iroha.protocol.Endpoint.ToriiResponse;
+import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.Primitive.GrantablePermission;
 import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.QryResponses.Account;
@@ -358,7 +361,7 @@ class IrohaIntegrationTest {
         .transferAsset(senderId, receiverId, assetId, "test invalid transfer", "200")
         .setQuorum(2)
         .sign(senderKeypair).build();
-    irohaAPI.transactionSync(transaction);
+    final Maybe<ToriiResponse> lastElementStatus = irohaAPI.transaction(transaction).lastElement();
 
     Thread.sleep(TRANSACTION_REACTION_TIMEOUT);
     // Check account is not blocked
@@ -368,6 +371,8 @@ class IrohaIntegrationTest {
 
     assertEquals(Verdict.REJECTED, transactionVerdictStorage
         .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+    assertEquals(TxStatus.REJECTED,
+        lastElementStatus.blockingGet().getTxStatus());
 
     // query Iroha and check that transfer was not committed
     AccountAsset accountAsset = irohaAPI.query(new QueryBuilder(receiverId, Instant.now(), 1)

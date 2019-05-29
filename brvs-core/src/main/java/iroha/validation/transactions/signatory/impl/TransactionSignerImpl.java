@@ -33,10 +33,7 @@ import org.springframework.util.StringUtils;
 public class TransactionSignerImpl implements TransactionSigner {
 
   private static final Logger logger = LoggerFactory.getLogger(TransactionSignerImpl.class);
-  private static final KeyPair fakeKeyPair = Utils.parseHexKeypair(
-      "0000000000000000000000000000000000000000000000000000000000000000",
-      "0000000000000000000000000000000000000000000000000000000000000000"
-  );
+  private static final KeyPair fakeKeyPair = ValidationUtils.generateKeypair();
 
   private final IrohaAPI irohaAPI;
   private final String brvsAccountId;
