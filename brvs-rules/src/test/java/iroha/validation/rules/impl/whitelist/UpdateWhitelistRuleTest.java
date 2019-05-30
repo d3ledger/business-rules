@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -51,7 +52,8 @@ class UpdateWhitelistRuleTest {
   @Captor
   private final ArgumentCaptor<Transaction> captor = ArgumentCaptor.forClass(Transaction.class);
 
-  private final Rule rule = new UpdateWhitelistRule(brvsAccountId, brvsAccountKeyPair, irohaAPI,
+  private final Rule rule = new UpdateWhitelistRule(
+      new QueryAPI(irohaAPI, brvsAccountId, brvsAccountKeyPair),
       validationPeriod);
 
   private void setEnvironmentTest(List<String> whitelist, String key, String clientListResponse) {

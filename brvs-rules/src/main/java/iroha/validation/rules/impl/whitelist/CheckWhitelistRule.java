@@ -11,12 +11,11 @@ import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.rules.Rule;
 import iroha.validation.verdict.ValidationResult;
-import java.security.KeyPair;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,25 +26,18 @@ public class CheckWhitelistRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(UpdateWhitelistRule.class);
 
-  private final String brvsAccountId;
-  private final KeyPair brvsAccountKeyPair;
-  private final IrohaAPI irohaAPI;
+  private final QueryAPI queryAPI;
   private final String withdrawalAccount;
 
-  public CheckWhitelistRule(String brvsAccountId, KeyPair brvsAccountKeyPair, IrohaAPI irohaAPI,
-      String withdrawalAccount) {
-    if (Strings.isNullOrEmpty(brvsAccountId)) {
-      throw new IllegalArgumentException("Account ID must not be neither null nor empty");
+  public CheckWhitelistRule(QueryAPI queryAPI, String withdrawalAccount) {
+    if (Strings.isNullOrEmpty(withdrawalAccount)) {
+      throw new IllegalArgumentException(
+          "Withdrawal Account ID must not be neither null nor empty");
     }
-    this.brvsAccountId = brvsAccountId;
-
-    Objects.requireNonNull(brvsAccountKeyPair, "Key pair must not be null");
-    this.brvsAccountKeyPair = brvsAccountKeyPair;
-
-    Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
-    this.irohaAPI = irohaAPI;
-
     this.withdrawalAccount = withdrawalAccount;
+
+    Objects.requireNonNull(queryAPI, "Query API must not be null");
+    this.queryAPI = queryAPI;
   }
 
   @Override
@@ -77,9 +69,7 @@ public class CheckWhitelistRule implements Rule {
 
         // get old whitelist that was set by BRVS as Pairs(address -> validation_time)
         Map<String, Long> whitelistValidated = WhitelistUtils.getBRVSWhitelist(
-            brvsAccountId,
-            brvsAccountKeyPair,
-            irohaAPI,
+            queryAPI,
             clientId,
             whitelistKey
         );
