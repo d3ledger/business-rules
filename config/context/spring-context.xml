@@ -147,6 +147,9 @@
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="withdrawalAccount" value="${BTCCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
   </bean>
+  <bean id="restrictedKeysRule" class="iroha.validation.rules.impl.RestrictedKeysRule">
+    <constructor-arg name="restrictedKeys" ref="keysList"/>
+  </bean>
   <!--<bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">-->
     <!--<constructor-arg name="getBillingURL" value="${BILLING_URL}"/>-->
     <!--<constructor-arg name="rmqHost" value="${RMQ_HOST}"/>-->
@@ -163,6 +166,7 @@
     <ref bean="updateWhitelistRule"/>
     <ref bean="checkEthWhitelistRule"/>
     <ref bean="checkBtcWhitelistRule"/>
+    <ref bean="restrictedKeysRule"/>
     <!--<ref bean="billingRule"/>-->
     <!-- More can be added -->
   </util:list>
