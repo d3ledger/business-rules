@@ -24,12 +24,12 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.security.KeyPair;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -53,7 +53,7 @@ public class IrohaReliableChainListener implements Closeable {
   private final KeyPair userKeyPair;
   private final Connection connection;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
-  private final Map<String, QueryAPI> queryAPIMap = new HashMap<>();
+  private final ConcurrentMap<String, QueryAPI> queryAPIMap = new ConcurrentHashMap<>();
 
   public IrohaReliableChainListener(
       QueryAPI queryAPI,
@@ -109,11 +109,9 @@ public class IrohaReliableChainListener implements Closeable {
    * @return list of user transactions that are in pending state
    */
   private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
-    if (!queryAPIMap.containsKey(accountId)) {
-      queryAPIMap.put(accountId, new QueryAPI(irohaAPI, accountId, keyPair));
-    }
     return constructBatches(
-        queryAPIMap.get(accountId)
+        queryAPIMap.putIfAbsent(accountId, new QueryAPI(irohaAPI, accountId, keyPair))
+            // Actually, it can't since nulls are not allowed by ConcurrentHashMap
             .getPendingTransactions()
             .getTransactionsList()
     );
