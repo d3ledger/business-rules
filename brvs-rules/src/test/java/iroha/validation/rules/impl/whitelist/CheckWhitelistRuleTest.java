@@ -6,8 +6,6 @@
 package iroha.validation.rules.impl.whitelist;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -23,6 +21,7 @@ import java.security.KeyPair;
 import java.util.Collections;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import org.junit.jupiter.api.Test;
 
 class CheckWhitelistRuleTest {
@@ -43,8 +42,8 @@ class CheckWhitelistRuleTest {
   private final Transaction transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
   private final QueryResponse queryResponse = mock(QueryResponse.class, RETURNS_DEEP_STUBS);
 
-  private Rule rule = new CheckWhitelistRule(brvsAccountId,
-      brvsAccountKeyPair, irohaAPI, withdrawalClientId);
+  private Rule rule = new CheckWhitelistRule(
+      new QueryAPI(irohaAPI, brvsAccountId, brvsAccountKeyPair), withdrawalClientId);
 
   private void setEnvironmentTest(String clientListResponse) {
     when(transaction
