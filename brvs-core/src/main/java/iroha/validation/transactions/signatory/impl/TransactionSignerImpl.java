@@ -111,9 +111,7 @@ public class TransactionSignerImpl implements TransactionSigner {
     if (transactions.size() > 1) {
       irohaAPI.transactionListSync(transactions);
       if (check) {
-        for (Transaction transaction : transactions) {
-          checkIrohaStatus(transaction);
-        }
+        transactions.forEach(this::checkIrohaStatus);
       }
     } else {
       final Transaction transaction = transactions.get(0);
