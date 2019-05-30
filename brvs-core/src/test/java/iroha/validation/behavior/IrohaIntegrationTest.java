@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.QueryBuilder;
 import jp.co.soramitsu.iroha.java.Transaction;
 import jp.co.soramitsu.iroha.java.Utils;
@@ -164,9 +165,14 @@ class IrohaIntegrationTest {
 
   private ValidationService getService(IrohaAPI irohaAPI) {
     final String accountsHolderAccount = String.format("%s@%s", domainName, domainName);
-    accountManager = new AccountManager(validatorId, validatorKeypair, irohaAPI,
-        "uq", domainName, accountsHolderAccount, accountsHolderAccount,
-        Collections.singletonList(validatorKeypair));
+    final QueryAPI queryAPI = new QueryAPI(irohaAPI, validatorId, validatorKeypair);
+    accountManager = new AccountManager(queryAPI,
+        "uq",
+        domainName,
+        accountsHolderAccount,
+        accountsHolderAccount,
+        Collections.singletonList(validatorKeypair)
+    );
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
     return new ValidationServiceImpl(new ValidationServiceContext(
         Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
@@ -181,9 +187,7 @@ class IrohaIntegrationTest {
             accountManager,
             new MongoBlockStorage(mongoHost, mongoPort),
             new IrohaReliableChainListener(
-                irohaAPI,
-                validatorId,
-                validatorKeypair,
+                queryAPI,
                 validatorKeypair,
                 rmqHost,
                 rmqPort
@@ -382,50 +386,5 @@ class IrohaIntegrationTest {
         .getAccountAssetsList().get(0);
     assertEquals(assetId, accountAsset.getAssetId());
     assertEquals(initialReceiverAmount, accountAsset.getBalance());
-  }
-
-  /**
-   * @given {@link IrohaReliableChainListener} instance running
-   * @when two {@link Transaction} with {@link iroha.protocol.Commands.Command AddAssetQuantity}
-   * commands for "sender@notary" is sent to Iroha peer
-   * @then two {@link BlockOuterClass} arrive
-   */
-  @Test
-  // Since there is no MQ producer
-  @Disabled
-  void irohaReliableChainListenerTest() throws InterruptedException, IOException {
-    IrohaReliableChainListener listener = new IrohaReliableChainListener(
-        irohaAPI,
-        senderId,
-        senderKeypair,
-        senderKeypair,
-        rmqHost,
-        rmqPort
-    );
-
-    AtomicInteger blocks_n = new AtomicInteger(0);
-    listener.getBlockStreaming().subscribe(block -> blocks_n.incrementAndGet());
-
-    for (int i = 0; i < 2; i++) {
-      irohaAPI.transactionSync(Transaction.builder(senderId)
-          .addAssetQuantity(assetId, "1")
-          .sign(senderKeypair).build()
-      );
-
-      Thread.sleep(TRANSACTION_VALIDATION_TIMEOUT);
-    }
-
-    // query Iroha and check
-    String balance = irohaAPI.query(new QueryBuilder(senderId, Instant.now(), 1)
-        .getAccountAssets(senderId)
-        .buildSigned(senderKeypair))
-        .getAccountAssetsResponse()
-        .getAccountAssetsList()
-        .get(0)
-        .getBalance();
-
-    assertEquals("1000002", balance);
-    assertEquals(2, blocks_n.get());
-    listener.close();
   }
 }

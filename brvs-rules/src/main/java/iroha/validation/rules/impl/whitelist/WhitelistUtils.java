@@ -10,13 +10,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
-import iroha.protocol.QryResponses;
-import java.security.KeyPair;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import jp.co.soramitsu.iroha.java.IrohaAPI;
-import jp.co.soramitsu.iroha.java.Query;
+import jp.co.soramitsu.iroha.java.ErrorResponseException;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,44 +45,37 @@ public class WhitelistUtils {
   /**
    * Get whitelist that was set by BRVS
    *
-   * @param brvsAccountId - brvs account id is query creator
-   * @param brvsAccountKeyPair - for signing the query
-   * @param irohaAPI - to send query
+   * @param queryAPI - Iroha wrapper to send query
    * @param clientId - storage of details
    * @param whitelistKey - details key
    * @return Map of (address to validation time)
    * @throws IllegalAccessException on invalid response from Iroha
    */
   static Map<String, Long> getBRVSWhitelist(
-      String brvsAccountId,
-      KeyPair brvsAccountKeyPair,
-      IrohaAPI irohaAPI,
+      QueryAPI queryAPI,
       String clientId,
       String whitelistKey) throws IllegalAccessException {
-    QryResponses.QueryResponse queryResponse = irohaAPI.query(Query
-        .builder(brvsAccountId, 1L)
-        .getAccountDetail(clientId, brvsAccountId, whitelistKey)
-        .buildSigned(brvsAccountKeyPair));
-    if (!queryResponse.hasAccountDetailResponse()) {
+    try {
+      final String brvsAccountId = queryAPI.getAccountId();
+      String detail = queryAPI.getAccountDetails(clientId, brvsAccountId, whitelistKey);
+      logger.info("Got BRVS whitelist: " + detail);
+
+      JsonObject accountNode = parser.parse(detail).getAsJsonObject();
+      if (accountNode.get(brvsAccountId).isJsonNull()) {
+        return new HashMap<>();
+      }
+      JsonObject keyNode = accountNode.getAsJsonObject(brvsAccountId);
+      if (keyNode.get(whitelistKey).isJsonNull()) {
+        return new HashMap<>();
+      }
+      String whitelistJSON = keyNode.getAsJsonPrimitive(whitelistKey).getAsString();
+
+      return deserializeBRVSWhitelist(whitelistJSON);
+    } catch (ErrorResponseException e) {
       throw new IllegalAccessException(
           "There is no valid response from Iroha about account details in account "
               + clientId + " setter " + clientId + "key " + whitelistKey);
     }
-
-    String detail = queryResponse.getAccountDetailResponse().getDetail();
-    logger.info("Got BRVS whitelist: " + detail);
-
-    JsonObject accountNode = parser.parse(detail).getAsJsonObject();
-    if (accountNode.get(brvsAccountId).isJsonNull()) {
-      return new HashMap<>();
-    }
-    JsonObject keyNode = accountNode.getAsJsonObject(brvsAccountId);
-    if (keyNode.get(whitelistKey).isJsonNull()) {
-      return new HashMap<>();
-    }
-    String whitelistJSON = keyNode.getAsJsonPrimitive(whitelistKey).getAsString();
-
-    return deserializeBRVSWhitelist(whitelistJSON);
   }
 
   /**
