@@ -109,9 +109,9 @@ public class IrohaReliableChainListener implements Closeable {
    * @return list of user transactions that are in pending state
    */
   private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
+    queryAPIMap.putIfAbsent(accountId, new QueryAPI(irohaAPI, accountId, keyPair));
     return constructBatches(
-        queryAPIMap.putIfAbsent(accountId, new QueryAPI(irohaAPI, accountId, keyPair))
-            // Actually, it can't since nulls are not allowed by ConcurrentHashMap
+        queryAPIMap.get(accountId)
             .getPendingTransactions()
             .getTransactionsList()
     );
