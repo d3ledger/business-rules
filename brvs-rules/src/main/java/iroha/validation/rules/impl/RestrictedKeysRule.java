@@ -20,7 +20,7 @@ import jp.co.soramitsu.iroha.java.Utils;
 
 public class RestrictedKeysRule implements Rule {
 
-  private Set<String> restrictedKeys;
+  private final Set<String> restrictedKeys;
 
   public RestrictedKeysRule(Collection<KeyPair> restrictedKeys) {
     this.restrictedKeys =
@@ -47,7 +47,7 @@ public class RestrictedKeysRule implements Rule {
         .map(Command::getRemoveSignatory)
         .map(RemoveSignatory::getPublicKey)
         .map(String::toUpperCase)
-        .filter(removeSignatory -> restrictedKeys.contains(removeSignatory))
+        .filter(restrictedKeys::contains)
         .collect(Collectors.toList())
     );
   }
