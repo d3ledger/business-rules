@@ -110,10 +110,8 @@ public class TransactionSignerImpl implements TransactionSigner {
   private void sendTransactions(List<Transaction> transactions, boolean check) {
     if (transactions.size() > 1) {
       irohaAPI.transactionListSync(transactions);
-      for (Transaction transaction : transactions) {
-        if (check) {
-          checkIrohaStatus(transaction);
-        }
+      if (check) {
+        transactions.forEach(this::checkIrohaStatus);
       }
     } else {
       final Transaction transaction = transactions.get(0);
