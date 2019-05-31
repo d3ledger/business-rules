@@ -90,12 +90,8 @@ class RulesTest {
     keyPair = new Ed25519Sha3().generateKeypair();
     rule = new RestrictedKeysRule(Collections.singletonList(keyPair));
     final RemoveSignatory removeSignatory = mock(RemoveSignatory.class);
-    if (bad) {
-      when(removeSignatory.getPublicKey())
-          .thenReturn(Utils.toHex(keyPair.getPublic().getEncoded()));
-    } else {
-      when(removeSignatory.getPublicKey()).thenReturn("");
-    }
+    final String value = bad ? Utils.toHex(keyPair.getPublic().getEncoded()) : "";
+    when(removeSignatory.getPublicKey()).thenReturn(value);
     when(commands.get(0).getRemoveSignatory()).thenReturn(removeSignatory);
   }
 
