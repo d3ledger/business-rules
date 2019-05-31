@@ -23,6 +23,7 @@ import java.security.KeyPair;
 import java.util.Collections;
 import java.util.List;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Utils;
 import org.junit.jupiter.api.Test;
 
@@ -92,6 +93,18 @@ class RulesTest {
     final RemoveSignatory removeSignatory = mock(RemoveSignatory.class);
     final String value = bad ? Utils.toHex(keyPair.getPublic().getEncoded()) : "";
     when(removeSignatory.getPublicKey()).thenReturn(value);
+    when(commands.get(0).getRemoveSignatory()).thenReturn(removeSignatory);
+  }
+
+  private void initSignatoriesAmountTest(boolean bad) {
+    init();
+    final String fakeAccountId = "id";
+    final QueryAPI queryAPI = mock(QueryAPI.class, RETURNS_DEEP_STUBS);
+    rule = new MinimumSignatoriesAmountRule("3", queryAPI);
+    final RemoveSignatory removeSignatory = mock(RemoveSignatory.class);
+    when(removeSignatory.getAccountId()).thenReturn(fakeAccountId);
+    final int value = bad ? 3 : 5;
+    when(queryAPI.getSignatories(fakeAccountId).getKeysCount()).thenReturn(value);
     when(commands.get(0).getRemoveSignatory()).thenReturn(removeSignatory);
   }
 
@@ -210,6 +223,32 @@ class RulesTest {
   @Test
   void restrictedGoodRuleTest() {
     initRestrictedKeysRuleTest(false);
+
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link MinimumSignatoriesAmountRule} instance with 3 amount
+   * @when {@link Transaction} with {@link Command RemoveSignatory} command from account having only
+   * 3 signatories appears
+   * @then {@link MinimumSignatoriesAmountRule} is not satisfied by such {@link Transaction}
+   */
+  @Test
+  void minimumSignatoriesAmountRuleTest() {
+    initSignatoriesAmountTest(true);
+
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link MinimumSignatoriesAmountRule} instance with 3 amount
+   * @when {@link Transaction} with {@link Command RemoveSignatory} command from account having 5
+   * signatories appears
+   * @then {@link MinimumSignatoriesAmountRule} is satisfied by such {@link Transaction}
+   */
+  @Test
+  void minimumSignatoriesAmountGoodRuleTest() {
+    initSignatoriesAmountTest(false);
 
     assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
