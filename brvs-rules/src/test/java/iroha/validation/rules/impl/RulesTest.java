@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.RemoveSignatory;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
@@ -18,8 +19,11 @@ import iroha.validation.rules.impl.billing.BillingRule;
 import iroha.validation.verdict.Verdict;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.security.KeyPair;
 import java.util.Collections;
 import java.util.List;
+import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
+import jp.co.soramitsu.iroha.java.Utils;
 import org.junit.jupiter.api.Test;
 
 class RulesTest {
@@ -29,6 +33,8 @@ class RulesTest {
   private TransferAsset transferAsset;
   private List<Command> commands;
   private Rule rule;
+
+  private KeyPair keyPair;
 
   private void init() {
     asset = "asset";
@@ -43,6 +49,7 @@ class RulesTest {
 
     when(command.hasTransferAsset()).thenReturn(true);
     when(command.getTransferAsset()).thenReturn(transferAsset);
+    when(command.hasRemoveSignatory()).thenReturn(true);
 
     commands = Collections.singletonList(command);
 
@@ -76,6 +83,16 @@ class RulesTest {
       protected void runCacheUpdater() {
       }
     };
+  }
+
+  private void initRestrictedKeysRuleTest(boolean bad) {
+    init();
+    keyPair = new Ed25519Sha3().generateKeypair();
+    rule = new RestrictedKeysRule(Collections.singletonList(keyPair));
+    final RemoveSignatory removeSignatory = mock(RemoveSignatory.class);
+    final String value = bad ? Utils.toHex(keyPair.getPublic().getEncoded()) : "";
+    when(removeSignatory.getPublicKey()).thenReturn(value);
+    when(commands.get(0).getRemoveSignatory()).thenReturn(removeSignatory);
   }
 
   /**
@@ -171,5 +188,29 @@ class RulesTest {
     when(transferAsset.getDestAccountId()).thenReturn("transfer_billing@users");
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link RestrictedKeysRule} instance with key specified
+   * @when {@link Transaction} with {@link Command RemoveSignatory} command of the same key
+   * @then {@link RestrictedKeysRule} is not satisfied by such {@link Transaction}
+   */
+  @Test
+  void restrictedRuleTest() {
+    initRestrictedKeysRuleTest(true);
+
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link RestrictedKeysRule} instance with key specified
+   * @when {@link Transaction} with {@link Command RemoveSignatory} command of other key
+   * @then {@link RestrictedKeysRule} is satisfied by such {@link Transaction}
+   */
+  @Test
+  void restrictedGoodRuleTest() {
+    initRestrictedKeysRuleTest(false);
+
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
 }
