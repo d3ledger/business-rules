@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.Utils;
+import org.springframework.util.CollectionUtils;
 
 public class RestrictedKeysRule implements Rule {
 
@@ -53,7 +54,7 @@ public class RestrictedKeysRule implements Rule {
   }
 
   private ValidationResult checkRemovals(List<String> removeSignatoryList) {
-    if (removeSignatoryList.isEmpty()) {
+    if (CollectionUtils.isEmpty(removeSignatoryList)) {
       return ValidationResult.VALIDATED;
     }
     return ValidationResult.REJECTED("Client is not able to remove signatories: "
