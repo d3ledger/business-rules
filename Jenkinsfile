@@ -23,7 +23,6 @@ pipeline {
         }
 
         stage('Build and push docker images') {
-          agent { label 'd3-build-agent' }
           steps {
             script {
               def scmVars = checkout scm
