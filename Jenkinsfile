@@ -29,7 +29,6 @@ pipeline {
               def scmVars = checkout scm
               if (env.BRANCH_NAME ==~ /(master|develop|reserved)/ || env.TAG_NAME) {
                     withCredentials([usernamePassword(credentialsId: 'nexus-d3-docker', usernameVariable: 'login', passwordVariable: 'password')]) {
-
                       TAG = env.TAG_NAME ? env.TAG_NAME : env.BRANCH_NAME
                       iC = docker.image("gradle:4.10.2-jdk8-slim")
                       iC.inside(" -e JVM_OPTS='-Xmx3200m' -e TERM='dumb'"+
@@ -39,9 +38,14 @@ pipeline {
                       " -e DOCKER_REGISTRY_PASSWORD='${password}'"+
                       " -e TAG='${TEST}'") {
                         sh "gradle shadowJar"
-                        sh "gradle dockerPush"
                       }
-                     }
+                    }
+
+                    // TODO use sora plugin
+                    def jarFile="/build/libs/business-rules-0.1-SNAPSHOT-all.jar"
+                    def nexusRepository="nexus.iroha.tech:19002/${login}"
+                    brvs = docker.build("${nexusRepository}/brvs:${TAG}", "--build-arg JAR_FILE=${relayJarFile} .")
+                    brvs.push("${TAG}")
                   }
             }
           }

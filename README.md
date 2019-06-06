@@ -49,7 +49,7 @@ Submit correct data into [docker-compose.yml](./deploy/docker-compose.yml) (i.e.
 
 Make sure Iroha is running and run BRVS
 ```
-docker-compose -f deploy/docker-compose.yml --build up
+docker-compose -f deploy/docker-compose.yml up --build
 ```
 
 Register all the users to be monitored by BRVS using POST request
