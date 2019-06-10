@@ -87,12 +87,13 @@
   </bean>
 
   <!-- CHAIN LISTENER CONFIG -->
+  <bean id="rmqConfig" class="iroha.validation.utils.ValidationUtils"
+    factory-method="loadLocalRmqConfig"/>
   <bean id="irohaReliableChainListener"
-    class="iroha.validation.listener.IrohaReliableChainListener">
+    class="iroha.validation.listener.BrvsIrohaChainListener">
+    <constructor-arg name="rmqConfig" ref="rmqConfig"/>
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="userKeyPair" ref="firstUserKey"/>
-    <constructor-arg name="rmqHost" value="${RMQ_HOST}"/>
-    <constructor-arg name="rmqPort" value="${RMQ_PORT}"/>
   </bean>
 
   <!-- SIGNER CONFIG -->

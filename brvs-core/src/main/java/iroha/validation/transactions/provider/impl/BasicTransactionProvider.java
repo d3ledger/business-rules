@@ -9,7 +9,7 @@ import com.google.common.base.Strings;
 import io.reactivex.Observable;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
-import iroha.validation.listener.IrohaReliableChainListener;
+import iroha.validation.listener.BrvsIrohaChainListener;
 import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
@@ -18,7 +18,6 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -39,7 +38,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final UserQuorumProvider userQuorumProvider;
   private final RegistrationProvider registrationProvider;
   private final BlockStorage blockStorage;
-  private final IrohaReliableChainListener irohaReliableChainListener;
+  private final BrvsIrohaChainListener irohaReliableChainListener;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   private final Set<String> userDomains;
   private boolean isStarted;
@@ -50,7 +49,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
       BlockStorage blockStorage,
-      IrohaReliableChainListener irohaReliableChainListener,
+      BrvsIrohaChainListener irohaReliableChainListener,
       String userDomains
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
@@ -145,6 +144,7 @@ public class BasicTransactionProvider implements TransactionProvider {
           );
         }
     );
+    irohaReliableChainListener.listen();
   }
 
   private void processCommitted(List<Transaction> blockTransactions) {
@@ -231,7 +231,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     executorService.shutdownNow();
     irohaReliableChainListener.close();
   }
