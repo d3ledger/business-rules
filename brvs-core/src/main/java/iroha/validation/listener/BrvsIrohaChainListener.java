@@ -51,7 +51,6 @@ public class BrvsIrohaChainListener implements Closeable {
     this.userKeyPair = userKeyPair;
   }
 
-
   /**
    * Queries pending transactions for specific users
    *
