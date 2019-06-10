@@ -5,6 +5,8 @@
 
 package iroha.validation.utils;
 
+import com.d3.commons.config.ConfigsKt;
+import com.d3.commons.config.RMQConfig;
 import com.google.common.collect.ImmutableList;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Endpoint.TxStatus;
@@ -96,6 +98,10 @@ public interface ValidationUtils {
       }
     }
     return ImmutableList.copyOf(keyPairs);
+  }
+
+  static RMQConfig loadLocalRmqConfig() {
+    return ConfigsKt.loadRawLocalConfigs("rmq", RMQConfig.class, "rmq.properties");
   }
 
   static KeyPair generateKeypair() {

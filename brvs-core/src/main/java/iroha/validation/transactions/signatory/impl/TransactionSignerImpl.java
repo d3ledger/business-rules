@@ -71,7 +71,7 @@ public class TransactionSignerImpl implements TransactionSigner {
     for (Transaction transaction : transactionBatch) {
       transactionVerdictStorage.markTransactionValidated(ValidationUtils.hexHash(transaction));
     }
-    logger.info("Transactions has been successfully validated and signed");
+    logger.info("Transactions have been successfully validated and signed");
     if (isCreatedByBrvs(transactionBatch)) {
       sendBrvsTransactionBatch(transactionBatch, brvsAccountKeyPair);
     } else {
@@ -195,7 +195,7 @@ public class TransactionSignerImpl implements TransactionSigner {
           reason
       );
     }
-    logger.info("Transactions has been rejected by the service. Reason: " + reason);
+    logger.info("Transactions have been rejected by the service. Reason: " + reason);
     if (isCreatedByBrvs(transactionBatch)) {
       sendBrvsTransactionBatch(transactionBatch, ValidationUtils.generateKeypair());
     } else {
