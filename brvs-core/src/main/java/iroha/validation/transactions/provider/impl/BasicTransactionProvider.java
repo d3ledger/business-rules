@@ -166,8 +166,8 @@ public class BasicTransactionProvider implements TransactionProvider {
     final String creatorAccountId = blockTransaction.getPayload().getReducedPayload()
         .getCreatorAccountId();
 
-    final long createdTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
-    final long syncTime = createdTime - createdTime % 1000000;
+    final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
+
     blockTransaction
         .getPayload()
         .getReducedPayload()

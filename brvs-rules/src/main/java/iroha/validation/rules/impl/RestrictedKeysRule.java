@@ -22,8 +22,10 @@ import org.springframework.util.CollectionUtils;
 public class RestrictedKeysRule implements Rule {
 
   private final Set<String> restrictedKeys;
+  private final String brvsAccountId;
 
-  public RestrictedKeysRule(Collection<KeyPair> restrictedKeys) {
+  public RestrictedKeysRule(String brvsAccountId, Collection<KeyPair> restrictedKeys) {
+    this.brvsAccountId = brvsAccountId;
     this.restrictedKeys =
         restrictedKeys
             .stream()
@@ -39,6 +41,9 @@ public class RestrictedKeysRule implements Rule {
    */
   @Override
   public ValidationResult isSatisfiedBy(Transaction transaction) {
+    if (transaction.getPayload().getReducedPayload().getCreatorAccountId().equals(brvsAccountId)) {
+      return ValidationResult.VALIDATED;
+    }
     return checkRemovals(transaction
         .getPayload()
         .getReducedPayload()

@@ -149,6 +149,7 @@
     <constructor-arg name="withdrawalAccount" value="${BTCCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
   </bean>
   <bean id="restrictedKeysRule" class="iroha.validation.rules.impl.RestrictedKeysRule">
+    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
     <constructor-arg name="restrictedKeys" ref="keysList"/>
   </bean>
   <bean id="minKeysRule" class="iroha.validation.rules.impl.MinimumSignatoriesAmountRule">
