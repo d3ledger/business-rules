@@ -92,6 +92,8 @@ class RulesTest {
     rule = new RestrictedKeysRule("", Collections.singletonList(keyPair));
     final RemoveSignatory removeSignatory = mock(RemoveSignatory.class);
     final String value = bad ? Utils.toHex(keyPair.getPublic().getEncoded()) : "";
+    when(transaction.getPayload().getReducedPayload().getCreatorAccountId())
+        .thenReturn("user@users");
     when(removeSignatory.getPublicKey()).thenReturn(value);
     when(commands.get(0).getRemoveSignatory()).thenReturn(removeSignatory);
   }
