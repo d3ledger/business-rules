@@ -89,7 +89,7 @@ class RulesTest {
   private void initRestrictedKeysRuleTest(boolean bad) {
     init();
     keyPair = new Ed25519Sha3().generateKeypair();
-    rule = new RestrictedKeysRule(Collections.singletonList(keyPair));
+    rule = new RestrictedKeysRule("", Collections.singletonList(keyPair));
     final RemoveSignatory removeSignatory = mock(RemoveSignatory.class);
     final String value = bad ? Utils.toHex(keyPair.getPublic().getEncoded()) : "";
     when(removeSignatory.getPublicKey()).thenReturn(value);
