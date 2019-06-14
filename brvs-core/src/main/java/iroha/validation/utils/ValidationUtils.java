@@ -29,6 +29,9 @@ import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 
 public interface ValidationUtils {
 
+  // BRVS keys count = User keys count
+  int PROPORTION = 2;
+
   Ed25519Sha3 crypto = new Ed25519Sha3();
 
   SubscriptionStrategy subscriptionStrategy = new WaitForTerminalStatus(

@@ -156,6 +156,9 @@
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="amount" value="${MIN_SIGNATORIES_RULE_AMOUNT}"/>
   </bean>
+  <bean id="quorumDivisor" class="iroha.validation.rules.impl.QuorumDivisorRule">
+    <constructor-arg name="divisor" value="${QUORUM_DIVISOR_RULE_VALUE}"/>
+  </bean>
   <!--<bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">-->
     <!--<constructor-arg name="getBillingURL" value="${BILLING_URL}"/>-->
     <!--<constructor-arg name="rmqHost" value="${RMQ_HOST}"/>-->
@@ -174,6 +177,7 @@
     <ref bean="checkBtcWhitelistRule"/>
     <ref bean="restrictedKeysRule"/>
     <ref bean="minKeysRule"/>
+    <ref bean="quorumDivisor"/>
     <!--<ref bean="billingRule"/>-->
     <!-- More can be added -->
   </util:list>
