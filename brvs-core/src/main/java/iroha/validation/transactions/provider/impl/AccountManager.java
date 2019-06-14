@@ -5,6 +5,8 @@
 
 package iroha.validation.transactions.provider.impl;
 
+import static iroha.validation.utils.ValidationUtils.PROPORTION;
+
 import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
@@ -45,8 +47,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
-  // BRVS keys count = User keys count
-  private static final int PROPORTION = 2;
   private static final JsonParser parser = new JsonParser();
   private static final int INITIAL_KEYS_AMOUNT = 1;
 
@@ -165,15 +165,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException("Quorum must be positive, got: " + quorum);
     }
     final int currentQuorum = getAccountQuorum(targetAccount);
-    if (currentQuorum == quorum) {
-      logger.warn("Quorum already has been set to the value provided. Account: " + targetAccount
-          + " Quorum: " + quorum);
-      return;
-    }
     final int userQuorumDetail = getUserQuorumDetail(targetAccount);
     // If we increase user quorum set signatures first to be equal to user keys count
     // Otherwise set quorum first
-    if (quorum > currentQuorum) {
+    if (quorum >= currentQuorum) {
       setBrvsSignatoriesToUser(targetAccount, userQuorumDetail);
       setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
     } else {

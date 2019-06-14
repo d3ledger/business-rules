@@ -5,6 +5,8 @@
 
 package iroha.validation.transactions.provider.impl;
 
+import static iroha.validation.utils.ValidationUtils.PROPORTION;
+
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
 import iroha.protocol.Commands.Command;
@@ -174,28 +176,12 @@ public class BasicTransactionProvider implements TransactionProvider {
         .getCommandsList()
         .stream()
         .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
-        .filter(Command::hasAddSignatory)
-        .map(Command::getAddSignatory)
+        .filter(Command::hasSetAccountQuorum)
+        .map(Command::getSetAccountQuorum)
         .forEach(command -> {
           userQuorumProvider
               .setUserQuorumDetail(creatorAccountId,
-                  userQuorumProvider.getUserQuorumDetail(creatorAccountId) + 1, syncTime);
-          userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-              userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
-        });
-
-    blockTransaction
-        .getPayload()
-        .getReducedPayload()
-        .getCommandsList()
-        .stream()
-        .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
-        .filter(Command::hasRemoveSignatory)
-        .map(Command::getRemoveSignatory)
-        .forEach(command -> {
-          userQuorumProvider
-              .setUserQuorumDetail(creatorAccountId,
-                  userQuorumProvider.getUserQuorumDetail(creatorAccountId) - 1, syncTime);
+                  command.getQuorum() / PROPORTION, syncTime);
           userQuorumProvider.setUserAccountQuorum(creatorAccountId,
               userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
         });
