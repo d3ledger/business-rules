@@ -3,7 +3,7 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.rules.impl;
+package iroha.validation.rules.impl.assets;
 
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.TransferAsset;
