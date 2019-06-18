@@ -143,6 +143,7 @@
   <bean id="checkEthWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="withdrawalAccount" value="${ETHCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
+    <constructor-arg name="exceptionAssets" value="${WHITELIST_EXCEPTION_ASSETS}"/>
   </bean>
   <bean id="checkBtcWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
