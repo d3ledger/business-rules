@@ -11,7 +11,7 @@ import static org.mockito.Mockito.mock;
 
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
-import iroha.validation.rules.impl.SampleRule;
+import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
 import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
