@@ -3,7 +3,7 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.rules.impl;
+package iroha.validation.rules.impl.core;
 
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
