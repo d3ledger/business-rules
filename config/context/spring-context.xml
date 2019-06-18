@@ -1,5 +1,10 @@
 <?xml version = "1.0" encoding = "UTF-8"?>
 
+<!--
+  ~ Copyright Soramitsu Co., Ltd. All Rights Reserved.
+  ~  SPDX-License-Identifier: Apache-2.0
+  -->
+
 <beans xmlns="http://www.springframework.org/schema/beans"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:util="http://www.springframework.org/schema/util"
@@ -10,105 +15,170 @@
 
   <!-- PATH TO THE PROPERTIES FILE -->
   <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
-    <property name="locations" value="file:config/context/application.properties"/>
+    <property name="systemPropertiesModeName" value="SYSTEM_PROPERTIES_MODE_OVERRIDE"/>
+    <property name="locations" value="classpath:application.properties"/>
+  </bean>
+
+  <!-- BRVS PORT -->
+  <bean id="port" name="brvsPort" class="java.lang.String">
+    <constructor-arg name="original" value="${BRVS_PORT}"/>
   </bean>
 
   <!-- KEY PAIR DEFINITION -->
-  <bean id="keyPair" class="iroha.validation.utils.ValidationUtils"
-    factory-method="readKeyPairFromFiles">
-    <constructor-arg index="0" value="${credential.pubkeyFilePath}"/>
-    <constructor-arg index="1" value="${credential.privkeyFilePath}"/>
+  <bean id="brvsAccountKeyPair" class="jp.co.soramitsu.iroha.java.Utils"
+    factory-method="parseHexKeypair">
+    <constructor-arg name="hexPublicKey" value="${CREDENTIAL_PUBKEY}"/>
+    <constructor-arg name="hexPrivateKey" value="${CREDENTIAL_PRIVKEY}"/>
+  </bean>
+  <bean id="keysList" class="iroha.validation.utils.ValidationUtils"
+    factory-method="generateOrImportKeypairs">
+    <constructor-arg name="amount" value="${BRVS_USERKEYSCOUNT}"/>
+    <constructor-arg name="path" value="${BRVS_USERKEYSPATH}"/>
+  </bean>
+  <bean id="firstUserKey" class="iroha.validation.utils.ValidationUtils"
+    factory-method="generateOrImportFirstKeypair">
+    <constructor-arg name="path" value="${BRVS_USERKEYSPATH}"/>
   </bean>
 
   <!-- IROHA API IPJ CONFIG -->
   <bean id="irohaAPI" class="jp.co.soramitsu.iroha.java.IrohaAPI">
-    <constructor-arg index="0" value="${iroha.host}"/>
-    <constructor-arg index="1" value="${iroha.port}"/>
+    <constructor-arg name="host" value="${IROHA_HOST}"/>
+    <constructor-arg name="port" value="${IROHA_PORT}"/>
+  </bean>
+  <bean id="queryAPI" class="jp.co.soramitsu.iroha.java.QueryAPI">
+    <constructor-arg name="api" ref="irohaAPI"/>
+    <constructor-arg name="accountId" value="${CREDENTIAL_ACCOUNTID}"/>
+    <constructor-arg name="keyPair" ref="brvsAccountKeyPair"/>
   </bean>
 
   <!-- STORAGE CONFIG -->
   <bean id="mongoVerdictStorage"
     class="iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage">
-    <constructor-arg index="0" value="${mongo.host}"/>
-    <constructor-arg index="1" value="${mongo.port}"/>
+    <constructor-arg name="mongoHost" value="${MONGO_HOST}"/>
+    <constructor-arg name="mongoPort" value="${MONGO_PORT}"/>
+  </bean>
+  <bean id="mongoBlockStorage"
+    class="iroha.validation.transactions.storage.impl.mongo.MongoBlockStorage">
+    <constructor-arg name="mongoHost" value="${MONGO_HOST}"/>
+    <constructor-arg name="mongoPort" value="${MONGO_PORT}"/>
   </bean>
 
   <!-- USER ACCOUNTS MANAGER CONFIG -->
   <bean id="accountManager"
     class="iroha.validation.transactions.provider.impl.AccountManager">
-    <constructor-arg index="0" value="${credential.accountId}"/>
-    <constructor-arg index="1" ref="keyPair"/>
-    <constructor-arg index="2" ref="irohaAPI"/>
-    <constructor-arg index="3" value="${quorum.key}"/>
-    <constructor-arg index="4" value="${accounts.holder}"/>
-    <constructor-arg index="5" value="${credential.accountId}"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="userQuorumAttribute" value="${QUORUM_KEY}"/>
+    <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
+    <constructor-arg name="userAccountsHolderAccount" value="${ACCOUNTS_HOLDER}"/>
+    <constructor-arg name="brvsInstancesHolderAccount" value="${CREDENTIAL_ACCOUNTID}"/>
+    <constructor-arg name="keyPairs" ref="keysList"/>
   </bean>
 
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
-    <constructor-arg index="0" ref="mongoVerdictStorage"/>
-    <constructor-arg index="1" ref="cacheProvider"/>
-    <constructor-arg index="2" ref="accountManager"/>
-    <constructor-arg index="3" ref="accountManager"/>
-    <constructor-arg index="4" ref="irohaReliableChainListener"/>
-    <constructor-arg index="5" value="${brvs.userDomains}"/>
+    <constructor-arg name="transactionVerdictStorage" ref="mongoVerdictStorage"/>
+    <constructor-arg name="cacheProvider" ref="cacheProvider"/>
+    <constructor-arg name="userQuorumProvider" ref="accountManager"/>
+    <constructor-arg name="registrationProvider" ref="accountManager"/>
+    <constructor-arg name="blockStorage" ref="mongoBlockStorage"/>
+    <constructor-arg name="irohaReliableChainListener" ref="irohaReliableChainListener"/>
+    <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
   </bean>
 
   <!-- CHAIN LISTENER CONFIG -->
+  <bean id="rmqConfig" class="iroha.validation.utils.ValidationUtils"
+    factory-method="loadLocalRmqConfig"/>
   <bean id="irohaReliableChainListener"
-    class="iroha.validation.listener.IrohaReliableChainListener">
-    <constructor-arg index="0" ref="irohaAPI"/>
-    <constructor-arg index="1" value="${credential.accountId}"/>
-    <constructor-arg index="2" ref="keyPair"/>
-    <constructor-arg index="3" value="${rmq.host}"/>
-    <constructor-arg index="4" value="${rmq.port}"/>
+    class="iroha.validation.listener.BrvsIrohaChainListener">
+    <constructor-arg name="rmqConfig" ref="rmqConfig"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="userKeyPair" ref="firstUserKey"/>
   </bean>
 
   <!-- SIGNER CONFIG -->
   <bean id="transactionSigner"
     class="iroha.validation.transactions.signatory.impl.TransactionSignerImpl">
-    <constructor-arg index="0" ref="irohaAPI"/>
-    <constructor-arg index="1" ref="keyPair"/>
-    <constructor-arg index="2" ref="mongoVerdictStorage"/>
+    <constructor-arg name="irohaAPI" ref="irohaAPI"/>
+    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
+    <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
+    <constructor-arg name="keyPairs" ref="keysList"/>
+    <constructor-arg name="transactionVerdictStorage" ref="mongoVerdictStorage"/>
   </bean>
 
   <!-- CACHE CONFIG -->
   <bean id="cacheProvider" class="iroha.validation.transactions.provider.impl.util.CacheProvider"/>
 
   <!-- BRVS DATA CONFIG -->
-  <bean id="pubkey" class="iroha.validation.utils.ValidationUtils" factory-method="readKey">
-    <constructor-arg index="0" value="${credential.pubkeyFilePath}"/>
+  <bean id="pubkey" class="java.lang.String">
+    <constructor-arg name="original" value="${CREDENTIAL_PUBKEY}"/>
   </bean>
   <bean id="brvsData" class="iroha.validation.transactions.provider.impl.util.BrvsData">
-    <constructor-arg index="0" ref="pubkey"/>
-    <constructor-arg index="1" value="${brvs.localhostname}"/>
+    <constructor-arg name="hexPubKey" ref="pubkey"/>
+    <constructor-arg name="hostname" value="${BRVS_LOCALHOSTNAME}"/>
   </bean>
 
   <!-- SERVICE CONFIG -->
   <bean id="serviceContext" class="iroha.validation.config.ValidationServiceContext">
-    <constructor-arg index="0" ref="validators"/>
-    <constructor-arg index="1" ref="transactionProvider"/>
-    <constructor-arg index="2" ref="transactionSigner"/>
-    <constructor-arg index="3" ref="accountManager"/>
-    <constructor-arg index="4" ref="brvsData"/>
-    <constructor-arg index="5" value="${brvs.root}"/>
+    <constructor-arg name="validators" ref="validators"/>
+    <constructor-arg name="transactionProvider" ref="transactionProvider"/>
+    <constructor-arg name="transactionSigner" ref="transactionSigner"/>
+    <constructor-arg name="registrationProvider" ref="accountManager"/>
+    <constructor-arg name="brvsData" ref="brvsData"/>
   </bean>
 
   <bean class="iroha.validation.service.impl.ValidationServiceImpl">
-    <constructor-arg index="0" ref="serviceContext"/>
+    <constructor-arg name="validationServiceContext" ref="serviceContext"/>
   </bean>
 
   <!-- RULES DEFINITIONS -->
   <bean id="sampleRule" class="iroha.validation.rules.impl.SampleRule"/>
   <bean id="newBrvsRule" class="iroha.validation.rules.impl.NewBrvsRule">
-    <constructor-arg index="0" value="${credential.accountId}"/>
-    <constructor-arg index="1" ref="keyPair"/>
-    <constructor-arg index="2" ref="irohaAPI"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
   </bean>
+  <bean id="updateWhitelistRule" class="iroha.validation.rules.impl.whitelist.UpdateWhitelistRule">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="validationPeriod" value="${WHITELIST_VALIDATION}"/>
+  </bean>
+  <bean id="checkEthWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="withdrawalAccount" value="${ETHCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
+  </bean>
+  <bean id="checkBtcWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="withdrawalAccount" value="${BTCCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
+  </bean>
+  <bean id="restrictedKeysRule" class="iroha.validation.rules.impl.RestrictedKeysRule">
+    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
+    <constructor-arg name="restrictedKeys" ref="keysList"/>
+  </bean>
+  <bean id="minKeysRule" class="iroha.validation.rules.impl.MinimumSignatoriesAmountRule">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="amount" value="${MIN_SIGNATORIES_RULE_AMOUNT}"/>
+  </bean>
+  <bean id="quorumDivisor" class="iroha.validation.rules.impl.QuorumDivisorRule">
+    <constructor-arg name="divisor" value="${QUORUM_DIVISOR_RULE_VALUE}"/>
+  </bean>
+  <!--<bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">-->
+    <!--<constructor-arg name="getBillingURL" value="${BILLING_URL}"/>-->
+    <!--<constructor-arg name="rmqHost" value="${RMQ_HOST}"/>-->
+    <!--<constructor-arg name="rmqPort" value="${RMQ_PORT}"/>-->
+    <!--<constructor-arg name="rmqExchange" value="${BILLING_RMQ_EXCHANGE}"/>-->
+    <!--<constructor-arg name="rmqRoutingKey" value="${BILLING_RMQ_ROUTINGKEY}"/>-->
+    <!--<constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>-->
+    <!--<constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>-->
+    <!--<constructor-arg name="withdrawalAccounts" value="${BILLING_WITHDRAWALACCOUNTS}"/>-->
+  <!--</bean>-->
   <util:list id="rules" value-type="iroha.validation.rules.Rule">
     <ref bean="sampleRule"/>
     <ref bean="newBrvsRule"/>
+    <ref bean="updateWhitelistRule"/>
+    <ref bean="checkEthWhitelistRule"/>
+    <ref bean="checkBtcWhitelistRule"/>
+    <ref bean="restrictedKeysRule"/>
+    <ref bean="minKeysRule"/>
+    <ref bean="quorumDivisor"/>
+    <!--<ref bean="billingRule"/>-->
     <!-- More can be added -->
   </util:list>
 

@@ -1,5 +1,11 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.service.impl;
 
+import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.RegistrationProvider;
@@ -8,7 +14,10 @@ import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
+import iroha.validation.verdict.ValidationResult;
+import iroha.validation.verdict.Verdict;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +31,6 @@ public class ValidationServiceImpl implements ValidationService {
   private final TransactionSigner transactionSigner;
   private final RegistrationProvider registrationProvider;
   private final BrvsData brvsData;
-  private final boolean isRoot;
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
@@ -32,7 +40,6 @@ public class ValidationServiceImpl implements ValidationService {
     this.transactionSigner = validationServiceContext.getTransactionSigner();
     this.registrationProvider = validationServiceContext.getRegistrationProvider();
     this.brvsData = validationServiceContext.getBrvsData();
-    this.isRoot = validationServiceContext.isRoot();
   }
 
   /**
@@ -40,29 +47,25 @@ public class ValidationServiceImpl implements ValidationService {
    */
   @Override
   public void verifyTransactions() {
-    // if this instance is not the first in the network
-    if (!isRoot) {
-      registerBrvs();
-    }
     registerExistentAccounts();
-    transactionProvider.getPendingTransactionsStreaming().subscribe(transaction ->
+    transactionProvider.getPendingTransactionsStreaming().subscribe(transactionBatch ->
         {
           boolean verdict = true;
-          final String hex = ValidationUtils.hexHash(transaction);
-          logger.info("Got transaction to validate: " + hex);
-          for (Validator validator : validators) {
-            if (!validator.validate(transaction)) {
-              final String canonicalName = validator.getClass().getCanonicalName();
-              transactionSigner.rejectAndSend(transaction, canonicalName);
-              logger.info(
-                  "Transaction has been rejected by the service. Failed validator: " + canonicalName);
-              verdict = false;
-              break;
+          final List<String> hex = ValidationUtils.hexHash(transactionBatch);
+          logger.info("Got transactions to validate: " + hex);
+          for (Transaction transaction : transactionBatch) {
+            for (Validator validator : validators) {
+              final ValidationResult validationResult = validator.validate(transaction);
+              if (Verdict.VALIDATED != validationResult.getStatus()) {
+                final String reason = validationResult.getReason();
+                transactionSigner.rejectAndSend(transactionBatch, reason);
+                verdict = false;
+                break;
+              }
             }
           }
           if (verdict) {
-            transactionSigner.signAndSend(transaction);
-            logger.info("Transaction has been successfully validated and signed");
+            transactionSigner.signAndSend(transactionBatch);
           }
         }
     );
@@ -70,17 +73,19 @@ public class ValidationServiceImpl implements ValidationService {
 
   private void registerExistentAccounts() {
     logger.info("Going to register existent user accounts in BRVS: " + brvsData.getHostname());
-    registrationProvider.getUserAccounts().forEach(account -> {
+    final Iterable<String> userAccounts;
+    try {
+      userAccounts = registrationProvider.getUserAccounts();
+    } catch (Exception e) {
+      logger.warn("Couldn't query existing accounts. Please add them manually", e);
+      return;
+    }
+    userAccounts.forEach(account -> {
       try {
         registrationProvider.register(account);
       } catch (Exception e) {
         logger.warn("Couldn't add existing account " + account + " Please add it manually", e);
       }
     });
-  }
-
-  private void registerBrvs() {
-    logger.info("Trying to register new brvs instance (self)");
-    registrationProvider.addBrvsInstance(brvsData);
   }
 }

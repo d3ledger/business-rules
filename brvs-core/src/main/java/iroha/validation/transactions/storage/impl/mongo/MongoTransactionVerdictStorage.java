@@ -1,3 +1,8 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.transactions.storage.impl.mongo;
 
 import static com.mongodb.client.model.Filters.eq;
@@ -48,7 +53,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public boolean isHashPresentInStorage(String txHash) {
-    return collection.find(eq(TX_HASH_ATTRIBUTE, txHash)).first() != null;
+    return collection.find(eq(TX_HASH_ATTRIBUTE, txHash.toUpperCase())).first() != null;
   }
 
   /**
@@ -56,7 +61,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public void markTransactionPending(String txHash) {
-    store(txHash, ValidationResult.PENDING);
+    store(txHash.toUpperCase(), ValidationResult.UNKNOWN);
   }
 
   /**
@@ -64,7 +69,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public void markTransactionValidated(String txHash) {
-    store(txHash, ValidationResult.VALIDATED);
+    store(txHash.toUpperCase(), ValidationResult.VALIDATED);
   }
 
   /**
@@ -72,8 +77,16 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public void markTransactionRejected(String txHash, String reason) {
-    store(txHash, ValidationResult.REJECTED(reason));
-    subject.onNext(txHash);
+    final String upperCaseHash = txHash.toUpperCase();
+    store(upperCaseHash, ValidationResult.REJECTED(reason));
+    subject.onNext(upperCaseHash);
+  }
+
+  @Override
+  public void markTransactionFailed(String txHash, String reason) {
+    final String upperCaseHash = txHash.toUpperCase();
+    store(upperCaseHash, ValidationResult.FAILED(reason));
+    subject.onNext(upperCaseHash);
   }
 
   /**
@@ -81,7 +94,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public ValidationResult getTransactionVerdict(String txHash) {
-    MongoVerdict verdict = collection.find(eq(TX_HASH_ATTRIBUTE, txHash)).first();
+    MongoVerdict verdict = collection.find(eq(TX_HASH_ATTRIBUTE, txHash.toUpperCase())).first();
     return verdict == null ? null : verdict.getResult();
   }
 
@@ -89,13 +102,14 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    * {@inheritDoc}
    */
   @Override
-  public Observable<String> getRejectedTransactionsHashesStreaming() {
+  public Observable<String> getRejectedOrFailedTransactionsHashesStreaming() {
     return subject;
   }
 
   private void store(String txHash, ValidationResult result) {
-    collection.replaceOne(eq(TX_HASH_ATTRIBUTE, txHash),
-        new MongoVerdict(txHash, result),
+    final String upperCaseHash = txHash.toUpperCase();
+    collection.replaceOne(eq(TX_HASH_ATTRIBUTE, upperCaseHash),
+        new MongoVerdict(upperCaseHash, result),
         replaceOptions
     );
   }

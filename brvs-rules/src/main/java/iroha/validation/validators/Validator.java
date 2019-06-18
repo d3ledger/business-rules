@@ -1,6 +1,12 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.validators;
 
 import iroha.protocol.TransactionOuterClass;
+import iroha.validation.verdict.ValidationResult;
 
 /**
  * Validator interface. Used as a facade abstraction. Assume a validator can use complex logic
@@ -12,8 +18,7 @@ public interface Validator {
    * Method for transaction validation
    *
    * @param transaction Iroha proto transaction
-   * @return <code>true</code> if the transaction satisfies all described rules by validator;
-   * <code>false</code> otherwise
+   * @return {@link ValidationResult} corresponding to validating outcome
    */
-  boolean validate(TransactionOuterClass.Transaction transaction);
+  ValidationResult validate(TransactionOuterClass.Transaction transaction);
 }

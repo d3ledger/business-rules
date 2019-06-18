@@ -1,11 +1,19 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.verdict;
 
 public class ValidationResult {
 
-  public static ValidationResult PENDING = new ValidationResult(Verdict.PENDING);
+  public static ValidationResult UNKNOWN = new ValidationResult(Verdict.UNKNOWN);
   public static ValidationResult VALIDATED = new ValidationResult(Verdict.VALIDATED);
   public static ValidationResult REJECTED(String reason) {
     return new ValidationResult(Verdict.REJECTED, reason);
+  }
+  public static ValidationResult FAILED(String reason) {
+    return new ValidationResult(Verdict.FAILED, reason);
   }
 
   private Verdict status;

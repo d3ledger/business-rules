@@ -1,3 +1,8 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.transactions.provider;
 
 import iroha.validation.transactions.provider.impl.util.BrvsData;
@@ -31,11 +36,4 @@ public interface RegistrationProvider {
    * @return {@link Iterable} of user accounts
    */
   Iterable<BrvsData> getBrvsInstances();
-
-  /**
-   * Initiates new BRVS instance registration in the network
-   *
-   * @param brvsData description of the candidate to be registered
-   */
-  void addBrvsInstance(BrvsData brvsData);
 }

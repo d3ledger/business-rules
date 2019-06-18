@@ -1,11 +1,17 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 dependencies {
     // IPJ
-    compile('com.github.hyperledger.iroha-java:client:master-SNAPSHOT')
+    compile('com.github.hyperledger.iroha-java:client:5.2.0')
     // Spring
     compile('org.springframework:spring-context:5.1.4.RELEASE')
-    //Logging
-    compile('org.slf4j:slf4j-api:1.7.25')
-    compile('org.slf4j:slf4j-simple:1.7.25')
+    // Logging
+    compile('org.slf4j:slf4j-log4j12:1.8.0-beta2')
+    // RMQ
+    compile "com.rabbitmq:amqp-client:5.6.0"
 
     // unit tests
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')

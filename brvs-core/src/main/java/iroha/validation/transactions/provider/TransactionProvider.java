@@ -1,7 +1,13 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.transactions.provider;
 
 import io.reactivex.Observable;
 import iroha.protocol.TransactionOuterClass;
+import iroha.validation.transactions.TransactionBatch;
 import java.io.Closeable;
 
 /**
@@ -14,5 +20,5 @@ public interface TransactionProvider extends Closeable {
    *
    * @return {@link Observable} of Iroha proto {@link TransactionOuterClass.Transaction} transaction
    */
-  Observable<TransactionOuterClass.Transaction> getPendingTransactionsStreaming();
+  Observable<TransactionBatch> getPendingTransactionsStreaming();
 }

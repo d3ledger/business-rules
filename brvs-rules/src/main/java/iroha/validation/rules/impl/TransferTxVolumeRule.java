@@ -1,9 +1,18 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.rules.impl;
 
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
+import iroha.validation.verdict.ValidationResult;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class TransferTxVolumeRule implements Rule {
 
@@ -19,15 +28,28 @@ public class TransferTxVolumeRule implements Rule {
    * {@inheritDoc}
    */
   @Override
-  public boolean isSatisfiedBy(Transaction transaction) {
-    return transaction
+  public ValidationResult isSatisfiedBy(Transaction transaction) {
+    return checkTransfers(transaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList()
         .stream()
         .filter(Command::hasTransferAsset)
-        .filter(transfer -> transfer.getTransferAsset().getAssetId().equals(asset))
-        .noneMatch(transfer -> new BigDecimal(transfer.getTransferAsset().getAmount())
-            .compareTo(limit) > 0);
+        .map(Command::getTransferAsset)
+        .filter(transfer -> transfer.getAssetId().equals(asset))
+        .collect(Collectors.toList())
+    );
+  }
+
+  private ValidationResult checkTransfers(List<TransferAsset> transfers) {
+    for (TransferAsset transfer : transfers) {
+      final String amount = transfer.getAmount();
+      if (new BigDecimal(amount).compareTo(limit) > 0) {
+        return ValidationResult.REJECTED(
+            "Transfer exceeds the limit. Value: " + amount + ", Limit: " + limit
+        );
+      }
+    }
+    return ValidationResult.VALIDATED;
   }
 }

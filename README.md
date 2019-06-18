@@ -34,14 +34,13 @@ Perform ['Add Signatory'](https://iroha.readthedocs.io/en/latest/api/commands.ht
 
 Modify **BRVS** [configuration](./config/context/spring-context.xml) in a way you need. You can extend it by introducing new Rules and Validators implementations
 
-Submit correct data into [application.properties](./config/context/application.properties)
+Submit correct data using environment variables [application.properties](brvs-core/src/main/resources/application.properties)
 
-Run clean build and farJar gradle tasks
+Run `clean build shadowJar` gradle tasks
 
 ```
 cd ./business-rules
-./gradlew clean build
-./gradlew :brvs-core:shadowJar
+./gradlew clean build shadowJar
 ```
 
 Modify [Dockerfile](./Dockerfile) if needed
@@ -72,7 +71,10 @@ localhost:8080/brvs/rest/status/123
 Result:
 (404)
 Body:
-Transaction hash is not known.
+{
+    "status": "UNKNOWN",
+    "reason": ""
+}
 ```
 - Querying transaction known by BRVS but not yet processed
 ```
@@ -82,7 +84,7 @@ Result:
 (200)
 Body:
 {
-    "status": "PENDING",
+    "status": "UNKNOWN",
     "reason": ""
 }
 ```

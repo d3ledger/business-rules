@@ -1,14 +1,20 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.validators;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.SampleRule;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
+import iroha.validation.verdict.ValidationResult;
+import iroha.validation.verdict.Verdict;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,7 +49,7 @@ class ValidatorsTest {
 
     Transaction transaction = mock(Transaction.class);
 
-    assertTrue(validator.validate(transaction));
+    assertEquals(Verdict.VALIDATED, validator.validate(transaction).getStatus());
   }
 
   /**
@@ -58,11 +64,11 @@ class ValidatorsTest {
     for (int i = 0; i < 100500; i++) {
       rules.add(new SampleRule());
     }
-    rules.add(transaction -> false);
+    rules.add(transaction -> ValidationResult.REJECTED(""));
     Validator validator = new SimpleAggregationValidator(rules);
 
     Transaction transaction = mock(Transaction.class);
 
-    assertFalse(validator.validate(transaction));
+    assertEquals(Verdict.REJECTED, validator.validate(transaction).getStatus());
   }
 }

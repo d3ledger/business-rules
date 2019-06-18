@@ -1,3 +1,8 @@
+/*
+ * Copyright Soramitsu Co., Ltd. All Rights Reserved.
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
 package iroha.validation.config;
 
 import iroha.validation.transactions.provider.RegistrationProvider;
@@ -16,15 +21,13 @@ public class ValidationServiceContext {
   private final TransactionSigner transactionSigner;
   private final RegistrationProvider registrationProvider;
   private final BrvsData brvsData;
-  private final boolean isRoot;
 
   public ValidationServiceContext(
       Collection<Validator> validators,
       TransactionProvider transactionProvider,
       TransactionSigner transactionSigner,
       RegistrationProvider registrationProvider,
-      BrvsData brvsData,
-      String isRoot) {
+      BrvsData brvsData) {
     if (CollectionUtils.isEmpty(validators)) {
       throw new IllegalArgumentException(
           "Validators collection must not be neither null nor empty");
@@ -39,7 +42,6 @@ public class ValidationServiceContext {
     this.transactionSigner = transactionSigner;
     this.registrationProvider = registrationProvider;
     this.brvsData = brvsData;
-    this.isRoot = Boolean.parseBoolean(isRoot);
   }
 
   public Collection<Validator> getValidators() {
@@ -60,9 +62,5 @@ public class ValidationServiceContext {
 
   public BrvsData getBrvsData() {
     return brvsData;
-  }
-
-  public boolean isRoot() {
-    return isRoot;
   }
 }
