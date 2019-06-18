@@ -11,6 +11,8 @@ import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.rules.Rule;
 import iroha.validation.verdict.ValidationResult;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,8 +30,19 @@ public class CheckWhitelistRule implements Rule {
 
   private final QueryAPI queryAPI;
   private final String withdrawalAccount;
+  private final List<String> exceptionAssets;
+
+  public CheckWhitelistRule(QueryAPI queryAPI, String withdrawalAccount, String exceptionAssets) {
+    this(queryAPI, withdrawalAccount,
+        Arrays.stream(exceptionAssets.split(",")).collect(Collectors.toList()));
+  }
 
   public CheckWhitelistRule(QueryAPI queryAPI, String withdrawalAccount) {
+    this(queryAPI, withdrawalAccount, new ArrayList<>());
+  }
+
+  public CheckWhitelistRule(QueryAPI queryAPI, String withdrawalAccount,
+      List<String> exceptionAssets) {
     if (Strings.isNullOrEmpty(withdrawalAccount)) {
       throw new IllegalArgumentException(
           "Withdrawal Account ID must not be neither null nor empty");
@@ -38,6 +51,8 @@ public class CheckWhitelistRule implements Rule {
 
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     this.queryAPI = queryAPI;
+    Objects.requireNonNull(exceptionAssets, "Exception assets must not be null");
+    this.exceptionAssets = exceptionAssets;
   }
 
   @Override
@@ -60,9 +75,12 @@ public class CheckWhitelistRule implements Rule {
   private ValidationResult checkTransfers(List<TransferAsset> transfers) {
     for (TransferAsset transfer : transfers) {
       try {
+        String asset = transfer.getAssetId();
+        if (exceptionAssets.contains(asset)) {
+          continue;
+        }
         String clientId = transfer.getSrcAccountId();
         String address = transfer.getDescription();
-        String asset = transfer.getAssetId();
         String assetDomain = WhitelistUtils.getAssetDomain(asset);
 
         String whitelistKey = WhitelistUtils.assetToWhitelistKey.get(assetDomain);

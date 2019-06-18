@@ -132,7 +132,7 @@
   </bean>
 
   <!-- RULES DEFINITIONS -->
-  <bean id="sampleRule" class="iroha.validation.rules.impl.SampleRule"/>
+  <bean id="sampleRule" class="iroha.validation.rules.impl.core.SampleRule"/>
   <bean id="newBrvsRule" class="iroha.validation.rules.impl.NewBrvsRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
   </bean>
@@ -143,20 +143,21 @@
   <bean id="checkEthWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="withdrawalAccount" value="${ETHCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
+    <constructor-arg name="exceptionAssets" value="${WHITELIST_EXCEPTION_ASSETS}"/>
   </bean>
   <bean id="checkBtcWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="withdrawalAccount" value="${BTCCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
   </bean>
-  <bean id="restrictedKeysRule" class="iroha.validation.rules.impl.RestrictedKeysRule">
+  <bean id="restrictedKeysRule" class="iroha.validation.rules.impl.core.RestrictedKeysRule">
     <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
     <constructor-arg name="restrictedKeys" ref="keysList"/>
   </bean>
-  <bean id="minKeysRule" class="iroha.validation.rules.impl.MinimumSignatoriesAmountRule">
+  <bean id="minKeysRule" class="iroha.validation.rules.impl.core.MinimumSignatoriesAmountRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="amount" value="${MIN_SIGNATORIES_RULE_AMOUNT}"/>
   </bean>
-  <bean id="quorumDivisor" class="iroha.validation.rules.impl.QuorumDivisorRule">
+  <bean id="quorumDivisor" class="iroha.validation.rules.impl.core.QuorumDivisorRule">
     <constructor-arg name="divisor" value="${QUORUM_DIVISOR_RULE_VALUE}"/>
   </bean>
   <!--<bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">-->
