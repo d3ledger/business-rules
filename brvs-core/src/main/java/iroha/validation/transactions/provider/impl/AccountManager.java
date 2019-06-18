@@ -5,13 +5,14 @@
 
 package iroha.validation.transactions.provider.impl;
 
+import static iroha.validation.utils.ValidationUtils.PROPORTION;
+
 import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import iroha.protocol.Endpoint;
 import iroha.protocol.Endpoint.TxStatus;
-import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
@@ -28,13 +29,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import jp.co.soramitsu.iroha.java.IrohaAPI;
-import jp.co.soramitsu.iroha.java.Query;
+import jp.co.soramitsu.iroha.java.ErrorResponseException;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Transaction;
 import jp.co.soramitsu.iroha.java.TransactionBuilder;
 import jp.co.soramitsu.iroha.java.Utils;
-import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
-import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
@@ -48,8 +47,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
-  // BRVS keys count = User keys count
-  private static final int PROPORTION = 2;
   private static final JsonParser parser = new JsonParser();
   private static final int INITIAL_KEYS_AMOUNT = 1;
 
@@ -57,7 +54,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   private final String brvsAccountId;
   private final KeyPair brvsAccountKeyPair;
-  private final IrohaAPI irohaAPI;
+  private final QueryAPI queryAPI;
   private final String userQuorumAttribute;
   private final Set<String> userDomains;
   private final String userAccountsHolderAccount;
@@ -65,19 +62,13 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private final List<KeyPair> keyPairs;
   private final Set<String> pubKeys;
 
-  public AccountManager(String brvsAccountId,
-      KeyPair brvsAccountKeyPair,
-      IrohaAPI irohaAPI,
+  public AccountManager(QueryAPI queryAPI,
       String userQuorumAttribute,
       String userDomains,
       String userAccountsHolderAccount,
       String brvsInstancesHolderAccount, List<KeyPair> keyPairs) {
 
-    if (Strings.isNullOrEmpty(brvsAccountId)) {
-      throw new IllegalArgumentException("Account ID must not be neither null nor empty");
-    }
-    Objects.requireNonNull(brvsAccountKeyPair, "Key pair must not be null");
-    Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
+    Objects.requireNonNull(queryAPI, "Query API must not be null");
     if (Strings.isNullOrEmpty(userQuorumAttribute)) {
       throw new IllegalArgumentException(
           "User quorum attribute name must not be neither null nor empty");
@@ -97,9 +88,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException("Keypairs must not be neither null nor empty");
     }
 
-    this.brvsAccountId = brvsAccountId;
-    this.brvsAccountKeyPair = brvsAccountKeyPair;
-    this.irohaAPI = irohaAPI;
+    this.brvsAccountId = queryAPI.getAccountId();
+    this.brvsAccountKeyPair = queryAPI.getKeyPair();
+    this.queryAPI = queryAPI;
     this.userQuorumAttribute = userQuorumAttribute;
     this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
     this.userAccountsHolderAccount = userAccountsHolderAccount;
@@ -119,18 +110,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    */
   @Override
   public int getUserQuorumDetail(String targetAccount) {
-    QueryResponse queryResponse = irohaAPI.query(
-        Query
-            .builder(brvsAccountId, 1L)
-            .getAccountDetail(targetAccount, brvsAccountId, userQuorumAttribute)
-            .buildSigned(brvsAccountKeyPair)
-    );
-    if (!queryResponse.hasAccountDetailResponse()) {
-      logger.error("Account detail is not set for account: " + targetAccount);
-      return UNREACHABLE_QUORUM;
-    }
     try {
-      return Integer.parseInt(queryResponse.getAccountDetailResponse().getDetail().split("\"")[5]);
+      return Integer.parseInt(
+          queryAPI.getAccountDetails(targetAccount, brvsAccountId, userQuorumAttribute)
+              .split("\"")[5]);
+    } catch (ErrorResponseException e) {
+      logger
+          .error("Account detail is not set for account: " + targetAccount, e);
+      return UNREACHABLE_QUORUM;
     } catch (ArrayIndexOutOfBoundsException e) {
       logger.warn(
           "User quorum details was not set previously yet. Please set it using appropriate services. Account: "
@@ -178,15 +165,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException("Quorum must be positive, got: " + quorum);
     }
     final int currentQuorum = getAccountQuorum(targetAccount);
-    if (currentQuorum == quorum) {
-      logger.warn("Quorum already has been set to the value provided. Account: " + targetAccount
-          + " Quorum: " + quorum);
-      return;
-    }
     final int userQuorumDetail = getUserQuorumDetail(targetAccount);
     // If we increase user quorum set signatures first to be equal to user keys count
     // Otherwise set quorum first
-    if (quorum > currentQuorum) {
+    if (quorum >= currentQuorum) {
       setBrvsSignatoriesToUser(targetAccount, userQuorumDetail);
       setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
     } else {
@@ -224,14 +206,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   }
 
   private boolean existsInIroha(String userAccountId) {
-    return irohaAPI
-        .query(
-            Query.builder(brvsAccountId, 1L)
-                .getAccount(userAccountId)
-                .buildSigned(brvsAccountKeyPair)
-        )
-        .getAccountResponse()
-        .hasAccount();
+    return queryAPI.getAccount(userAccountId).hasAccount();
   }
 
   private boolean hasValidFormat(String accountId) {
@@ -345,19 +320,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   }
 
   private int getAccountQuorum(String targetAccountId) {
-    return irohaAPI.query(Query
-        .builder(brvsAccountId, 1L)
-        .getAccount(targetAccountId)
-        .buildSigned(brvsAccountKeyPair)
-    ).getAccountResponse().getAccount().getQuorum();
+    return queryAPI.getAccount(targetAccountId).getAccount().getQuorum();
   }
 
   private List<String> getAccountSignatories(String targetAccountId) {
-    return irohaAPI.query(Query
-        .builder(brvsAccountId, 1L)
-        .getSignatories(targetAccountId)
-        .buildSigned(brvsAccountKeyPair)
-    ).getSignatoriesResponse().getKeysList();
+    return queryAPI.getSignatories(targetAccountId).getKeysList();
   }
 
   /**
@@ -372,35 +339,31 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       Function<Entry, T> processor) {
     logger.info("Going to read accounts data from " + accountsHolderAccount);
     Set<T> resultSet = new HashSet<>();
-    QueryResponse queryResponse = irohaAPI.query(Query
-        .builder(brvsAccountId, 1L)
-        .getAccount(accountsHolderAccount)
-        .buildSigned(brvsAccountKeyPair)
-    );
-    if (!queryResponse.hasAccountResponse()) {
-      throw new IllegalStateException(
-          "There is no valid response from Iroha about accounts in " + accountsHolderAccount);
-    }
-    JsonElement rootNode = parser
-        .parse(queryResponse
-            .getAccountResponse()
-            .getAccount()
-            .getJsonData()
-        );
-    rootNode.getAsJsonObject().entrySet().forEach(accountSetter ->
-        accountSetter
-            .getValue()
-            .getAsJsonObject()
-            .entrySet()
-            .forEach(entry -> {
-                  T candidate = processor.apply(entry);
-                  if (candidate != null) {
-                    resultSet.add(candidate);
+    try {
+      JsonElement rootNode = parser
+          .parse(queryAPI
+              .getAccount(accountsHolderAccount)
+              .getAccount()
+              .getJsonData()
+          );
+      rootNode.getAsJsonObject().entrySet().forEach(accountSetter ->
+          accountSetter
+              .getValue()
+              .getAsJsonObject()
+              .entrySet()
+              .forEach(entry -> {
+                    T candidate = processor.apply(entry);
+                    if (candidate != null) {
+                      resultSet.add(candidate);
+                    }
                   }
-                }
-            )
-    );
-    return resultSet;
+              )
+      );
+      return resultSet;
+    } catch (ErrorResponseException e) {
+      throw new IllegalStateException(
+          "There is no valid response from Iroha about accounts in " + accountsHolderAccount, e);
+    }
   }
 
   private String userAccountProcessor(Entry<String, JsonPrimitive> entry) {
@@ -443,7 +406,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   private Endpoint.TxStatus sendWithLastStatusWaiting(
       TransactionOuterClass.Transaction transaction) {
-    return irohaAPI.transaction(
+    return queryAPI.getApi().transaction(
         transaction,
         ValidationUtils.subscriptionStrategy
     ).blockingLast().getTxStatus();

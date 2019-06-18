@@ -45,6 +45,11 @@
     <constructor-arg name="host" value="${IROHA_HOST}"/>
     <constructor-arg name="port" value="${IROHA_PORT}"/>
   </bean>
+  <bean id="queryAPI" class="jp.co.soramitsu.iroha.java.QueryAPI">
+    <constructor-arg name="api" ref="irohaAPI"/>
+    <constructor-arg name="accountId" value="${CREDENTIAL_ACCOUNTID}"/>
+    <constructor-arg name="keyPair" ref="brvsAccountKeyPair"/>
+  </bean>
 
   <!-- STORAGE CONFIG -->
   <bean id="mongoVerdictStorage"
@@ -61,9 +66,7 @@
   <!-- USER ACCOUNTS MANAGER CONFIG -->
   <bean id="accountManager"
     class="iroha.validation.transactions.provider.impl.AccountManager">
-    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
-    <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
-    <constructor-arg name="irohaAPI" ref="irohaAPI"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="userQuorumAttribute" value="${QUORUM_KEY}"/>
     <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
     <constructor-arg name="userAccountsHolderAccount" value="${ACCOUNTS_HOLDER}"/>
@@ -84,14 +87,13 @@
   </bean>
 
   <!-- CHAIN LISTENER CONFIG -->
+  <bean id="rmqConfig" class="iroha.validation.utils.ValidationUtils"
+    factory-method="loadLocalRmqConfig"/>
   <bean id="irohaReliableChainListener"
-    class="iroha.validation.listener.IrohaReliableChainListener">
-    <constructor-arg name="irohaAPI" ref="irohaAPI"/>
-    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
-    <constructor-arg name="brvsKeyPair" ref="brvsAccountKeyPair"/>
+    class="iroha.validation.listener.BrvsIrohaChainListener">
+    <constructor-arg name="rmqConfig" ref="rmqConfig"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="userKeyPair" ref="firstUserKey"/>
-    <constructor-arg name="rmqHost" value="${RMQ_HOST}"/>
-    <constructor-arg name="rmqPort" value="${RMQ_PORT}"/>
   </bean>
 
   <!-- SIGNER CONFIG -->
@@ -132,27 +134,30 @@
   <!-- RULES DEFINITIONS -->
   <bean id="sampleRule" class="iroha.validation.rules.impl.SampleRule"/>
   <bean id="newBrvsRule" class="iroha.validation.rules.impl.NewBrvsRule">
-    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
-    <constructor-arg name="keyPair" ref="brvsAccountKeyPair"/>
-    <constructor-arg name="irohaAPI" ref="irohaAPI"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
   </bean>
   <bean id="updateWhitelistRule" class="iroha.validation.rules.impl.whitelist.UpdateWhitelistRule">
-    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
-    <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
-    <constructor-arg name="irohaAPI" ref="irohaAPI"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="validationPeriod" value="${WHITELIST_VALIDATION}"/>
   </bean>
   <bean id="checkEthWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
-    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
-    <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
-    <constructor-arg name="irohaAPI" ref="irohaAPI"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="withdrawalAccount" value="${ETHCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
   </bean>
   <bean id="checkBtcWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
-    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
-    <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
-    <constructor-arg name="irohaAPI" ref="irohaAPI"/>
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="withdrawalAccount" value="${BTCCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
+  </bean>
+  <bean id="restrictedKeysRule" class="iroha.validation.rules.impl.RestrictedKeysRule">
+    <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
+    <constructor-arg name="restrictedKeys" ref="keysList"/>
+  </bean>
+  <bean id="minKeysRule" class="iroha.validation.rules.impl.MinimumSignatoriesAmountRule">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="amount" value="${MIN_SIGNATORIES_RULE_AMOUNT}"/>
+  </bean>
+  <bean id="quorumDivisor" class="iroha.validation.rules.impl.QuorumDivisorRule">
+    <constructor-arg name="divisor" value="${QUORUM_DIVISOR_RULE_VALUE}"/>
   </bean>
   <!--<bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">-->
     <!--<constructor-arg name="getBillingURL" value="${BILLING_URL}"/>-->
@@ -170,6 +175,9 @@
     <ref bean="updateWhitelistRule"/>
     <ref bean="checkEthWhitelistRule"/>
     <ref bean="checkBtcWhitelistRule"/>
+    <ref bean="restrictedKeysRule"/>
+    <ref bean="minKeysRule"/>
+    <ref bean="quorumDivisor"/>
     <!--<ref bean="billingRule"/>-->
     <!-- More can be added -->
   </util:list>

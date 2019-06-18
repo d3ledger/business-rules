@@ -5,18 +5,16 @@
 
 package iroha.validation.rules.impl.whitelist;
 
-import com.google.common.base.Strings;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.SetAccountDetail;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.rules.Rule;
 import iroha.validation.verdict.ValidationResult;
-import java.security.KeyPair;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Transaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,27 +27,16 @@ public class UpdateWhitelistRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(UpdateWhitelistRule.class);
 
-  private final String brvsAccountId;
-  private final KeyPair brvsAccountKeyPair;
-  private final IrohaAPI irohaAPI;
+  private final QueryAPI queryAPI;
 
   /**
    * When new address will be valid
    */
   private final long validationPeriod;
 
-  public UpdateWhitelistRule(String brvsAccountId, KeyPair brvsAccountKeyPair, IrohaAPI irohaAPI,
-      long validationPeriod) {
-    if (Strings.isNullOrEmpty(brvsAccountId)) {
-      throw new IllegalArgumentException("Account ID must not be neither null nor empty");
-    }
-    this.brvsAccountId = brvsAccountId;
-
-    Objects.requireNonNull(brvsAccountKeyPair, "Key pair must not be null");
-    this.brvsAccountKeyPair = brvsAccountKeyPair;
-
-    Objects.requireNonNull(irohaAPI, "Iroha API must not be null");
-    this.irohaAPI = irohaAPI;
+  public UpdateWhitelistRule(QueryAPI queryAPI, long validationPeriod) {
+    Objects.requireNonNull(queryAPI, "Query API must not be null");
+    this.queryAPI = queryAPI;
 
     this.validationPeriod = validationPeriod;
   }
@@ -93,9 +80,7 @@ public class UpdateWhitelistRule implements Rule {
 
         // get old whitelist that was set by BRVS as Pairs(address -> validation_time)
         Map<String, Long> oldWhitelistValidated = WhitelistUtils.getBRVSWhitelist(
-            brvsAccountId,
-            brvsAccountKeyPair,
-            irohaAPI,
+            queryAPI,
             clientId,
             whitelistKey
         );
@@ -124,12 +109,12 @@ public class UpdateWhitelistRule implements Rule {
               .serializeBRVSWhitelist(newWhitelistValidated);
           logger.info("Send whitelist to Iroha: " + jsonNewBrvsWhitelist);
 
-          irohaAPI.transactionSync(
-              Transaction.builder(brvsAccountId)
+          queryAPI.getApi().transactionSync(
+              Transaction.builder(queryAPI.getAccountId())
                   .setCreatedTime(createdTime)
                   .setAccountDetail(clientId, whitelistKey,
                       WhitelistUtils.irohaEscape(jsonNewBrvsWhitelist))
-                  .sign(brvsAccountKeyPair)
+                  .sign(queryAPI.getKeyPair())
                   .build()
           );
         }
