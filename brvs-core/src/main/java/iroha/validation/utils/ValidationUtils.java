@@ -39,7 +39,6 @@ public interface ValidationUtils {
           TxStatus.STATELESS_VALIDATION_FAILED,
           TxStatus.STATEFUL_VALIDATION_FAILED,
           TxStatus.COMMITTED,
-          TxStatus.MST_EXPIRED,
           TxStatus.REJECTED,
           TxStatus.UNRECOGNIZED
       )
