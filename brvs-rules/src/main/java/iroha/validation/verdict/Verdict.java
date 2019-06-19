@@ -6,5 +6,9 @@
 package iroha.validation.verdict;
 
 public enum Verdict {
-  UNKNOWN, VALIDATED, REJECTED, FAILED
+  UNKNOWN,
+  PENDING,
+  VALIDATED,
+  REJECTED,
+  FAILED
 }
