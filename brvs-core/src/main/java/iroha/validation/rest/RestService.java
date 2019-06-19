@@ -54,9 +54,9 @@ public class RestService {
   @Path("/status/{txHash}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getStatus(@PathParam("txHash") String hash) {
-    final ValidationResult transactionVerdict = verdictStorage.getTransactionVerdict(hash);
+    ValidationResult transactionVerdict = verdictStorage.getTransactionVerdict(hash);
     if (transactionVerdict == null) {
-      return Response.status(404).entity(ValidationResult.UNKNOWN).build();
+      transactionVerdict = ValidationResult.UNKNOWN;
     }
     return Response.status(200).entity(transactionVerdict).build();
   }
