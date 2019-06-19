@@ -30,7 +30,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public void markTransactionPending(String txHash) {
-    validationResultMap.put(txHash.toUpperCase(), ValidationResult.UNKNOWN);
+    validationResultMap.put(txHash.toUpperCase(), ValidationResult.PENDING);
   }
 
   /**

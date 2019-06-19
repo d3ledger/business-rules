@@ -61,7 +61,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public void markTransactionPending(String txHash) {
-    store(txHash.toUpperCase(), ValidationResult.UNKNOWN);
+    store(txHash.toUpperCase(), ValidationResult.PENDING);
   }
 
   /**
