@@ -7,14 +7,24 @@ buildscript {
     repositories {
         mavenCentral()
         jcenter()
+        // gradle plugins repository
+        gradlePluginPortal()
     }
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.1'
     }
 }
 
+plugins {
+    id "com.github.dolgopolovwork.testreport" version "1"
+}
+
 group = 'business-rules'
 version = '0.1-SNAPSHOT'
+
+testReport {
+    testFolders = Arrays.asList("brvs-core/src/test")
+}
 
 allprojects {
     apply plugin: "jacoco"
