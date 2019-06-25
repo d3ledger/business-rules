@@ -133,7 +133,7 @@
 
   <!-- RULES DEFINITIONS -->
   <bean id="sampleRule" class="iroha.validation.rules.impl.core.SampleRule"/>
-  <bean id="newBrvsRule" class="iroha.validation.rules.impl.NewBrvsRule">
+  <bean id="newBrvsRule" class="iroha.validation.rules.impl.core.NewBrvsRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
   </bean>
   <bean id="updateWhitelistRule" class="iroha.validation.rules.impl.whitelist.UpdateWhitelistRule">
