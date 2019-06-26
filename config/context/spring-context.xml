@@ -16,7 +16,12 @@
   <!-- PATH TO THE PROPERTIES FILE -->
   <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
     <property name="systemPropertiesModeName" value="SYSTEM_PROPERTIES_MODE_OVERRIDE"/>
-    <property name="locations" value="classpath:application.properties"/>
+    <property name="locations">
+      <list>
+        <value>classpath:application.properties</value>
+        <value>classpath:rmq.properties</value>
+      </list>
+    </property>
   </bean>
 
   <!-- BRVS PORT -->
@@ -162,8 +167,8 @@
   </bean>
   <bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">
     <constructor-arg name="getBillingURL" value="${BILLING_URL}"/>
-    <constructor-arg name="rmqHost" value="${RMQ_HOST}"/>
-    <constructor-arg name="rmqPort" value="${RMQ_PORT}"/>
+    <constructor-arg name="rmqHost" value="${rmq.host}"/>
+    <constructor-arg name="rmqPort" value="${rmq.port}"/>
     <constructor-arg name="rmqExchange" value="${BILLING_RMQ_EXCHANGE}"/>
     <constructor-arg name="rmqRoutingKey" value="${BILLING_RMQ_ROUTINGKEY}"/>
     <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
