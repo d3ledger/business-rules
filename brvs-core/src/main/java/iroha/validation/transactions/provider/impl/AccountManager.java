@@ -23,12 +23,14 @@ import iroha.validation.utils.ValidationUtils;
 import java.security.Key;
 import java.security.KeyPair;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentHashMap.KeySetView;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -55,7 +57,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final int INITIAL_KEYS_AMOUNT = 1;
 
   private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
-  private final Set<String> registeredAccounts = Collections.synchronizedSet(new HashSet<>());
+  private final Set<String> registeredAccounts = ConcurrentHashMap.newKeySet();
 
   private final String brvsAccountId;
   private final KeyPair brvsAccountKeyPair;
@@ -232,9 +234,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   private void doRegister(String accountId) {
     logger.info("Going to register " + accountId);
-    if (registeredAccounts.contains(accountId)) {
-      throw new IllegalArgumentException("User " + accountId + " is already registered.");
-    }
     if (!hasValidFormat(accountId)) {
       throw new IllegalArgumentException(
           "Invalid account format [" + accountId + "]. Use 'username@domain'.");
@@ -340,7 +339,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public synchronized Iterable<String> getRegisteredAccounts() {
+  public Iterable<String> getRegisteredAccounts() {
     return registeredAccounts;
   }
 
