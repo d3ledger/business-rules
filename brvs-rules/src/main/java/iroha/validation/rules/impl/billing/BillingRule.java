@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -75,7 +76,7 @@ public class BillingRule implements Rule {
   private final Set<String> userDomains;
   private final Set<String> depositAccounts;
   private final Set<String> withdrawalAccounts;
-  private final Set<BillingInfo> cache = new HashSet<>();
+  private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
 
   public BillingRule(String getBillingURL,
       String rmqHost,
@@ -239,9 +240,8 @@ public class BillingRule implements Rule {
     final List<TransferAsset> fees = transactionsGroups.get(true);
     final List<TransferAsset> transfers = transactionsGroups.get(false);
 
-    if (transfers == null) {
-      logger.warn("No transfers found: " + transactionsGroups);
-      return ValidationResult.REJECTED("No transfers found: " + transactionsGroups);
+    if (transfers == null || transfers.isEmpty()) {
+      return ValidationResult.VALIDATED;
     }
 
     final String userDomain = BillingInfo
@@ -251,7 +251,8 @@ public class BillingRule implements Rule {
     for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
       if (originalType != null) {
-        final BillingInfo billingInfo = getBillingInfoFor(userDomain,
+        final BillingInfo billingInfo = getBillingInfoFor(
+            userDomain,
             transferAsset.getAssetId(),
             originalType
         );
