@@ -11,6 +11,8 @@ import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import io.reactivex.Scheduler;
+import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Endpoint;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass;
@@ -21,11 +23,13 @@ import iroha.validation.utils.ValidationUtils;
 import java.security.Key;
 import java.security.KeyPair;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -50,7 +54,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final JsonParser parser = new JsonParser();
   private static final int INITIAL_KEYS_AMOUNT = 1;
 
-  private final Set<String> registeredAccounts = new HashSet<>();
+  private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
+  private final Set<String> registeredAccounts = Collections.synchronizedSet(new HashSet<>());
 
   private final String brvsAccountId;
   private final KeyPair brvsAccountKeyPair;
@@ -221,7 +226,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public synchronized void register(String accountId) {
+  public void register(String accountId) {
+    scheduler.scheduleDirect(new RegistrationRunnable(accountId));
+  }
+
+  private void doRegister(String accountId) {
     logger.info("Going to register " + accountId);
     if (registeredAccounts.contains(accountId)) {
       throw new IllegalArgumentException("User " + accountId + " is already registered.");
@@ -410,5 +419,22 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
         transaction,
         ValidationUtils.subscriptionStrategy
     ).blockingLast().getTxStatus();
+  }
+
+  /**
+   * Intermediary runnable-wrapper for brvs registration
+   */
+  private class RegistrationRunnable implements Runnable {
+
+    private final String accountId;
+
+    RegistrationRunnable(String accountId) {
+      this.accountId = accountId;
+    }
+
+    @Override
+    public void run() {
+      doRegister(accountId);
+    }
   }
 }
