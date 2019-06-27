@@ -309,7 +309,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     }
   }
 
-  private synchronized void modifyQuorumOnRegistration(String userAccountId) {
+  private void modifyQuorumOnRegistration(String userAccountId) {
     setUserAccountQuorum(
         userAccountId,
         getValidQuorumForUserAccount(userAccountId, true),
