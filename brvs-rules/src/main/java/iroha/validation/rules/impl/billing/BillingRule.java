@@ -243,7 +243,7 @@ public class BillingRule implements Rule {
 
     if (CollectionUtils.isEmpty(transfers)) {
       if (!CollectionUtils.isEmpty(fees)) {
-        return ValidationResult.REJECTED("There are more fee transfers than needed: " + fees);
+        return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
       }
       return ValidationResult.VALIDATED;
     }
@@ -268,15 +268,15 @@ public class BillingRule implements Rule {
         final TransferAsset feeCandidate = filterFee(transferAsset, fees, billingInfo);
         // If operation is billable but there is no corresponding fee attached
         if (feeCandidate == null) {
-          logger.error("There is no fee for " + transferAsset);
-          return ValidationResult.REJECTED("There is no fee for " + transferAsset);
+          logger.error("There is no fee for:\n" + transferAsset);
+          return ValidationResult.REJECTED("There is no fee for:\n" + transferAsset);
         }
         // To prevent case when there are two identical operations and only one fee
         fees.remove(feeCandidate);
       }
     }
     if (!CollectionUtils.isEmpty(fees)) {
-      return ValidationResult.REJECTED("There are more fee transfers than needed: " + fees);
+      return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
     }
     return ValidationResult.VALIDATED;
   }
@@ -316,7 +316,7 @@ public class BillingRule implements Rule {
       return BillingTypeEnum.ACCOUNT_CREATION;
     }
     if (withdrawalAccounts.contains(destAccountId)
-        && userDomains.contains(destDomain)) {
+        && userDomains.contains(srcDomain)) {
       return BillingTypeEnum.WITHDRAWAL;
     }
     if (userDomains.contains(srcDomain)
