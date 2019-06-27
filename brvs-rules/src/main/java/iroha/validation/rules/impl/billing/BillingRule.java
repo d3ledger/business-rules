@@ -137,7 +137,7 @@ public class BillingRule implements Rule {
               logger.info("Got billing data update from MQ: " + update.toString());
               final BillingInfo currentBillingInfo = cache
                   .stream()
-                  // equality check does not check the date
+                  // equality check does not check the date and fraction
                   .filter(entry -> entry.equals(update))
                   .findAny()
                   .orElse(null);
