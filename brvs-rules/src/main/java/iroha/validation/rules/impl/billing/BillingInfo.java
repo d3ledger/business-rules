@@ -125,7 +125,7 @@ public class BillingInfo {
 
   @Override
   public int hashCode() {
-    return (domain + billingType.name() + asset + feeFraction.toPlainString()).hashCode();
+    return (domain + billingType.name() + asset).hashCode();
   }
 
   @Override
