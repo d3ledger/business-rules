@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.detail.Const;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 public class BillingRule implements Rule {
 
@@ -240,7 +241,10 @@ public class BillingRule implements Rule {
     final List<TransferAsset> fees = transactionsGroups.get(true);
     final List<TransferAsset> transfers = transactionsGroups.get(false);
 
-    if (transfers == null || transfers.isEmpty()) {
+    if (CollectionUtils.isEmpty(transfers)) {
+      if (!CollectionUtils.isEmpty(fees)) {
+        return ValidationResult.REJECTED("There are more fee transfers than needed: " + fees);
+      }
       return ValidationResult.VALIDATED;
     }
 
@@ -270,6 +274,9 @@ public class BillingRule implements Rule {
         // To prevent case when there are two identical operations and only one fee
         fees.remove(feeCandidate);
       }
+    }
+    if (!CollectionUtils.isEmpty(fees)) {
+      return ValidationResult.REJECTED("There are more fee transfers than needed: " + fees);
     }
     return ValidationResult.VALIDATED;
   }
