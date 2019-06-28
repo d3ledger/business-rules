@@ -90,7 +90,7 @@ public class TransactionSignerImpl implements TransactionSigner {
         transactionBatch.getTransactionList().size()
     );
     for (Transaction transaction : transactionBatch) {
-      final jp.co.soramitsu.iroha.java.Transaction parsedTransaction = jp.co.soramitsu.iroha.java.Transaction
+      jp.co.soramitsu.iroha.java.Transaction parsedTransaction = jp.co.soramitsu.iroha.java.Transaction
           .parseFrom(transaction);
       final int signaturesCount = transaction.getSignaturesCount();
       if (signaturesCount > keyPairs.size()) {
@@ -99,6 +99,7 @@ public class TransactionSignerImpl implements TransactionSigner {
                 ". Key list size is " + keyPairs.size());
       }
       // Since we assume brvs signatures must be as many as users
+      parsedTransaction = parsedTransaction.makeMutable().build();
       for (int i = 0; i < signaturesCount; i++) {
         parsedTransaction.sign(keyPairs.get(i));
       }

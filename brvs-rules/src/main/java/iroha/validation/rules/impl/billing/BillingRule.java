@@ -132,7 +132,7 @@ public class BillingRule implements Rule {
     }
     isRunning = true;
     readBillingOnStartup();
-    getMqUpdatesObservable().subscribeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
+    getMqUpdatesObservable().observeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
         .subscribe(update -> {
               logger.info("Got billing data update from MQ: " + update.toString());
               final BillingInfo currentBillingInfo = cache
@@ -268,7 +268,7 @@ public class BillingRule implements Rule {
         final TransferAsset feeCandidate = filterFee(transferAsset, fees, billingInfo);
         // If operation is billable but there is no corresponding fee attached
         if (feeCandidate == null) {
-          logger.error("There is no fee for:\n" + transferAsset);
+          logger.error("There is no correct fee for:\n" + transferAsset);
           return ValidationResult.REJECTED("There is no fee for:\n" + transferAsset);
         }
         // To prevent case when there are two identical operations and only one fee
