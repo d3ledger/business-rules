@@ -35,12 +35,17 @@ public class Application {
   private static final String BASE_URI_FORMAT = "http://0.0.0.0:%d/brvs/rest";
 
   public static void main(String[] args) {
-    if (args.length == 0) {
-      throw new IllegalArgumentException("Context file path argument is not specified");
+    try {
+      if (args.length == 0) {
+        throw new IllegalArgumentException("Context file path argument is not specified");
+      }
+      FileSystemXmlApplicationContext context = new FileSystemXmlApplicationContext(args[0]);
+      context.getBean(ValidationService.class).verifyTransactions();
+      establishHttpServer(context);
+    } catch (Exception e) {
+      logger.error("Failed to start BRVS", e);
+      System.exit(1);
     }
-    FileSystemXmlApplicationContext context = new FileSystemXmlApplicationContext(args[0]);
-    context.getBean(ValidationService.class).verifyTransactions();
-    establishHttpServer(context);
   }
 
   private static void establishHttpServer(AbstractApplicationContext context) {
