@@ -8,6 +8,9 @@ buildscript {
         // gradle plugins repository
         gradlePluginPortal()
     }
+    dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.4'
+    }
 }
 
 
@@ -15,6 +18,7 @@ plugins {
     id 'jp.co.soramitsu.sora-plugin' version '0.1.4'
 }
 
+apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'application'
 
 mainClassName = "iroha.validation.Application"
@@ -36,7 +40,7 @@ soramitsu {
         files = ['../config/context/spring-context.xml': '/config/context/spring-context.xml']
         //  optional startup arguments for java
         // java -jar ... $args
-        args = "/config/context/spring-context.xml"
+        args = "\\\"config/context/spring-context.xml\\\""
         // the rest in configured using env variables
     }
 }
@@ -76,11 +80,6 @@ jar {
     }
 }
 
-import com.github.jengelman.gradle.plugins.shadow.transformers.ServiceFileTransformer
-
 shadowJar {
-    transform(ServiceFileTransformer) {
-        path = 'META-INF'
-        include 'spring.*'
-    }
+    mergeServiceFiles('META-INF/spring.*')
 }
