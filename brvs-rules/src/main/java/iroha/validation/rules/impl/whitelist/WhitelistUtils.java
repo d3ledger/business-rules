@@ -58,7 +58,7 @@ public class WhitelistUtils {
     try {
       final String brvsAccountId = queryAPI.getAccountId();
       String detail = queryAPI.getAccountDetails(clientId, brvsAccountId, whitelistKey);
-      logger.info("Got BRVS whitelist: " + detail);
+      logger.debug("Got BRVS whitelist: " + detail);
 
       JsonObject accountNode = parser.parse(detail).getAsJsonObject();
       if (accountNode.get(brvsAccountId).isJsonNull()) {

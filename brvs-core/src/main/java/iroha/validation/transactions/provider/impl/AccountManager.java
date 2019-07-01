@@ -309,10 +309,15 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     }
   }
 
-  private synchronized void modifyQuorumOnRegistration(String userAccountId) {
+  private void modifyQuorumOnRegistration(String userAccountId) {
+    final int quorum = getValidQuorumForUserAccount(userAccountId, true);
+    if (getAccountQuorum(userAccountId) == quorum) {
+      logger.warn("Account " + userAccountId + " already has valid quorum: " + quorum);
+      return;
+    }
     setUserAccountQuorum(
         userAccountId,
-        getValidQuorumForUserAccount(userAccountId, true),
+        quorum,
         System.currentTimeMillis()
     );
   }
