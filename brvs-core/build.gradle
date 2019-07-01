@@ -5,8 +5,6 @@
 
 buildscript {
     repositories {
-        mavenLocal()
-//        jcenter()
         // gradle plugins repository
         gradlePluginPortal()
     }
