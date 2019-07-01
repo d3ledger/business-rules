@@ -165,16 +165,16 @@
   <bean id="quorumDivisor" class="iroha.validation.rules.impl.core.QuorumDivisorRule">
     <constructor-arg name="divisor" value="${QUORUM_DIVISOR_RULE_VALUE}"/>
   </bean>
-  <!--<bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">-->
-    <!--<constructor-arg name="getBillingURL" value="${BILLING_URL}"/>-->
-    <!--<constructor-arg name="rmqHost" value="${rmq.host}"/>-->
-    <!--<constructor-arg name="rmqPort" value="${rmq.port}"/>-->
-    <!--<constructor-arg name="rmqExchange" value="${BILLING_RMQ_EXCHANGE}"/>-->
-    <!--<constructor-arg name="rmqRoutingKey" value="${BILLING_RMQ_ROUTINGKEY}"/>-->
-    <!--<constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>-->
-    <!--<constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>-->
-    <!--<constructor-arg name="withdrawalAccounts" value="${BILLING_WITHDRAWALACCOUNTS}"/>-->
-  <!--</bean>-->
+  <bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">
+    <constructor-arg name="getBillingURL" value="${BILLING_URL}"/>
+    <constructor-arg name="rmqHost" value="${rmq.host}"/>
+    <constructor-arg name="rmqPort" value="${rmq.port}"/>
+    <constructor-arg name="rmqExchange" value="${BILLING_RMQ_EXCHANGE}"/>
+    <constructor-arg name="rmqRoutingKey" value="${BILLING_RMQ_ROUTINGKEY}"/>
+    <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
+    <constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>
+    <constructor-arg name="withdrawalAccounts" value="${BILLING_WITHDRAWALACCOUNTS}"/>
+  </bean>
   <util:list id="rules" value-type="iroha.validation.rules.Rule">
     <ref bean="sampleRule"/>
     <ref bean="newBrvsRule"/>
@@ -184,7 +184,7 @@
     <ref bean="restrictedKeysRule"/>
     <ref bean="minKeysRule"/>
     <ref bean="quorumDivisor"/>
-    <!--<ref bean="billingRule"/>-->
+    <ref bean="billingRule"/>
     <!-- More can be added -->
   </util:list>
 
