@@ -3,6 +3,46 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
+buildscript {
+    repositories {
+        mavenLocal()
+//        jcenter()
+        // gradle plugins repository
+        gradlePluginPortal()
+    }
+}
+
+
+plugins {
+    id 'jp.co.soramitsu.sora-plugin' version '0.1.4'
+}
+
+apply plugin: 'application'
+
+mainClassName = "iroha.validation.Application"
+shadowDistZip.classifier = 'shadow'
+shadowDistTar.classifier = 'shadow'
+// name of jar file that the shadowJar plugin generates
+shadowJar.archiveName = 'app.jar'
+
+// sora-plugin configs
+soramitsu {
+    projectGroup = 'brvs-deploy'
+    docker {
+        // docker tag
+        tag = System.getenv("TAG")
+        // jar file that is used in the generated Dockerfile
+        jar = new File("build/libs/app.jar")
+        // files that will be added to the docker image (optional)
+        // host fs: docker image fs
+        files = ['../config/context/spring-context.xml': '/config/context/spring-context.xml']
+        //  optional startup arguments for java
+        // java -jar ... $args
+        args = "/config/context/spring-context.xml"
+        // the rest in configured using env variables
+    }
+}
+
 dependencies {
 
     compile project(':brvs-rules')
