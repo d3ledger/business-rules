@@ -39,12 +39,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.detail.Const;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.CollectionUtils;
 
 public class BillingRule implements Rule {
 
@@ -75,7 +77,7 @@ public class BillingRule implements Rule {
   private final Set<String> userDomains;
   private final Set<String> depositAccounts;
   private final Set<String> withdrawalAccounts;
-  private final Set<BillingInfo> cache = new HashSet<>();
+  private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
 
   public BillingRule(String getBillingURL,
       String rmqHost,
@@ -130,12 +132,12 @@ public class BillingRule implements Rule {
     }
     isRunning = true;
     readBillingOnStartup();
-    getMqUpdatesObservable().subscribeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
+    getMqUpdatesObservable().observeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
         .subscribe(update -> {
               logger.info("Got billing data update from MQ: " + update.toString());
               final BillingInfo currentBillingInfo = cache
                   .stream()
-                  // equality check does not check the date
+                  // equality check does not check the date and fraction
                   .filter(entry -> entry.equals(update))
                   .findAny()
                   .orElse(null);
@@ -239,9 +241,11 @@ public class BillingRule implements Rule {
     final List<TransferAsset> fees = transactionsGroups.get(true);
     final List<TransferAsset> transfers = transactionsGroups.get(false);
 
-    if (transfers == null) {
-      logger.warn("No transfers found: " + transactionsGroups);
-      return ValidationResult.REJECTED("No transfers found: " + transactionsGroups);
+    if (CollectionUtils.isEmpty(transfers)) {
+      if (!CollectionUtils.isEmpty(fees)) {
+        return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
+      }
+      return ValidationResult.VALIDATED;
     }
 
     final String userDomain = BillingInfo
@@ -251,7 +255,8 @@ public class BillingRule implements Rule {
     for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
       if (originalType != null) {
-        final BillingInfo billingInfo = getBillingInfoFor(userDomain,
+        final BillingInfo billingInfo = getBillingInfoFor(
+            userDomain,
             transferAsset.getAssetId(),
             originalType
         );
@@ -263,12 +268,15 @@ public class BillingRule implements Rule {
         final TransferAsset feeCandidate = filterFee(transferAsset, fees, billingInfo);
         // If operation is billable but there is no corresponding fee attached
         if (feeCandidate == null) {
-          logger.error("There is no fee for " + transferAsset);
-          return ValidationResult.REJECTED("There is no fee for " + transferAsset);
+          logger.error("There is no correct fee for:\n" + transferAsset);
+          return ValidationResult.REJECTED("There is no fee for:\n" + transferAsset);
         }
         // To prevent case when there are two identical operations and only one fee
         fees.remove(feeCandidate);
       }
+    }
+    if (!CollectionUtils.isEmpty(fees)) {
+      return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
     }
     return ValidationResult.VALIDATED;
   }
@@ -308,7 +316,7 @@ public class BillingRule implements Rule {
       return BillingTypeEnum.ACCOUNT_CREATION;
     }
     if (withdrawalAccounts.contains(destAccountId)
-        && userDomains.contains(destDomain)) {
+        && userDomains.contains(srcDomain)) {
       return BillingTypeEnum.WITHDRAWAL;
     }
     if (userDomains.contains(srcDomain)

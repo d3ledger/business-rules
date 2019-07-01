@@ -90,7 +90,7 @@ public class TransactionSignerImpl implements TransactionSigner {
         transactionBatch.getTransactionList().size()
     );
     for (Transaction transaction : transactionBatch) {
-      final jp.co.soramitsu.iroha.java.Transaction parsedTransaction = jp.co.soramitsu.iroha.java.Transaction
+      jp.co.soramitsu.iroha.java.Transaction parsedTransaction = jp.co.soramitsu.iroha.java.Transaction
           .parseFrom(transaction);
       final int signaturesCount = transaction.getSignaturesCount();
       if (signaturesCount > keyPairs.size()) {
@@ -99,6 +99,7 @@ public class TransactionSignerImpl implements TransactionSigner {
                 ". Key list size is " + keyPairs.size());
       }
       // Since we assume brvs signatures must be as many as users
+      parsedTransaction = parsedTransaction.makeMutable().build();
       for (int i = 0; i < signaturesCount; i++) {
         parsedTransaction.sign(keyPairs.get(i));
       }
@@ -111,13 +112,15 @@ public class TransactionSignerImpl implements TransactionSigner {
     if (transactions.size() > 1) {
       irohaAPI.transactionListSync(transactions);
       if (check) {
-        transactions.forEach(this::checkIrohaStatus);
+        transactions.forEach(transaction ->
+            scheduler.scheduleDirect(new IrohaStatusRunnable(transaction))
+        );
       }
     } else {
       final Transaction transaction = transactions.get(0);
       irohaAPI.transactionSync(transaction);
       if (check) {
-        checkIrohaStatus(transaction);
+        scheduler.scheduleDirect(new IrohaStatusRunnable(transaction));
       }
     }
   }
@@ -125,7 +128,7 @@ public class TransactionSignerImpl implements TransactionSigner {
   private void checkIrohaStatus(Transaction transaction) {
     final ToriiResponse statusResponse = ValidationUtils.subscriptionStrategy
         .subscribe(irohaAPI, Utils.hash(transaction))
-        .subscribeOn(scheduler).blockingLast();
+        .blockingLast();
     if (!statusResponse.getTxStatus().equals(TxStatus.COMMITTED)) {
       logger.warn("Transaction " + ValidationUtils.hexHash(transaction) + " failed in Iroha: "
           + statusResponse.getTxStatus());
@@ -200,6 +203,23 @@ public class TransactionSignerImpl implements TransactionSigner {
       sendBrvsTransactionBatch(transactionBatch, ValidationUtils.generateKeypair());
     } else {
       sendRejectedUserTransaction(transactionBatch);
+    }
+  }
+
+  /**
+   * Intermediary runnable-wrapper for Iroha status checking
+   */
+  private class IrohaStatusRunnable implements Runnable {
+
+    private final Transaction transaction;
+
+    IrohaStatusRunnable(Transaction transaction) {
+      this.transaction = transaction;
+    }
+
+    @Override
+    public void run() {
+      checkIrohaStatus(transaction);
     }
   }
 }
