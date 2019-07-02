@@ -75,7 +75,8 @@ class RulesTest {
     when(transaction.getPayload().getReducedPayload().getCreatorAccountId())
         .thenReturn("user@users");
     when(transaction.getPayload().getBatch().getReducedHashesCount()).thenReturn(1);
-    rule = new BillingRule("url",
+    rule = new BillingRule("http://url",
+        "http://url",
         "rmqHost",
         1,
         "exchange",
