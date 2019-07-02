@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -73,7 +74,7 @@ public class BillingRule implements Rule {
 
   private boolean isRunning;
   private final URL getBillingURL;
-  private final URL getAssetPrecisionURL;
+  private final String getAssetPrecisionURL;
   private final String rmqHost;
   private final int rmqPort;
   private final String rmqExchange;
@@ -123,7 +124,7 @@ public class BillingRule implements Rule {
     }
 
     this.getBillingURL = new URL(getBillingURL);
-    this.getAssetPrecisionURL = new URL(getAssetPrecisionURL);
+    this.getAssetPrecisionURL = getAssetPrecisionURL;
     this.rmqHost = rmqHost;
     this.rmqPort = rmqPort;
     this.rmqExchange = rmqExchange;
@@ -134,7 +135,7 @@ public class BillingRule implements Rule {
     runCacheUpdater();
   }
 
-  protected void runCacheUpdater() throws IOException {
+  protected void runCacheUpdater() {
     if (isRunning) {
       logger.warn("Cache updater is already running");
       return;
@@ -161,7 +162,7 @@ public class BillingRule implements Rule {
     logger.info("Billing cache updater has been started");
   }
 
-  private void readBillingOnStartup() throws IOException {
+  private void readBillingOnStartup() {
     final JsonObject root = jsonParser
         .parse(executeGetRequest(getBillingURL, BILLING_ERROR_MESSAGE)).getAsJsonObject();
     logger.info("Got billing data response from HTTP server: " + root);
@@ -204,6 +205,15 @@ public class BillingRule implements Rule {
       return response.toString();
     } catch (Exception e) {
       throw new BillingRuleException("Couldn't parse response", e);
+    }
+  }
+
+  private String executeGetRequestAssetPrecision(String assetId) {
+    try {
+      return executeGetRequest(new URL(getAssetPrecisionURL + assetId),
+          BILLING_PRECISION_ERROR_MESSAGE);
+    } catch (MalformedURLException e) {
+      throw new BillingRuleException(BILLING_PRECISION_ERROR_MESSAGE, e);
     }
   }
 
@@ -336,9 +346,7 @@ public class BillingRule implements Rule {
   private int getAssetPrecision(String assetId) {
     Integer precision = assetPrecision.get(assetId);
     if (precision == null) {
-      precision = Integer.valueOf(
-          executeGetRequest(getAssetPrecisionURL, BILLING_PRECISION_ERROR_MESSAGE)
-      );
+      precision = Integer.valueOf(executeGetRequestAssetPrecision(assetId));
       assetPrecision.put(assetId, precision);
     }
     return precision;
