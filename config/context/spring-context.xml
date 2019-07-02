@@ -167,6 +167,7 @@
   </bean>
   <bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">
     <constructor-arg name="getBillingURL" value="${BILLING_URL}"/>
+    <constructor-arg name="getAssetPrecisionURL" value="${BILLING_ASSET_PRECISION_URL}"/>
     <constructor-arg name="rmqHost" value="${rmq.host}"/>
     <constructor-arg name="rmqPort" value="${rmq.port}"/>
     <constructor-arg name="rmqExchange" value="${BILLING_RMQ_EXCHANGE}"/>
