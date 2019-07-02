@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -58,6 +59,8 @@ public class BillingRule implements Rule {
   private static final String ACCOUNT_CREATION_BILLING_ACCOUNT_NAME = "account_creation_billing";
   private static final String EXCHANGE_BILLING_ACCOUNT_NAME = "exchange_billing";
   private static final String WITHDRAWAL_BILLING_ACCOUNT_NAME = "withdrawal_billing";
+  private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
+  private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final Map<BillingTypeEnum, String> feeTypesAccounts = new HashMap<BillingTypeEnum, String>() {{
     put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
     put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
@@ -65,11 +68,13 @@ public class BillingRule implements Rule {
     put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
     put(BillingTypeEnum.WITHDRAWAL, WITHDRAWAL_BILLING_ACCOUNT_NAME);
   }};
+  private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
 
   private boolean isRunning;
-  private final String getBillingURL;
+  private final URL getBillingURL;
+  private final String getAssetPrecisionURL;
   private final String rmqHost;
   private final int rmqPort;
   private final String rmqExchange;
@@ -80,6 +85,7 @@ public class BillingRule implements Rule {
   private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
 
   public BillingRule(String getBillingURL,
+      String getAssetPrecisionURL,
       String rmqHost,
       int rmqPort,
       String rmqExchange,
@@ -90,6 +96,9 @@ public class BillingRule implements Rule {
 
     if (Strings.isNullOrEmpty(getBillingURL)) {
       throw new IllegalArgumentException("Billing URL must not be neither null nor empty");
+    }
+    if (Strings.isNullOrEmpty(getAssetPrecisionURL)) {
+      throw new IllegalArgumentException("Asset precision URL must not be neither null nor empty");
     }
     if (Strings.isNullOrEmpty(rmqHost)) {
       throw new IllegalArgumentException("RMQ host must not be neither null nor empty");
@@ -114,7 +123,8 @@ public class BillingRule implements Rule {
           "Withdrawal accounts key must not be neither null nor empty");
     }
 
-    this.getBillingURL = getBillingURL;
+    this.getBillingURL = new URL(getBillingURL);
+    this.getAssetPrecisionURL = getAssetPrecisionURL;
     this.rmqHost = rmqHost;
     this.rmqPort = rmqPort;
     this.rmqExchange = rmqExchange;
@@ -125,14 +135,15 @@ public class BillingRule implements Rule {
     runCacheUpdater();
   }
 
-  protected void runCacheUpdater() throws IOException {
+  protected void runCacheUpdater() {
     if (isRunning) {
       logger.warn("Cache updater is already running");
       return;
     }
     isRunning = true;
     readBillingOnStartup();
-    getMqUpdatesObservable().observeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
+    getMqUpdatesObservable()
+        .observeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
         .subscribe(update -> {
               logger.info("Got billing data update from MQ: " + update.toString());
               final BillingInfo currentBillingInfo = cache
@@ -151,8 +162,9 @@ public class BillingRule implements Rule {
     logger.info("Billing cache updater has been started");
   }
 
-  private void readBillingOnStartup() throws IOException {
-    final JsonObject root = jsonParser.parse(executeGetRequest()).getAsJsonObject();
+  private void readBillingOnStartup() {
+    final JsonObject root = jsonParser
+        .parse(executeGetRequest(getBillingURL, BILLING_ERROR_MESSAGE)).getAsJsonObject();
     logger.info("Got billing data response from HTTP server: " + root);
     for (BillingTypeEnum billingType : BillingTypeEnum.values()) {
       final String label = billingType.label;
@@ -169,24 +181,40 @@ public class BillingRule implements Rule {
     }
   }
 
-  private String executeGetRequest() throws IOException {
-    URL url = new URL(getBillingURL);
-    HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
-    final int responseCode = urlConnection.getResponseCode();
-    if (responseCode != 200) {
-      throw new BillingRuleException(
-          "Couldn't request primary billing information. Response code is " + responseCode
-      );
+  private String executeGetRequest(URL url, String onRequestError) {
+    HttpURLConnection urlConnection;
+    try {
+      urlConnection = (HttpURLConnection) url.openConnection();
+      final int responseCode = urlConnection.getResponseCode();
+      if (responseCode != 200) {
+        throw new BillingRuleException(
+            onRequestError + " Response code is " + responseCode
+        );
+      }
+    } catch (IOException e) {
+      throw new BillingRuleException("Error opening connection occurred", e);
     }
 
-    BufferedReader in = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
-    String inputLine;
-    StringBuilder response = new StringBuilder();
-    while ((inputLine = in.readLine()) != null) {
-      response.append(inputLine);
+    try (BufferedReader in = new BufferedReader(
+        new InputStreamReader(urlConnection.getInputStream()))) {
+      String inputLine;
+      StringBuilder response = new StringBuilder();
+      while ((inputLine = in.readLine()) != null) {
+        response.append(inputLine);
+      }
+      return response.toString();
+    } catch (Exception e) {
+      throw new BillingRuleException("Couldn't parse response", e);
     }
-    in.close();
-    return response.toString();
+  }
+
+  private String executeGetRequestAssetPrecision(String assetId) {
+    try {
+      return executeGetRequest(new URL(getAssetPrecisionURL + assetId),
+          BILLING_PRECISION_ERROR_MESSAGE);
+    } catch (MalformedURLException e) {
+      throw new BillingRuleException(BILLING_PRECISION_ERROR_MESSAGE, e);
+    }
   }
 
   private Observable<BillingInfo> getMqUpdatesObservable() {
@@ -297,11 +325,31 @@ public class BillingRule implements Rule {
           && fee.getAssetId().equals(assetId)
           && fee.getDestAccountId().equals(destAccountName)
           && new BigDecimal(fee.getAmount())
-          .compareTo(amount.multiply(billingInfo.getFeeFraction())) == 0) {
+          .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
         return fee;
       }
     }
     return null;
+  }
+
+  private BigDecimal calculateRelevantFeeAmount(BigDecimal amount, BillingInfo billingInfo) {
+    final BigDecimal feeAmount = amount.multiply(billingInfo.getFeeFraction());
+    final BigDecimal smallestAssetUnit = BigDecimal.ONE
+        .pow(-1 * getAssetPrecision(billingInfo.getAsset()));
+    // if fee is less than 1 unit of the asset
+    if (feeAmount.compareTo(smallestAssetUnit) < 0) {
+      return smallestAssetUnit;
+    }
+    return feeAmount;
+  }
+
+  private int getAssetPrecision(String assetId) {
+    Integer precision = assetPrecision.get(assetId);
+    if (precision == null) {
+      precision = Integer.valueOf(executeGetRequestAssetPrecision(assetId));
+      assetPrecision.put(assetId, precision);
+    }
+    return precision;
   }
 
   private BillingTypeEnum getBillingType(TransferAsset transfer, boolean isBatch) {
@@ -343,6 +391,10 @@ public class BillingRule implements Rule {
 
     BillingRuleException(String s) {
       super(s);
+    }
+
+    BillingRuleException(String s, Exception e) {
+      super(s, e);
     }
   }
 }
