@@ -335,10 +335,8 @@ public class BillingRule implements Rule {
 
   private BigDecimal calculateRelevantFeeAmount(BigDecimal amount, BillingInfo billingInfo) {
     final int assetPrecision = getAssetPrecision(billingInfo.getAsset());
-    final BigDecimal feeAmount = amount.multiply(billingInfo.getFeeFraction())
+    return amount.multiply(billingInfo.getFeeFraction())
         .setScale(assetPrecision, RoundingMode.UP);
-    final BigDecimal smallestAssetUnit = BigDecimal.TEN.pow(-1 * assetPrecision);
-    return feeAmount.max(smallestAssetUnit);
   }
 
   private int getAssetPrecision(String assetId) {
