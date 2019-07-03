@@ -31,6 +31,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -333,14 +334,9 @@ public class BillingRule implements Rule {
   }
 
   private BigDecimal calculateRelevantFeeAmount(BigDecimal amount, BillingInfo billingInfo) {
-    final BigDecimal feeAmount = amount.multiply(billingInfo.getFeeFraction());
-    final BigDecimal smallestAssetUnit = BigDecimal.ONE
-        .pow(-1 * getAssetPrecision(billingInfo.getAsset()));
-    // if fee is less than 1 unit of the asset
-    if (feeAmount.compareTo(smallestAssetUnit) < 0) {
-      return smallestAssetUnit;
-    }
-    return feeAmount;
+    final int assetPrecision = getAssetPrecision(billingInfo.getAsset());
+    return amount.multiply(billingInfo.getFeeFraction())
+        .setScale(assetPrecision, RoundingMode.UP);
   }
 
   private int getAssetPrecision(String assetId) {
