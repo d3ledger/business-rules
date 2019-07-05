@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
@@ -86,26 +87,32 @@ public class TransactionSignerImpl implements TransactionSigner {
   }
 
   private void sendUserTransactionBatch(TransactionBatch transactionBatch) {
+    addSignaturesAndSend(transactionBatch, true);
+  }
+
+  private void addSignaturesAndSend(TransactionBatch transactionBatch, boolean useUserKeypairs) {
     final List<Transaction> transactions = new ArrayList<>(
         transactionBatch.getTransactionList().size()
     );
     for (Transaction transaction : transactionBatch) {
-      jp.co.soramitsu.iroha.java.Transaction parsedTransaction = jp.co.soramitsu.iroha.java.Transaction
-          .parseFrom(transaction);
+      jp.co.soramitsu.iroha.java.Transaction parsedTransaction =
+          jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction);
       final int signaturesCount = transaction.getSignaturesCount();
-      if (signaturesCount > keyPairs.size()) {
+      if (useUserKeypairs && signaturesCount > keyPairs.size()) {
         throw new IllegalStateException(
             "Too many user signatures in the transaction: " + signaturesCount +
                 ". Key list size is " + keyPairs.size());
       }
       // Since we assume brvs signatures must be as many as users
       parsedTransaction = parsedTransaction.makeMutable().build();
-      for (int i = 0; i < signaturesCount; i++) {
-        parsedTransaction.sign(keyPairs.get(i));
-      }
+      IntStream.range(0, signaturesCount)
+          .mapToObj(index ->
+              useUserKeypairs ? keyPairs.get(index) : ValidationUtils.generateKeypair()
+          )
+          .forEach(parsedTransaction::sign);
       transactions.add(parsedTransaction.build());
     }
-    sendTransactions(transactions, true);
+    sendTransactions(transactions, useUserKeypairs);
   }
 
   private void sendTransactions(List<Transaction> transactions, boolean check) {
@@ -140,21 +147,7 @@ public class TransactionSignerImpl implements TransactionSigner {
   }
 
   private void sendRejectedUserTransaction(TransactionBatch transactionBatch) {
-    final List<Transaction> transactions = new ArrayList<>(
-        transactionBatch.getTransactionList().size()
-    );
-    for (Transaction transaction : transactionBatch) {
-      final jp.co.soramitsu.iroha.java.Transaction parsedTransaction = jp.co.soramitsu.iroha.java.Transaction
-          .parseFrom(transaction);
-      final int signaturesCount = transaction.getSignaturesCount();
-
-      // Since we assume brvs signatures must be as many as users
-      for (int i = 0; i < signaturesCount; i++) {
-        parsedTransaction.sign(ValidationUtils.generateKeypair());
-      }
-      transactions.add(parsedTransaction.build());
-    }
-    sendTransactions(transactions, false);
+    addSignaturesAndSend(transactionBatch, false);
   }
 
   private void sendBrvsTransactionBatch(TransactionBatch transactionBatch, KeyPair keyPair) {
