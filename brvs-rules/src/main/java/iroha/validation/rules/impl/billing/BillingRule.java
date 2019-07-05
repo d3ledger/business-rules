@@ -62,6 +62,7 @@ public class BillingRule implements Rule {
   private static final String WITHDRAWAL_BILLING_ACCOUNT_NAME = "withdrawal_billing";
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
+  private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
   private static final Map<BillingTypeEnum, String> feeTypesAccounts = new HashMap<BillingTypeEnum, String>() {{
     put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
     put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
@@ -209,10 +210,18 @@ public class BillingRule implements Rule {
     }
   }
 
-  private String executeGetRequestAssetPrecision(String assetId) {
+  private String getRawAssetPrecisionResponse(String assetId) {
     try {
-      return executeGetRequest(new URL(getAssetPrecisionURL + assetId),
-          BILLING_PRECISION_ERROR_MESSAGE);
+      return jsonParser
+          .parse(
+              executeGetRequest(
+                  new URL(getAssetPrecisionURL + assetId.replace("#", "%23")),
+                  BILLING_PRECISION_ERROR_MESSAGE
+              )
+          )
+          .getAsJsonObject()
+          .get(BILLING_PRECISION_JSON_FIELD)
+          .getAsString();
     } catch (MalformedURLException e) {
       throw new BillingRuleException(BILLING_PRECISION_ERROR_MESSAGE, e);
     }
@@ -342,7 +351,7 @@ public class BillingRule implements Rule {
   private int getAssetPrecision(String assetId) {
     Integer precision = assetPrecision.get(assetId);
     if (precision == null) {
-      precision = Integer.valueOf(executeGetRequestAssetPrecision(assetId));
+      precision = Integer.valueOf(getRawAssetPrecisionResponse(assetId));
       assetPrecision.put(assetId, precision);
     }
     return precision;
