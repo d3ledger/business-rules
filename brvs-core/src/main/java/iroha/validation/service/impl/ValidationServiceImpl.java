@@ -67,7 +67,8 @@ public class ValidationServiceImpl implements ValidationService {
           if (verdict) {
             transactionSigner.signAndSend(transactionBatch);
           }
-        }
+        },
+        throwable -> logger.error("Error during transaction validation: ", throwable)
     );
   }
 
