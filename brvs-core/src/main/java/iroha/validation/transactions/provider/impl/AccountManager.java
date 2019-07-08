@@ -47,7 +47,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final Logger logger = LoggerFactory.getLogger(AccountManager.class);
   // Not to let BRVS to take it in processing
   // Max quorum is 128
-  private static final int UNREACHABLE_QUORUM = 129;
+  /* default */ static final int UNREACHABLE_QUORUM = 129;
   private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
@@ -119,20 +119,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       return Integer.parseInt(
           queryAPI.getAccountDetails(targetAccount, brvsAccountId, userQuorumAttribute)
               .split("\"")[5]);
-    } catch (ErrorResponseException e) {
-      logger
-          .error("Account detail is not set for account: " + targetAccount, e);
-      return UNREACHABLE_QUORUM;
-    } catch (ArrayIndexOutOfBoundsException e) {
-      logger.warn(
-          "User quorum details was not set previously yet. Please set it using appropriate services. Account: "
-              + targetAccount);
+    } catch (ArrayIndexOutOfBoundsException | ErrorResponseException e) {
+      logger.warn("Account detail is not set for account: " + targetAccount, e);
       return UNREACHABLE_QUORUM;
     } catch (NumberFormatException e) {
-      logger.error("Error occurred parsing quorum details for " + targetAccount, e);
+      logger.warn("Error occurred parsing quorum details for " + targetAccount, e);
       return UNREACHABLE_QUORUM;
     } catch (Exception e) {
-      logger.error("Unknown exception occurred retrieving quorum data", e);
+      logger.warn("Unknown exception occurred retrieving quorum data", e);
       return UNREACHABLE_QUORUM;
     }
   }
