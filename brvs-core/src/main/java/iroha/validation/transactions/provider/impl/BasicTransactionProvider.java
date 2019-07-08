@@ -179,11 +179,14 @@ public class BasicTransactionProvider implements TransactionProvider {
         .filter(Command::hasSetAccountQuorum)
         .map(Command::getSetAccountQuorum)
         .forEach(command -> {
-          userQuorumProvider
-              .setUserQuorumDetail(creatorAccountId,
-                  command.getQuorum() / PROPORTION, syncTime);
-          userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-              userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
+          if (userQuorumProvider.getUserQuorumDetail(creatorAccountId)
+              != AccountManager.UNREACHABLE_QUORUM) {
+            userQuorumProvider
+                .setUserQuorumDetail(creatorAccountId,
+                    command.getQuorum() / PROPORTION, syncTime);
+            userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+                userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
+          }
         });
   }
 
