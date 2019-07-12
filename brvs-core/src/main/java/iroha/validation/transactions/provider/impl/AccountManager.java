@@ -9,7 +9,6 @@ import static iroha.validation.utils.ValidationUtils.PROPORTION;
 
 import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
@@ -51,7 +50,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
-  private static final JsonParser parser = new JsonParser();
   private static final int INITIAL_KEYS_AMOUNT = 1;
 
   private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
@@ -345,7 +343,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     logger.info("Going to read accounts data from " + accountsHolderAccount);
     Set<T> resultSet = new HashSet<>();
     try {
-      JsonElement rootNode = parser
+      JsonElement rootNode = ValidationUtils.parser
           .parse(queryAPI
               .getAccount(accountsHolderAccount)
               .getAccount()

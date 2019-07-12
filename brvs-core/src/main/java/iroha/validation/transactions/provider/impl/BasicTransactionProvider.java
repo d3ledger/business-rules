@@ -43,7 +43,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final BrvsIrohaChainListener irohaReliableChainListener;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   private final Set<String> userDomains;
-  private boolean isStarted;
+  private volatile boolean isStarted;
 
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
@@ -131,11 +131,6 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void processBlockTransactions() {
     irohaReliableChainListener.getBlockStreaming().subscribe(block -> {
-          /*
-          We do not process rejected hashes of blocks in order to support fail fast behavior
-          BRVS fake key pair leads to STATELESS_INVALID status so such transactions
-          are not presented in ledger blocks at all
-           */
           // Store new block first
           blockStorage.store(block);
           processCommitted(

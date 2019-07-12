@@ -18,6 +18,8 @@ import iroha.protocol.QryResponses.AccountAsset;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.listener.BrvsIrohaChainListener;
+import iroha.validation.rules.Rule;
+import iroha.validation.rules.RuleMonitor;
 import iroha.validation.rules.impl.assets.TransferTxVolumeRule;
 import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.service.ValidationService;
@@ -38,6 +40,8 @@ import java.security.KeyPair;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryAPI;
@@ -179,40 +183,41 @@ class IrohaIntegrationTest {
         Collections.singletonList(validatorKeypair)
     );
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
+    final Map<String, Rule> ruleMap = new HashMap<>();
+    ruleMap.put("sample", new SampleRule());
+    ruleMap.put("volume", new TransferTxVolumeRule(assetId, new BigDecimal(150)));
+    final BrvsIrohaChainListener brvsIrohaChainListener = new BrvsIrohaChainListener(
+        new RMQConfig() {
+          @NotNull
+          @Override
+          public String getHost() {
+            return rmqHost;
+          }
+
+          @Override
+          public int getPort() {
+            return rmqPort;
+          }
+
+          @NotNull
+          @Override
+          public String getIrohaExchange() {
+            return "iroha";
+          }
+        },
+        queryAPI,
+        validatorKeypair
+    );
+    final SimpleAggregationValidator validator = new SimpleAggregationValidator(ruleMap);
     return new ValidationServiceImpl(new ValidationServiceContext(
-        Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
-            new SampleRule(),
-            new TransferTxVolumeRule(assetId, new BigDecimal(150))
-            ))
-        ),
+        validator,
         new BasicTransactionProvider(
             transactionVerdictStorage,
             cacheProvider,
             accountManager,
             accountManager,
             new MongoBlockStorage(mongoHost, mongoPort),
-            new BrvsIrohaChainListener(
-                new RMQConfig() {
-                  @NotNull
-                  @Override
-                  public String getHost() {
-                    return rmqHost;
-                  }
-
-                  @Override
-                  public int getPort() {
-                    return rmqPort;
-                  }
-
-                  @NotNull
-                  @Override
-                  public String getIrohaExchange() {
-                    return "iroha";
-                  }
-                },
-                queryAPI,
-                validatorKeypair
-            ),
+            brvsIrohaChainListener,
             domainName
         ),
         new TransactionSignerImpl(
@@ -223,7 +228,15 @@ class IrohaIntegrationTest {
             transactionVerdictStorage
         ),
         accountManager,
-        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost")
+        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost"),
+        new RuleMonitor(
+            queryAPI,
+            brvsIrohaChainListener,
+            validatorId,
+            validatorId,
+            validatorId,
+            validator
+        )
     ));
   }
 
