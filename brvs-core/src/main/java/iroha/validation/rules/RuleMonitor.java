@@ -18,6 +18,7 @@ import iroha.validation.validators.Validator;
 import java.util.Objects;
 import java.util.Set;
 import jp.co.soramitsu.iroha.java.QueryAPI;
+import jp.co.soramitsu.iroha.java.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
@@ -139,6 +140,6 @@ public class RuleMonitor {
         .getAsJsonObject()
         .get(name)
         .getAsString();
-    return RuleParser.parse(script);
+    return RuleParser.parse(Utils.irohaUnEscape(script));
   }
 }
