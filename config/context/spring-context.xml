@@ -137,10 +137,6 @@
   </bean>
 
   <!-- RULES DEFINITIONS -->
-  <bean id="sampleRule" class="iroha.validation.rules.impl.core.SampleRule"/>
-  <bean id="newBrvsRule" class="iroha.validation.rules.impl.core.NewBrvsRule">
-    <constructor-arg name="queryAPI" ref="queryAPI"/>
-  </bean>
   <bean id="updateWhitelistRule" class="iroha.validation.rules.impl.whitelist.UpdateWhitelistRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="validationPeriod" value="${WHITELIST_VALIDATION}"/>
@@ -177,8 +173,6 @@
     <constructor-arg name="withdrawalAccounts" value="${BILLING_WITHDRAWALACCOUNTS}"/>
   </bean>
   <util:map id="rules" map-class="java.util.HashMap">
-    <entry key="sampleRule" value-ref="sampleRule"/>
-    <entry key="newBrvsRule" value-ref="newBrvsRule"/>
     <entry key="updateWhitelistRule" value-ref="updateWhitelistRule"/>
     <entry key="checkEthWhitelistRule" value-ref="checkEthWhitelistRule"/>
     <entry key="checkBtcWhitelistRule" value-ref="checkBtcWhitelistRule"/>
