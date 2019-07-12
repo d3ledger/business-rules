@@ -23,17 +23,6 @@ import org.junit.jupiter.api.Test;
 class ValidatorsTest {
 
   /**
-   * @given {@link SimpleAggregationValidator}
-   * @when {@link SimpleAggregationValidator} instantiated with an empty collection of rules
-   * @then {@link IllegalArgumentException} is thrown
-   */
-  @Test
-  void simpleAggregationValidatorWithEmptyArgumentTest() {
-    assertThrows(IllegalArgumentException.class,
-        () -> new SimpleAggregationValidator(Collections.emptyMap()));
-  }
-
-  /**
    * @given {@link SimpleAggregationValidator} instantiated with lots of trivial rules always
    * returning true
    * @when Any {@link Transaction} is going to be validated by such a validator
