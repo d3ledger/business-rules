@@ -39,7 +39,7 @@ public class RuleMonitor {
   private final String settingsAccountId;
   private final String setterAccountId;
   private final Validator validator;
-  private volatile boolean isStarted = false;
+  private boolean isStarted;
 
   public RuleMonitor(QueryAPI queryAPI,
       BrvsIrohaChainListener irohaChainListener,
@@ -73,27 +73,28 @@ public class RuleMonitor {
    * Starts blocks processing
    */
   public synchronized void monitorUpdates() {
-    if (!isStarted) {
-      logger.info("Starting rules updates monitoring");
-      irohaChainListener.getBlockStreaming().observeOn(scheduler).subscribe(block ->
-          block.getBlockV1().getPayload().getTransactionsList().stream()
-              .map(transaction -> transaction.getPayload().getReducedPayload())
-              .filter(
-                  reducedPayload -> reducedPayload.getCreatorAccountId().equals(setterAccountId)
-              )
-              .map(ReducedPayload::getCommandsList)
-              .forEach(commands -> commands.stream()
-                  .filter(Command::hasSetAccountDetail)
-                  .map(Command::getSetAccountDetail)
-                  .filter(
-                      setAccountDetail -> setAccountDetail.getAccountId()
-                          .equals(settingsAccountId)
-                  )
-                  .forEach(this::processUpdate)
-              )
-      );
-      isStarted = true;
+    if (isStarted) {
+      return;
     }
+    logger.info("Starting rules updates monitoring");
+    irohaChainListener.getBlockStreaming().observeOn(scheduler).subscribe(block ->
+        block.getBlockV1().getPayload().getTransactionsList().stream()
+            .map(transaction -> transaction.getPayload().getReducedPayload())
+            .filter(
+                reducedPayload -> reducedPayload.getCreatorAccountId().equals(setterAccountId)
+            )
+            .map(ReducedPayload::getCommandsList)
+            .forEach(commands -> commands.stream()
+                .filter(Command::hasSetAccountDetail)
+                .map(Command::getSetAccountDetail)
+                .filter(
+                    setAccountDetail -> setAccountDetail.getAccountId()
+                        .equals(settingsAccountId)
+                )
+                .forEach(this::processUpdate)
+            )
+    );
+    isStarted = true;
   }
 
   /**

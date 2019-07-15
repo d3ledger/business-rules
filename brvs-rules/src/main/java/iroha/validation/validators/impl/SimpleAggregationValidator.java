@@ -58,8 +58,11 @@ public class SimpleAggregationValidator implements Validator {
     return rules.remove(name);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
-  public Set<String> getRuleNames() {
+  public synchronized Set<String> getRuleNames() {
     return rules.keySet();
   }
 }

@@ -43,7 +43,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final BrvsIrohaChainListener irohaReliableChainListener;
   private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
   private final Set<String> userDomains;
-  private volatile boolean isStarted;
+  private boolean isStarted;
 
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
