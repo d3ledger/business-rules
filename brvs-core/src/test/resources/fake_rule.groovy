@@ -12,6 +12,9 @@ class BadRule implements Rule {
 
     @Override
     ValidationResult isSatisfiedBy(TransactionOuterClass.Transaction transaction) {
-        return ValidationResult.REJECTED("HELLO FROM BAD RULE");
+        if (transaction.payload.reducedPayload.commandsList.stream().anyMatch { command -> command.hasTransferAsset() }) {
+            return ValidationResult.REJECTED("HELLO FROM BAD RULE")
+        }
+        return ValidationResult.VALIDATED
     }
 }

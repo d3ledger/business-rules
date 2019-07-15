@@ -225,15 +225,20 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private void doRegister(String accountId) {
     logger.info("Going to register " + accountId);
     if (!hasValidFormat(accountId)) {
+      logger.error("Invalid account format [" + accountId + "]. Use 'username@domain'.");
       throw new IllegalArgumentException(
           "Invalid account format [" + accountId + "]. Use 'username@domain'.");
     }
     if (!userDomains.contains(getDomain(accountId))) {
+      logger.error("The BRVS instance is not permitted to process the domain specified: " +
+          getDomain(accountId) + ".");
       throw new IllegalArgumentException(
           "The BRVS instance is not permitted to process the domain specified: " +
               getDomain(accountId) + ".");
     }
     if (!existsInIroha(accountId)) {
+      logger.error(
+          "Account " + accountId + " does not exist or an error during querying process occurred.");
       throw new IllegalArgumentException(
           "Account " + accountId + " does not exist or an error during querying process occurred.");
     }
