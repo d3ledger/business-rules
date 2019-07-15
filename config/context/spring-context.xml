@@ -125,7 +125,7 @@
 
   <!-- SERVICE CONFIG -->
   <bean id="serviceContext" class="iroha.validation.config.ValidationServiceContext">
-    <constructor-arg name="validators" ref="validators"/>
+    <constructor-arg name="validator" ref="simpleAggregationValidator"/>
     <constructor-arg name="transactionProvider" ref="transactionProvider"/>
     <constructor-arg name="transactionSigner" ref="transactionSigner"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
@@ -183,13 +183,9 @@
     <!-- More can be added -->
   </util:map>
 
-  <!-- VALIDATORS DEFINITIONS -->
+  <!-- VALIDATOR DEFINITION -->
   <bean id="simpleAggregationValidator"
     class="iroha.validation.validators.impl.SimpleAggregationValidator">
     <constructor-arg ref="rules"/>
   </bean>
-  <util:list id="validators" value-type="iroha.validation.validators.Validator">
-    <ref bean="simpleAggregationValidator"/>
-    <!-- More can be added -->
-  </util:list>
 </beans>
