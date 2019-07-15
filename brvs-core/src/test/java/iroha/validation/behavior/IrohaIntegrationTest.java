@@ -57,17 +57,17 @@ import jp.co.soramitsu.iroha.testcontainers.IrohaContainer;
 import jp.co.soramitsu.iroha.testcontainers.PeerConfig;
 import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
 import org.jetbrains.annotations.NotNull;
-import org.junit.FixMethodOrder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer.Alphanumeric;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
-import org.junit.runners.MethodSorters;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.testcontainers.containers.GenericContainer;
 
 @TestInstance(Lifecycle.PER_CLASS)
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+@TestMethodOrder(Alphanumeric.class)
 class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
@@ -512,7 +512,7 @@ class IrohaIntegrationTest {
    * @then {@link ValidationService} added the rule and transaction failed
    */
   @Test
-  void x_groovyNewRuleTest() throws IOException {
+  void y_groovyNewRuleTest() throws IOException {
     final String ruleName = "new";
     final TxStatus volumeRepositoryStatus = irohaAPI.transaction(Transaction.builder(validatorId)
             .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
