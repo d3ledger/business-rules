@@ -44,7 +44,8 @@ public class RuleMonitor {
   public RuleMonitor(QueryAPI queryAPI,
       BrvsIrohaChainListener irohaChainListener,
       String repositoryAccountId,
-      String settingsAccountId, String setterAccountId,
+      String settingsAccountId,
+      String setterAccountId,
       Validator validator) {
     this.queryAPI = queryAPI;
     Objects.requireNonNull(queryAPI, "QueryAPI must not be null");
