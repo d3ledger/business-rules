@@ -204,10 +204,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void tryToRemoveLock(String hash) {
-    String account = cacheProvider.getAccountBlockedBy(hash);
-    if (account != null) {
-      cacheProvider.unlockPendingAccount(account);
-    }
+    cacheProvider.unlockPendingAccounts(cacheProvider.getAccountsBlockedBy(hash));
   }
 
   private String getDomain(String accountId) {

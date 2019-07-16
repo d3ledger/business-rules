@@ -344,7 +344,7 @@ class IrohaIntegrationTest {
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertNull(cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+        assertNull(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
       }
     });
 
@@ -389,7 +389,7 @@ class IrohaIntegrationTest {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
         assertEquals(senderId,
-            cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
       }
     });
 
@@ -434,7 +434,7 @@ class IrohaIntegrationTest {
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is not blocked
-        assertNull(cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+        assertNull(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
       }
     });
 
@@ -497,7 +497,7 @@ class IrohaIntegrationTest {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
         assertEquals(senderId,
-            cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
       }
     });
 
@@ -549,7 +549,7 @@ class IrohaIntegrationTest {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
         assertEquals(senderId,
-            cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
       }
     });
 
@@ -608,7 +608,7 @@ class IrohaIntegrationTest {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
         assertEquals(senderId,
-            cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
       }
     });
 

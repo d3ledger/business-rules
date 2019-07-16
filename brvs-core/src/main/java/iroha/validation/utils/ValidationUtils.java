@@ -30,7 +30,7 @@ import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 
 public interface ValidationUtils {
 
-  static final JsonParser parser = new JsonParser();
+  JsonParser parser = new JsonParser();
 
   // BRVS keys count = User keys count
   int PROPORTION = 2;
