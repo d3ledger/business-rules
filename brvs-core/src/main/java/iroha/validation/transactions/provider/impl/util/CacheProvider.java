@@ -45,7 +45,7 @@ public class CacheProvider {
     cache.get(accountId).add(transactionBatch);
   }
 
-  private synchronized void consumeNextTransactionBatch(String accountId) {
+  private synchronized void consumeUnlockedTransactionBatches(String accountId) {
     Set<TransactionBatch> accountTransactions = cache.get(accountId);
     if (!CollectionUtils.isEmpty(accountTransactions)) {
       final TransactionBatch transactionBatch = accountTransactions.stream()
@@ -57,25 +57,25 @@ public class CacheProvider {
         if (accountBatches.isEmpty()) {
           cache.remove(txAccountId);
         }
+        consumeAndLockAccountByTransactionIfNeeded(transactionBatch);
+        consumeUnlockedTransactionBatches(accountId);
       }
-      consumeAndLockAccountByTransactionIfNeeded(transactionBatch);
     }
   }
 
   private synchronized void consumeAndLockAccountByTransactionIfNeeded(
       TransactionBatch transactionBatch) {
     if (transactionBatch != null) {
-      transactionBatch.forEach(transaction -> {
-            transaction.getPayload().getReducedPayload()
-                .getCommandsList()
-                .stream()
-                .filter(Command::hasTransferAsset)
-                .map(Command::getTransferAsset)
-                .forEach(transferAsset -> pendingAccounts.put(
-                    transferAsset.getSrcAccountId(),
-                    ValidationUtils.hexHash(transaction)
-                ));
-          }
+      transactionBatch.forEach(transaction ->
+          transaction.getPayload().getReducedPayload()
+              .getCommandsList()
+              .stream()
+              .filter(Command::hasTransferAsset)
+              .map(Command::getTransferAsset)
+              .forEach(transferAsset -> pendingAccounts.put(
+                  transferAsset.getSrcAccountId(),
+                  ValidationUtils.hexHash(transaction)
+              ))
       );
       subject.onNext(transactionBatch);
     }
@@ -95,7 +95,7 @@ public class CacheProvider {
 
   public synchronized void unlockPendingAccounts(Iterable<String> accounts) {
     accounts.forEach(pendingAccounts::remove);
-    accounts.forEach(this::consumeNextTransactionBatch);
+    accounts.forEach(this::consumeUnlockedTransactionBatches);
   }
 
   public synchronized Observable<TransactionBatch> getObservable() {
