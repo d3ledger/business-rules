@@ -7,6 +7,7 @@ package iroha.validation.behavior;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.d3.commons.config.RMQConfig;
 import com.google.common.io.Files;
@@ -388,8 +389,8 @@ class IrohaIntegrationTest {
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertEquals(senderId,
-            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
+        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
+            .contains(senderId));
       }
     });
 
@@ -496,8 +497,8 @@ class IrohaIntegrationTest {
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertEquals(senderId,
-            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
+        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
+            .contains(senderId));
       }
     });
 
@@ -548,8 +549,8 @@ class IrohaIntegrationTest {
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertEquals(senderId,
-            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
+        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
+            .contains(senderId));
       }
     });
 
@@ -607,8 +608,8 @@ class IrohaIntegrationTest {
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertEquals(senderId,
-            cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
+        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
+            .contains(senderId));
       }
     });
 
