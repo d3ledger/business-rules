@@ -12,6 +12,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Spliterator;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import org.springframework.util.CollectionUtils;
 
 /**
@@ -27,7 +29,7 @@ public class TransactionBatch implements Iterable<Transaction> {
 
   public TransactionBatch(List<Transaction> transactionList) {
     if (CollectionUtils.isEmpty(transactionList)) {
-      throw new IllegalArgumentException("Batch transaction list cannot be empty");
+      throw new IllegalArgumentException("Batch transaction list cannot be null nor empty");
     }
     this.transactionList = ImmutableList.copyOf(transactionList);
   }
@@ -49,5 +51,9 @@ public class TransactionBatch implements Iterable<Transaction> {
   @Override
   public Spliterator<Transaction> spliterator() {
     return transactionList.spliterator();
+  }
+
+  public Stream<Transaction> stream() {
+    return StreamSupport.stream(spliterator(), false);
   }
 }

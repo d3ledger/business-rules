@@ -9,12 +9,15 @@ import com.google.common.collect.Iterables;
 import io.reactivex.Observable;
 import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.utils.ValidationUtils;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -42,7 +45,7 @@ public class CacheProvider {
     cache.get(accountId).add(transactionBatch);
   }
 
-  private synchronized void consumeNextTransactionBatch(String accountId) {
+  private synchronized void consumeUnlockedTransactionBatches(String accountId) {
     Set<TransactionBatch> accountTransactions = cache.get(accountId);
     if (!CollectionUtils.isEmpty(accountTransactions)) {
       final TransactionBatch transactionBatch = accountTransactions.stream()
@@ -54,41 +57,45 @@ public class CacheProvider {
         if (accountBatches.isEmpty()) {
           cache.remove(txAccountId);
         }
+        consumeAndLockAccountByTransactionIfNeeded(transactionBatch);
+        consumeUnlockedTransactionBatches(accountId);
       }
-      consumeAndLockAccountByTransactionIfNeeded(transactionBatch);
     }
   }
 
   private synchronized void consumeAndLockAccountByTransactionIfNeeded(
       TransactionBatch transactionBatch) {
     if (transactionBatch != null) {
-      transactionBatch.forEach(transaction -> {
-            if (transaction.getPayload().getReducedPayload().getCommandsList().stream()
-                .anyMatch(Command::hasTransferAsset)) {
-              pendingAccounts.put(
-                  ValidationUtils.getTxAccountId(transaction),
+      transactionBatch.forEach(transaction ->
+          transaction.getPayload().getReducedPayload()
+              .getCommandsList()
+              .stream()
+              .filter(Command::hasTransferAsset)
+              .map(Command::getTransferAsset)
+              .forEach(transferAsset -> pendingAccounts.put(
+                  transferAsset.getSrcAccountId(),
                   ValidationUtils.hexHash(transaction)
-              );
-            }
-          }
+              ))
       );
       subject.onNext(transactionBatch);
     }
   }
 
-  public synchronized String getAccountBlockedBy(String txHash) {
-    for (Map.Entry<String, String> entry : pendingAccounts.entrySet()) {
-      if (entry.getValue().equals(txHash)) {
-        return entry.getKey();
-      }
-    }
-    return null;
+  public synchronized Set<String> getAccountsBlockedBy(String txHash) {
+    return pendingAccounts.entrySet()
+        .stream()
+        .filter(entry -> entry.getValue().equals(txHash))
+        .map(Entry::getKey)
+        .collect(Collectors.toSet());
   }
 
   public synchronized void unlockPendingAccount(String account) {
-    if (pendingAccounts.remove(account) != null) {
-      consumeNextTransactionBatch(account);
-    }
+    unlockPendingAccounts(Collections.singleton(account));
+  }
+
+  public synchronized void unlockPendingAccounts(Iterable<String> accounts) {
+    accounts.forEach(pendingAccounts::remove);
+    accounts.forEach(this::consumeUnlockedTransactionBatches);
   }
 
   public synchronized Observable<TransactionBatch> getObservable() {
@@ -102,12 +109,14 @@ public class CacheProvider {
   }
 
   private boolean isBatchUnlocked(TransactionBatch transactionBatch) {
-    for (Transaction transaction : transactionBatch) {
-      final String accountId = ValidationUtils.getTxAccountId(transaction);
-      if (pendingAccounts.containsKey(accountId)) {
-        return false;
-      }
-    }
-    return true;
+    return transactionBatch.stream().noneMatch(transaction ->
+        transaction.getPayload().getReducedPayload()
+            .getCommandsList()
+            .stream()
+            .filter(Command::hasTransferAsset)
+            .map(Command::getTransferAsset)
+            .map(TransferAsset::getSrcAccountId)
+            .anyMatch(pendingAccounts::containsKey)
+    );
   }
 }
