@@ -6,7 +6,7 @@
 package iroha.validation.behavior;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.d3.commons.config.RMQConfig;
@@ -338,19 +338,20 @@ class IrohaIntegrationTest {
             crypto.generateKeypair().getPublic()
         )
         .setQuorum(2)
-        .sign(receiverKeypair).build();
+        .sign(receiverKeypair)
+        .build();
     cacheProvider.unlockPendingAccount(receiverId);
-    irohaAPI.transactionSync(transaction);
 
+    final String txHash = ValidationUtils.hexHash(transaction);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
-        // Check account is blocked
-        assertNull(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
+        // Check account is not blocked
+        assertFalse(cacheProvider.getAccountsBlockedBy(txHash).contains(senderId));
       }
     });
 
-    assertEquals(Verdict.VALIDATED, transactionVerdictStorage
-        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+    assertEquals(Verdict.VALIDATED,
+        transactionVerdictStorage.getTransactionVerdict(txHash).getStatus());
 
     // query Iroha and check
     String newAccountId = String.format("%s@%s", newAccountName, serviceDomainName);
@@ -379,6 +380,7 @@ class IrohaIntegrationTest {
         .buildSigned(receiverKeypair))
         .getAccountAssetsResponse()
         .getAccountAssetsList().get(0).getBalance();
+
     // send valid transfer asset transaction
     final String amount = "100";
     TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
@@ -386,16 +388,17 @@ class IrohaIntegrationTest {
         .setQuorum(2)
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
+
+    final String txHash = ValidationUtils.hexHash(transaction);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
-            .contains(senderId));
+        assertTrue(cacheProvider.getAccountsBlockedBy(txHash).contains(senderId));
       }
     });
 
-    assertEquals(Verdict.VALIDATED, transactionVerdictStorage
-        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+    assertEquals(Verdict.VALIDATED,
+        transactionVerdictStorage.getTransactionVerdict(txHash).getStatus());
 
     // query Iroha and check that transfer was committed
     AccountAsset accountAsset = irohaAPI.query(new QueryBuilder(receiverId, Instant.now(), 1)
@@ -426,21 +429,18 @@ class IrohaIntegrationTest {
         .getAccountAssetsList().get(0).getBalance();
 
     // send invalid transfer asset transaction
+    final String amount = "200";
     TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
-        .transferAsset(senderId, receiverId, assetId, "test invalid transfer", "200")
+        .transferAsset(senderId, receiverId, assetId, "test invalid transfer", amount)
         .setQuorum(2)
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
 
-    irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
-      if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
-        // Check account is not blocked
-        assertNull(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction)));
-      }
-    });
+    final String txHash = ValidationUtils.hexHash(transaction);
+    irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe();
 
-    assertEquals(Verdict.REJECTED, transactionVerdictStorage
-        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+    assertEquals(Verdict.REJECTED,
+        transactionVerdictStorage.getTransactionVerdict(txHash).getStatus());
     assertEquals(TxStatus.REJECTED,
         irohaAPI.txStatusSync(Utils.hash(transaction)).getTxStatus());
 
@@ -494,16 +494,16 @@ class IrohaIntegrationTest {
         .setQuorum(2)
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
+    final String txHash = ValidationUtils.hexHash(transaction);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
-            .contains(senderId));
+        assertTrue(cacheProvider.getAccountsBlockedBy(txHash).contains(senderId));
       }
     });
 
-    assertEquals(Verdict.VALIDATED, transactionVerdictStorage
-        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+    assertEquals(Verdict.VALIDATED,
+        transactionVerdictStorage.getTransactionVerdict(txHash).getStatus());
   }
 
   /**
@@ -546,16 +546,16 @@ class IrohaIntegrationTest {
         .setQuorum(2)
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
+    final String txHash = ValidationUtils.hexHash(transaction);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
-            .contains(senderId));
+        assertTrue(cacheProvider.getAccountsBlockedBy(txHash).contains(senderId));
       }
     });
 
-    assertEquals(Verdict.REJECTED, transactionVerdictStorage
-        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+    assertEquals(Verdict.REJECTED,
+        transactionVerdictStorage.getTransactionVerdict(txHash).getStatus());
 
     // Disable bad rule
     irohaAPI.transaction(Transaction.builder(validatorId)
@@ -605,16 +605,16 @@ class IrohaIntegrationTest {
         .setQuorum(2)
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
+    final String txHash = ValidationUtils.hexHash(transaction);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
-        assertTrue(cacheProvider.getAccountsBlockedBy(ValidationUtils.hexHash(transaction))
-            .contains(senderId));
+        assertTrue(cacheProvider.getAccountsBlockedBy(txHash).contains(senderId));
       }
     });
 
-    assertEquals(Verdict.REJECTED, transactionVerdictStorage
-        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+    assertEquals(Verdict.REJECTED,
+        transactionVerdictStorage.getTransactionVerdict(txHash).getStatus());
 
     // Disable bad rule
     irohaAPI.transaction(Transaction.builder(validatorId)
