@@ -49,6 +49,7 @@ class RulesTest {
 
     when(transferAsset.getSrcAccountId()).thenReturn("user@users");
     when(transferAsset.getDestAccountId()).thenReturn("destination@users");
+    when(transferAsset.getDescription()).thenReturn("description");
 
     final Command command = mock(Command.class);
 

@@ -286,6 +286,13 @@ public class BillingRule implements Rule {
     final List<TransferAsset> fees = transactionsGroups.get(true);
     final List<TransferAsset> transfers = transactionsGroups.get(false);
 
+    if (CollectionUtils.isEmpty(transfers)) {
+      if (!CollectionUtils.isEmpty(fees)) {
+        return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
+      }
+      return ValidationResult.VALIDATED;
+    }
+
     for (int i = 0; i < transfers.size(); i++) {
       final TransferAsset transferAsset = transfers.get(i);
       if (transferAsset.getDescription().equals(WITHDRAWAL_FEE_DESCRIPTION)) {
@@ -293,13 +300,6 @@ public class BillingRule implements Rule {
         transfers.remove(transferAsset);
         i--;
       }
-    }
-
-    if (CollectionUtils.isEmpty(transfers)) {
-      if (!CollectionUtils.isEmpty(fees)) {
-        return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
-      }
-      return ValidationResult.VALIDATED;
     }
 
     final String userDomain = BillingInfo
