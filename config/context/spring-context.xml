@@ -181,7 +181,8 @@
     <constructor-arg name="rmqRoutingKey" value="${BILLING_RMQ_ROUTINGKEY}"/>
     <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
     <constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>
-    <constructor-arg name="withdrawalAccounts" value="${BILLING_WITHDRAWALACCOUNTS}"/>
+    <constructor-arg name="ethWithdrawalAccount" value="${BILLING_ETHWITHDRAWALACCOUNT}"/>
+    <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
   </bean>
   <util:map id="rules" map-class="java.util.HashMap">
     <entry key="updateWhitelistRule" value-ref="updateWhitelistRule"/>
