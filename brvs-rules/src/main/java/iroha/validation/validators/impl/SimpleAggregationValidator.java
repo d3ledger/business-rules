@@ -10,18 +10,19 @@ import iroha.validation.rules.Rule;
 import iroha.validation.validators.Validator;
 import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
-import java.util.Collection;
-import org.springframework.util.CollectionUtils;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
 
 public class SimpleAggregationValidator implements Validator {
 
-  private Collection<Rule> rules;
+  private final Map<String, Rule> rules;
 
-  public SimpleAggregationValidator(Collection<Rule> rules) {
-    if (CollectionUtils.isEmpty(rules)) {
-      throw new IllegalArgumentException("Rules collection must not be neither null nor empty");
-    }
+  public SimpleAggregationValidator() {
+    this(Collections.emptyMap());
+  }
 
+  public SimpleAggregationValidator(Map<String, Rule> rules) {
     this.rules = rules;
   }
 
@@ -29,13 +30,39 @@ public class SimpleAggregationValidator implements Validator {
    * {@inheritDoc}
    */
   @Override
-  public ValidationResult validate(Transaction transaction) {
-    for (Rule rule : rules) {
-      final ValidationResult validationResult = rule.isSatisfiedBy(transaction);
-      if (validationResult.getStatus().equals(Verdict.REJECTED)) {
-        return validationResult;
+  public synchronized ValidationResult validate(Iterable<Transaction> transactions) {
+    for (Transaction transaction : transactions) {
+      for (Rule rule : rules.values()) {
+        final ValidationResult validationResult = rule.isSatisfiedBy(transaction);
+        if (validationResult.getStatus().equals(Verdict.REJECTED)) {
+          return validationResult;
+        }
       }
     }
     return ValidationResult.VALIDATED;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public synchronized Rule putRule(String name, Rule rule) {
+    return rules.put(name, rule);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public synchronized Rule removeRule(String name) {
+    return rules.remove(name);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public synchronized Set<String> getRuleNames() {
+    return rules.keySet();
   }
 }

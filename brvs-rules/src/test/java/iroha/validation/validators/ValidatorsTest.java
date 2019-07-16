@@ -15,23 +15,12 @@ import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
 import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ValidatorsTest {
-
-  /**
-   * @given {@link SimpleAggregationValidator}
-   * @when {@link SimpleAggregationValidator} instantiated with an empty collection of rules
-   * @then {@link IllegalArgumentException} is thrown
-   */
-  @Test
-  void simpleAggregationValidatorWithEmptyArgumentTest() {
-    assertThrows(IllegalArgumentException.class,
-        () -> new SimpleAggregationValidator(Collections.emptySet()));
-  }
 
   /**
    * @given {@link SimpleAggregationValidator} instantiated with lots of trivial rules always
@@ -41,15 +30,16 @@ class ValidatorsTest {
    */
   @Test
   void simpleAggregationValidatorWithManyTrueRulesTest() {
-    Collection<Rule> rules = new ArrayList<>();
+    Map<String, Rule> rules = new HashMap<>();
     for (int i = 0; i < 100500; i++) {
-      rules.add(new SampleRule());
+      rules.put(String.valueOf(i), new SampleRule());
     }
     Validator validator = new SimpleAggregationValidator(rules);
 
     Transaction transaction = mock(Transaction.class);
 
-    assertEquals(Verdict.VALIDATED, validator.validate(transaction).getStatus());
+    assertEquals(Verdict.VALIDATED,
+        validator.validate(Collections.singleton(transaction)).getStatus());
   }
 
   /**
@@ -60,15 +50,16 @@ class ValidatorsTest {
    */
   @Test
   void simpleAggregationValidatorWithManyRulesTest() {
-    Collection<Rule> rules = new ArrayList<>();
+    Map<String, Rule> rules = new HashMap<>();
     for (int i = 0; i < 100500; i++) {
-      rules.add(new SampleRule());
+      rules.put(String.valueOf(i), new SampleRule());
     }
-    rules.add(transaction -> ValidationResult.REJECTED(""));
+    rules.put("badRule", transaction -> ValidationResult.REJECTED(""));
     Validator validator = new SimpleAggregationValidator(rules);
 
     Transaction transaction = mock(Transaction.class);
 
-    assertEquals(Verdict.REJECTED, validator.validate(transaction).getStatus());
+    assertEquals(Verdict.REJECTED,
+        validator.validate(Collections.singleton(transaction)).getStatus());
   }
 }

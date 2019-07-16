@@ -131,11 +131,6 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void processBlockTransactions() {
     irohaReliableChainListener.getBlockStreaming().subscribe(block -> {
-          /*
-          We do not process rejected hashes of blocks in order to support fail fast behavior
-          BRVS fake key pair leads to STATELESS_INVALID status so such transactions
-          are not presented in ledger blocks at all
-           */
           // Store new block first
           blockStorage.store(block);
           processCommitted(

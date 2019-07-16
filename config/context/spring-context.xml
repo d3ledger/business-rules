@@ -123,13 +123,24 @@
     <constructor-arg name="hostname" value="${BRVS_LOCALHOSTNAME}"/>
   </bean>
 
+  <!-- RULE MONITOR -->
+  <bean id="ruleMonitor" class="iroha.validation.rules.RuleMonitor">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="irohaChainListener" ref="irohaReliableChainListener"/>
+    <constructor-arg name="repositoryAccountId" value="${REPOSITORY_ACCOUNTID}"/>
+    <constructor-arg name="settingsAccountId" value="${SETTER_ACCOUNTID}"/>
+    <constructor-arg name="setterAccountId" value="${SETTINGS_ACCOUNTID}"/>
+    <constructor-arg name="validator" ref="simpleAggregationValidator"/>
+  </bean>
+
   <!-- SERVICE CONFIG -->
   <bean id="serviceContext" class="iroha.validation.config.ValidationServiceContext">
-    <constructor-arg name="validators" ref="validators"/>
+    <constructor-arg name="validator" ref="simpleAggregationValidator"/>
     <constructor-arg name="transactionProvider" ref="transactionProvider"/>
     <constructor-arg name="transactionSigner" ref="transactionSigner"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
     <constructor-arg name="brvsData" ref="brvsData"/>
+    <constructor-arg name="ruleMonitor" ref="ruleMonitor"/>
   </bean>
 
   <bean class="iroha.validation.service.impl.ValidationServiceImpl">
@@ -137,10 +148,6 @@
   </bean>
 
   <!-- RULES DEFINITIONS -->
-  <bean id="sampleRule" class="iroha.validation.rules.impl.core.SampleRule"/>
-  <bean id="newBrvsRule" class="iroha.validation.rules.impl.core.NewBrvsRule">
-    <constructor-arg name="queryAPI" ref="queryAPI"/>
-  </bean>
   <bean id="updateWhitelistRule" class="iroha.validation.rules.impl.whitelist.UpdateWhitelistRule">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="validationPeriod" value="${WHITELIST_VALIDATION}"/>
@@ -176,26 +183,20 @@
     <constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>
     <constructor-arg name="withdrawalAccounts" value="${BILLING_WITHDRAWALACCOUNTS}"/>
   </bean>
-  <util:list id="rules" value-type="iroha.validation.rules.Rule">
-    <ref bean="sampleRule"/>
-    <ref bean="newBrvsRule"/>
-    <ref bean="updateWhitelistRule"/>
-    <ref bean="checkEthWhitelistRule"/>
-    <ref bean="checkBtcWhitelistRule"/>
-    <ref bean="restrictedKeysRule"/>
-    <ref bean="minKeysRule"/>
-    <ref bean="quorumDivisor"/>
-    <ref bean="billingRule"/>
+  <util:map id="rules" map-class="java.util.HashMap">
+    <entry key="updateWhitelistRule" value-ref="updateWhitelistRule"/>
+    <entry key="checkEthWhitelistRule" value-ref="checkEthWhitelistRule"/>
+    <entry key="checkBtcWhitelistRule" value-ref="checkBtcWhitelistRule"/>
+    <entry key="restrictedKeysRule" value-ref="restrictedKeysRule"/>
+    <entry key="minKeysRule" value-ref="minKeysRule"/>
+    <entry key="quorumDivisor" value-ref="quorumDivisor"/>
+    <entry key="billingRule" value-ref="billingRule"/>
     <!-- More can be added -->
-  </util:list>
+  </util:map>
 
-  <!-- VALIDATORS DEFINITIONS -->
+  <!-- VALIDATOR DEFINITION -->
   <bean id="simpleAggregationValidator"
     class="iroha.validation.validators.impl.SimpleAggregationValidator">
     <constructor-arg ref="rules"/>
   </bean>
-  <util:list id="validators" value-type="iroha.validation.validators.Validator">
-    <ref bean="simpleAggregationValidator"/>
-    <!-- More can be added -->
-  </util:list>
 </beans>

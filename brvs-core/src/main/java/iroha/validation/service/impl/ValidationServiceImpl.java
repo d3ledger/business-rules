@@ -5,8 +5,8 @@
 
 package iroha.validation.service.impl;
 
-import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.config.ValidationServiceContext;
+import iroha.validation.rules.RuleMonitor;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
@@ -16,7 +16,6 @@ import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
 import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -26,20 +25,22 @@ public class ValidationServiceImpl implements ValidationService {
 
   private static Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
-  private final Collection<Validator> validators;
+  private final Validator validator;
   private final TransactionProvider transactionProvider;
   private final TransactionSigner transactionSigner;
   private final RegistrationProvider registrationProvider;
   private final BrvsData brvsData;
+  private final RuleMonitor ruleMonitor;
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
 
-    this.validators = validationServiceContext.getValidators();
+    this.validator = validationServiceContext.getValidator();
     this.transactionProvider = validationServiceContext.getTransactionProvider();
     this.transactionSigner = validationServiceContext.getTransactionSigner();
     this.registrationProvider = validationServiceContext.getRegistrationProvider();
     this.brvsData = validationServiceContext.getBrvsData();
+    this.ruleMonitor = validationServiceContext.getRuleMonitor();
   }
 
   /**
@@ -48,23 +49,16 @@ public class ValidationServiceImpl implements ValidationService {
   @Override
   public void verifyTransactions() {
     registerExistentAccounts();
+    ruleMonitor.monitorUpdates();
     transactionProvider.getPendingTransactionsStreaming().subscribe(transactionBatch ->
         {
-          boolean verdict = true;
           final List<String> hex = ValidationUtils.hexHash(transactionBatch);
           logger.info("Got transactions to validate: " + hex);
-          for (Transaction transaction : transactionBatch) {
-            for (Validator validator : validators) {
-              final ValidationResult validationResult = validator.validate(transaction);
-              if (Verdict.VALIDATED != validationResult.getStatus()) {
-                final String reason = validationResult.getReason();
-                transactionSigner.rejectAndSend(transactionBatch, reason);
-                verdict = false;
-                break;
-              }
-            }
-          }
-          if (verdict) {
+          final ValidationResult validationResult = validator.validate(transactionBatch);
+          if (Verdict.VALIDATED != validationResult.getStatus()) {
+            final String reason = validationResult.getReason();
+            transactionSigner.rejectAndSend(transactionBatch, reason);
+          } else {
             transactionSigner.signAndSend(transactionBatch);
           }
         },

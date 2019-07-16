@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import com.d3.commons.config.RMQConfig;
+import com.google.common.io.Files;
 import iroha.protocol.BlockOuterClass;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.Primitive.GrantablePermission;
@@ -18,6 +19,8 @@ import iroha.protocol.QryResponses.AccountAsset;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.listener.BrvsIrohaChainListener;
+import iroha.validation.rules.Rule;
+import iroha.validation.rules.RuleMonitor;
 import iroha.validation.rules.impl.assets.TransferTxVolumeRule;
 import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.service.ValidationService;
@@ -33,11 +36,16 @@ import iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictS
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
 import iroha.validation.verdict.Verdict;
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.security.KeyPair;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryAPI;
@@ -51,12 +59,15 @@ import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer.Alphanumeric;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.testcontainers.containers.GenericContainer;
 
 @TestInstance(Lifecycle.PER_CLASS)
+@TestMethodOrder(Alphanumeric.class)
 class IrohaIntegrationTest {
 
   private static final Ed25519Sha3 crypto = new Ed25519Sha3();
@@ -64,24 +75,32 @@ class IrohaIntegrationTest {
   private static final KeyPair senderKeypair = crypto.generateKeypair();
   private static final KeyPair receiverKeypair = crypto.generateKeypair();
   private static final KeyPair validatorKeypair = crypto.generateKeypair();
-  private static final String domainName = "notary";
+  private static final String serviceDomainName = "notary";
+  private static final String userDomainName = "user";
   private static final String roleName = "user";
   private static final String senderName = "sender";
-  private static final String senderId = String.format("%s@%s", senderName, domainName);
+  private static final String senderId = String.format("%s@%s", senderName, userDomainName);
   private static final String receiverName = "receiver";
-  private static final String receiverId = String.format("%s@%s", receiverName, domainName);
+  private static final String receiverId = String.format("%s@%s", receiverName, userDomainName);
   private static final String validatorName = "brvs";
-  private static final String validatorId = String.format("%s@%s", validatorName, domainName);
+  private static final String validatorConfigName = "brvssettings";
+  private static final String validatorId = String
+      .format("%s@%s", validatorName, serviceDomainName);
+  private static final String validatorConfigId = String.format("%s@%s", validatorConfigName,
+      serviceDomainName);
   private static final String asset = "bux";
-  private static final String assetId = String.format("%s#%s", asset, domainName);
+  private static final String assetId = String.format("%s#%s", asset, serviceDomainName);
   private static final int INITIALIZATION_TIME = 5000;
   private CacheProvider cacheProvider;
   private TransactionVerdictStorage transactionVerdictStorage;
   private AccountManager accountManager;
   private static final GenericContainer rmq = new GenericContainer<>("rabbitmq:3-management")
-      .withExposedPorts(5672);
+      .withExposedPorts(5672)
+      .withCreateContainerCmdModifier(modifier -> modifier.withName("d3-rmq"));
   private static final GenericContainer mongo = new GenericContainer<>("mongo:4.0.6")
       .withExposedPorts(27017);
+  private static final GenericContainer chainAdapter = new GenericContainer<>(
+      "nexus.iroha.tech:19002/d3-deploy/chain-adapter:latest");
   private static final WaitForTerminalStatus terminalStrategy = new WaitForTerminalStatus(
       Arrays.asList(
           TxStatus.COMMITTED,
@@ -119,23 +138,25 @@ class IrohaIntegrationTest {
                         RolePermission.can_get_all_acc_detail,
                         RolePermission.can_grant_can_add_my_signatory,
                         RolePermission.can_grant_can_set_my_quorum,
-                        RolePermission.can_set_detail
+                        RolePermission.can_set_detail,
+                        RolePermission.can_get_blocks
                     )
                 )
-                .createDomain(domainName, roleName)
-                // brvs account
-                .createAccount(validatorName, domainName, validatorKeypair.getPublic())
+                .createDomain(serviceDomainName, roleName)
+                .createDomain(userDomainName, roleName)
+                // brvs accounts
+                .createAccount(validatorName, serviceDomainName, validatorKeypair.getPublic())
+                .createAccount(validatorConfigName, serviceDomainName, validatorKeypair.getPublic())
                 // create receiver acc
-                .createAccount(receiverName, domainName, receiverKeypair.getPublic())
+                .createAccount(receiverName, userDomainName, receiverKeypair.getPublic())
                 // create sender acc
-                .createAccount(senderName, domainName, senderKeypair.getPublic())
+                .createAccount(senderName, userDomainName, senderKeypair.getPublic())
                 // account holder
-                .createAccount(domainName, domainName, crypto.generateKeypair().getPublic())
-                .setAccountDetail(domainName + "@" + domainName, receiverName + domainName,
-                    domainName)
-                .setAccountDetail(domainName + "@" + domainName, senderName + domainName,
-                    domainName)
-                .createAsset(asset, domainName, 0)
+                .createAccount(serviceDomainName, serviceDomainName,
+                    crypto.generateKeypair().getPublic())
+                .createAccount("rmq", serviceDomainName, Utils.parseHexPublicKey(
+                    "7a4af859a775dd7c7b4024c97c8118f0280455b8135f6f41422101f0397e0fa5"))
+                .createAsset(asset, serviceDomainName, 0)
                 // transactions in genesis block can be unsigned
                 .build()
                 .build()
@@ -169,51 +190,53 @@ class IrohaIntegrationTest {
   }
 
   private ValidationService getService(IrohaAPI irohaAPI) {
-    final String accountsHolderAccount = String.format("%s@%s", domainName, domainName);
+    final String accountsHolderAccount = String.format("%s@%s", serviceDomainName,
+        serviceDomainName);
     final QueryAPI queryAPI = new QueryAPI(irohaAPI, validatorId, validatorKeypair);
     accountManager = new AccountManager(queryAPI,
         "uq",
-        domainName,
+        userDomainName,
         accountsHolderAccount,
         accountsHolderAccount,
         Collections.singletonList(validatorKeypair)
     );
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
+    final Map<String, Rule> ruleMap = new HashMap<>();
+    ruleMap.put("sample", new SampleRule());
+    ruleMap.put("volume", new TransferTxVolumeRule(assetId, new BigDecimal(150)));
+    final BrvsIrohaChainListener brvsIrohaChainListener = new BrvsIrohaChainListener(
+        new RMQConfig() {
+          @NotNull
+          @Override
+          public String getHost() {
+            return rmqHost;
+          }
+
+          @Override
+          public int getPort() {
+            return rmqPort;
+          }
+
+          @NotNull
+          @Override
+          public String getIrohaExchange() {
+            return "iroha";
+          }
+        },
+        queryAPI,
+        validatorKeypair
+    );
+    final SimpleAggregationValidator validator = new SimpleAggregationValidator(ruleMap);
     return new ValidationServiceImpl(new ValidationServiceContext(
-        Collections.singletonList(new SimpleAggregationValidator(Arrays.asList(
-            new SampleRule(),
-            new TransferTxVolumeRule(assetId, new BigDecimal(150))
-            ))
-        ),
+        validator,
         new BasicTransactionProvider(
             transactionVerdictStorage,
             cacheProvider,
             accountManager,
             accountManager,
             new MongoBlockStorage(mongoHost, mongoPort),
-            new BrvsIrohaChainListener(
-                new RMQConfig() {
-                  @NotNull
-                  @Override
-                  public String getHost() {
-                    return rmqHost;
-                  }
-
-                  @Override
-                  public int getPort() {
-                    return rmqPort;
-                  }
-
-                  @NotNull
-                  @Override
-                  public String getIrohaExchange() {
-                    return "iroha";
-                  }
-                },
-                queryAPI,
-                validatorKeypair
-            ),
-            domainName
+            brvsIrohaChainListener,
+            userDomainName
         ),
         new TransactionSignerImpl(
             irohaAPI,
@@ -223,7 +246,15 @@ class IrohaIntegrationTest {
             transactionVerdictStorage
         ),
         accountManager,
-        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost")
+        new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost"),
+        new RuleMonitor(
+            queryAPI,
+            brvsIrohaChainListener,
+            validatorId,
+            validatorConfigId,
+            validatorId,
+            validator
+        )
     ));
   }
 
@@ -233,20 +264,25 @@ class IrohaIntegrationTest {
         .withPeerConfig(getPeerConfig())
         .withLogger(null);
 
-    iroha.start();
+    iroha.withIrohaAlias("d3-iroha").start();
     irohaAPI = iroha.getApi();
 
     cacheProvider = new CacheProvider();
 
-    rmq.start();
+    rmq.withNetwork(iroha.getNetwork()).start();
     rmqHost = rmq.getContainerIpAddress();
     rmqPort = rmq.getMappedPort(5672);
 
-    mongo.start();
+    mongo.withNetwork(iroha.getNetwork()).start();
     mongoHost = mongo.getContainerIpAddress();
     mongoPort = mongo.getMappedPort(27017);
 
     Thread.sleep(INITIALIZATION_TIME);
+
+    chainAdapter
+        .withEnv("CHAIN-ADAPTER_DROPLASTEREADBLOCK", "true")
+        .withNetwork(iroha.getNetwork())
+        .start();
 
     irohaAPI.transactionSync(Transaction.builder(senderId)
         .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
@@ -297,7 +333,7 @@ class IrohaIntegrationTest {
     TransactionOuterClass.Transaction transaction = Transaction.builder(receiverId)
         .createAccount(
             newAccountName,
-            domainName,
+            serviceDomainName,
             crypto.generateKeypair().getPublic()
         )
         .setQuorum(2)
@@ -316,14 +352,14 @@ class IrohaIntegrationTest {
         .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
 
     // query Iroha and check
-    String newAccountId = String.format("%s@%s", newAccountName, domainName);
+    String newAccountId = String.format("%s@%s", newAccountName, serviceDomainName);
     Account accountResponse = irohaAPI.query(new QueryBuilder(receiverId, Instant.now(), 1)
         .getAccount(newAccountId)
         .buildSigned(receiverKeypair))
         .getAccountResponse()
         .getAccount();
     assertEquals(newAccountId, accountResponse.getAccountId());
-    assertEquals(domainName, accountResponse.getDomainId());
+    assertEquals(serviceDomainName, accountResponse.getDomainId());
     assertEquals(1, accountResponse.getQuorum());
   }
 
@@ -381,7 +417,7 @@ class IrohaIntegrationTest {
    * is the same as before the trans attempt
    */
   @Test
-  void invalidTransferAssetOnTransferLimitValidatorTest() throws InterruptedException {
+  void invalidTransferAssetOnTransferLimitValidatorTest() {
     final String initialBalance = irohaAPI.query(new QueryBuilder(receiverId, Instant.now(), 1)
         .getAccountAssets(receiverId)
         .buildSigned(receiverKeypair))
@@ -415,5 +451,174 @@ class IrohaIntegrationTest {
         .getAccountAssetsList().get(0);
     assertEquals(assetId, accountAsset.getAssetId());
     assertEquals(initialBalance, accountAsset.getBalance());
+  }
+
+  /**
+   * @given {@link ValidationService} instance with {@link TransferTxVolumeRule} named "volume"
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command SetAccountDetails}
+   * command of setting true to "volume" rule appears
+   * @then {@link TransferTxVolumeRule} is NOT replaced by new rule
+   */
+  @Test
+  void x_groovyRuleAlreadyExistsTest() throws IOException {
+    final String ruleName = "volume";
+    final TxStatus volumeRepositoryStatus = irohaAPI.transaction(Transaction.builder(validatorId)
+            .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
+                Files
+                    .toString(
+                        new File("src/test/resources/fake_rule.groovy"),
+                        Charset.defaultCharset()
+                    )
+            ))
+            .sign(validatorKeypair)
+            .build(),
+        terminalStrategy
+    ).blockingLast().getTxStatus();
+    // New volume rule is uploaded
+    assertEquals(TxStatus.COMMITTED, volumeRepositoryStatus);
+
+    final TxStatus volumeRuleStatus = irohaAPI.transaction(Transaction.builder(validatorId)
+            .setAccountDetail(validatorConfigId, ruleName, "true")
+            .sign(validatorKeypair)
+            .build(),
+        terminalStrategy
+    ).blockingLast().getTxStatus();
+    // Volume rule is enabled
+    assertEquals(TxStatus.COMMITTED, volumeRuleStatus);
+
+    // send valid transfer asset transaction
+    final String amount = "100";
+    TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
+        .setQuorum(2)
+        .sign(senderKeypair).build();
+    cacheProvider.unlockPendingAccount(senderId);
+    irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
+      if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
+        // Check account is blocked
+        assertEquals(senderId,
+            cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+      }
+    });
+
+    assertEquals(Verdict.VALIDATED, transactionVerdictStorage
+        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+  }
+
+  /**
+   * @given {@link ValidationService} instance with rules attached
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command SetAccountDetails}
+   * command of setting true to new rule appears
+   * @then {@link ValidationService} added the rule and transaction failed
+   */
+  @Test
+  void y_groovyNewRuleTest() throws IOException {
+    final String ruleName = "new";
+    final TxStatus volumeRepositoryStatus = irohaAPI.transaction(Transaction.builder(validatorId)
+            .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
+                Files
+                    .toString(
+                        new File("src/test/resources/fake_rule.groovy"),
+                        Charset.defaultCharset()
+                    )
+            ))
+            .sign(validatorKeypair)
+            .build(),
+        terminalStrategy
+    ).blockingLast().getTxStatus();
+    // New rule is uploaded
+    assertEquals(TxStatus.COMMITTED, volumeRepositoryStatus);
+
+    final TxStatus volumeRuleStatus = irohaAPI.transaction(Transaction.builder(validatorId)
+            .setAccountDetail(validatorConfigId, ruleName, "true")
+            .sign(validatorKeypair)
+            .build(),
+        terminalStrategy
+    ).blockingLast().getTxStatus();
+    // Volume rule is enabled
+    assertEquals(TxStatus.COMMITTED, volumeRuleStatus);
+
+    // send valid transfer asset transaction
+    final String amount = "100";
+    TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
+        .setQuorum(2)
+        .sign(senderKeypair).build();
+    cacheProvider.unlockPendingAccount(senderId);
+    irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
+      if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
+        // Check account is blocked
+        assertEquals(senderId,
+            cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+      }
+    });
+
+    assertEquals(Verdict.REJECTED, transactionVerdictStorage
+        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+
+    // Disable bad rule
+    irohaAPI.transaction(Transaction.builder(validatorId)
+        .setAccountDetail(validatorId, ruleName, "false")
+        .sign(validatorKeypair)
+        .build());
+  }
+
+  /**
+   * @given {@link ValidationService} instance with rules attached
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command SetAccountDetails}
+   * command of setting false and true to existing rule appears
+   * @then {@link ValidationService} added overwrote existing rule and transaction failed
+   */
+  @Test
+  void z_groovyNewRuleOverwriteTest() throws IOException {
+    final String ruleName = "volume";
+    final TxStatus volumeRepositoryStatus = irohaAPI.transaction(Transaction.builder(validatorId)
+            .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
+                Files
+                    .toString(
+                        new File("src/test/resources/fake_rule.groovy"),
+                        Charset.defaultCharset()
+                    )
+            ))
+            .sign(validatorKeypair)
+            .build(),
+        terminalStrategy
+    ).blockingLast().getTxStatus();
+    // New volume rule is uploaded
+    assertEquals(TxStatus.COMMITTED, volumeRepositoryStatus);
+
+    final TxStatus volumeRuleStatus = irohaAPI.transaction(Transaction.builder(validatorId)
+            .setAccountDetail(validatorConfigId, ruleName, "false")
+            .setAccountDetail(validatorConfigId, ruleName, "true")
+            .sign(validatorKeypair)
+            .build(),
+        terminalStrategy
+    ).blockingLast().getTxStatus();
+    // Volume rule is reenabled
+    assertEquals(TxStatus.COMMITTED, volumeRuleStatus);
+
+    // send valid transfer asset transaction
+    final String amount = "100";
+    TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
+        .setQuorum(2)
+        .sign(senderKeypair).build();
+    cacheProvider.unlockPendingAccount(senderId);
+    irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
+      if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
+        // Check account is blocked
+        assertEquals(senderId,
+            cacheProvider.getAccountBlockedBy(ValidationUtils.hexHash(transaction)));
+      }
+    });
+
+    assertEquals(Verdict.REJECTED, transactionVerdictStorage
+        .getTransactionVerdict(ValidationUtils.hexHash(transaction)).getStatus());
+
+    // Disable bad rule
+    irohaAPI.transaction(Transaction.builder(validatorId)
+        .setAccountDetail(validatorId, ruleName, "false")
+        .sign(validatorKeypair)
+        .build());
   }
 }

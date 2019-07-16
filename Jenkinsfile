@@ -21,7 +21,13 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    sh "./gradlew test --info"
+                  withCredentials([usernamePassword(credentialsId: 'nexus-d3-docker', usernameVariable: 'login', passwordVariable: 'password')]) {
+                    sh """#!/bin/sh
+                      apk update && apk add docker
+                      docker login --username ${login} --password '${password}' https://nexus.iroha.tech:19002
+                      ./gradlew test --info
+                     """
+                  }
                 }
             }
         }

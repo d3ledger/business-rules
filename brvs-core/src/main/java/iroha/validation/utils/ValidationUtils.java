@@ -8,6 +8,7 @@ package iroha.validation.utils;
 import com.d3.commons.config.ConfigsKt;
 import com.d3.commons.config.RMQConfig;
 import com.google.common.collect.ImmutableList;
+import com.google.gson.JsonParser;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -28,6 +29,8 @@ import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 
 public interface ValidationUtils {
+
+  static final JsonParser parser = new JsonParser();
 
   // BRVS keys count = User keys count
   int PROPORTION = 2;
