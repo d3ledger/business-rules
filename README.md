@@ -192,6 +192,8 @@ Response contains Iroha query result:
 
 ```
 
+Full Iroha protobuf schema could be found [here](https://github.com/hyperledger/iroha/tree/master/shared_model/schema)
+
 ## Running the tests
 
 To run the tests just run
