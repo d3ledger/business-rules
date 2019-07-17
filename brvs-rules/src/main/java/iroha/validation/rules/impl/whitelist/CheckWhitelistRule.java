@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 public class CheckWhitelistRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(UpdateWhitelistRule.class);
-  private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal_fee";
+  private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal fee";
 
   private final QueryAPI queryAPI;
   private final String withdrawalAccount;

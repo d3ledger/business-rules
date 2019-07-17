@@ -54,7 +54,7 @@ public class BillingRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
   private static final String BTC_ASSET = "btc#bitcoin";
-  private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal_fee";
+  private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal fee";
   private static final String SEPARATOR = ",";
   private static final String QUEUE_NAME = "brvs_billing_updates";
   private static final String TRANSFER_BILLING_ACCOUNT_NAME = "transfer_billing";
