@@ -293,24 +293,25 @@ public class BillingRule implements Rule {
       return ValidationResult.VALIDATED;
     }
 
+    final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
+
     for (int i = 0; i < transfers.size(); i++) {
       final TransferAsset transferAsset = transfers.get(i);
-      if (transferAsset.getDescription().equals(WITHDRAWAL_FEE_DESCRIPTION)) {
+      final BillingTypeEnum currentTransferBilling = getBillingType(transferAsset, isBatch);
+      if (transferAsset.getDescription().equals(WITHDRAWAL_FEE_DESCRIPTION)
+          && currentTransferBilling != null
+          && currentTransferBilling.equals(BillingTypeEnum.WITHDRAWAL)) {
         fees.add(transferAsset);
         transfers.remove(transferAsset);
         i--;
       }
     }
 
-    final String userDomain = BillingInfo
-        .getDomain(transaction.getPayload().getReducedPayload().getCreatorAccountId());
-    final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
-
     for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
       if (originalType != null) {
         final BillingInfo billingInfo = getBillingInfoFor(
-            userDomain,
+            BillingInfo.getDomain(transferAsset.getSrcAccountId()),
             transferAsset.getAssetId(),
             originalType
         );
