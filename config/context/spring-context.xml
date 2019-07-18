@@ -169,9 +169,6 @@
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="amount" value="${MIN_SIGNATORIES_RULE_AMOUNT}"/>
   </bean>
-  <bean id="quorumDivisor" class="iroha.validation.rules.impl.core.QuorumDivisorRule">
-    <constructor-arg name="divisor" value="${QUORUM_DIVISOR_RULE_VALUE}"/>
-  </bean>
   <bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">
     <constructor-arg name="getBillingURL" value="${BILLING_URL}"/>
     <constructor-arg name="getAssetPrecisionURL" value="${BILLING_ASSET_PRECISION_URL}"/>
@@ -184,14 +181,15 @@
     <constructor-arg name="ethWithdrawalAccount" value="${BILLING_ETHWITHDRAWALACCOUNT}"/>
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
   </bean>
+  <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
   <util:map id="rules" map-class="java.util.HashMap">
     <entry key="updateWhitelistRule" value-ref="updateWhitelistRule"/>
     <entry key="checkEthWhitelistRule" value-ref="checkEthWhitelistRule"/>
     <entry key="checkBtcWhitelistRule" value-ref="checkBtcWhitelistRule"/>
     <entry key="restrictedKeysRule" value-ref="restrictedKeysRule"/>
     <entry key="minKeysRule" value-ref="minKeysRule"/>
-    <entry key="quorumDivisor" value-ref="quorumDivisor"/>
     <entry key="billingRule" value-ref="billingRule"/>
+    <entry key="quorumBanRule" value-ref="quorumBanRule"/>
     <!-- More can be added -->
   </util:map>
 

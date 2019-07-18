@@ -5,8 +5,6 @@
 
 package iroha.validation.transactions.provider.impl;
 
-import static iroha.validation.utils.ValidationUtils.PROPORTION;
-
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
 import iroha.protocol.Commands.Command;
@@ -160,29 +158,41 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
-    final String creatorAccountId = blockTransaction.getPayload().getReducedPayload()
-        .getCreatorAccountId();
-
+    final String creatorAccountId = ValidationUtils.getTxAccountId(blockTransaction);
     final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
+    int addedSignatories = 0;
 
-    blockTransaction
+    final List<Command> commands = blockTransaction
         .getPayload()
         .getReducedPayload()
-        .getCommandsList()
+        .getCommandsList();
+
+    addedSignatories += commands
         .stream()
         .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
-        .filter(Command::hasSetAccountQuorum)
-        .map(Command::getSetAccountQuorum)
-        .forEach(command -> {
-          if (userQuorumProvider.getUserQuorumDetail(creatorAccountId)
-              != AccountManager.UNREACHABLE_QUORUM) {
-            userQuorumProvider
-                .setUserQuorumDetail(creatorAccountId,
-                    command.getQuorum() / PROPORTION, syncTime);
-            userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-                userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId), syncTime);
-          }
-        });
+        .filter(Command::hasAddSignatory)
+        .map(Command::getAddSignatory)
+        .filter(command -> command.getAccountId().equals(creatorAccountId))
+        .count()
+        -
+        commands
+            .stream()
+            .filter(command -> userDomains.contains(getDomain(creatorAccountId)))
+            .filter(Command::hasRemoveSignatory)
+            .map(Command::getRemoveSignatory)
+            .filter(command -> command.getAccountId().equals(creatorAccountId))
+            .count();
+
+    if (addedSignatories != 0) {
+      userQuorumProvider.setUserQuorumDetail(creatorAccountId,
+          userQuorumProvider.getUserQuorumDetail(creatorAccountId) + addedSignatories,
+          syncTime
+      );
+      userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+          userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
+          syncTime
+      );
+    }
   }
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
