@@ -160,7 +160,6 @@ public class BasicTransactionProvider implements TransactionProvider {
   private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
     final String creatorAccountId = ValidationUtils.getTxAccountId(blockTransaction);
     if (userDomains.contains(getDomain(creatorAccountId))) {
-      final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
 
       final List<Command> commands = blockTransaction
           .getPayload()
@@ -185,6 +184,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       if (addedSignatories != 0) {
         final int quorumDetail = userQuorumProvider.getUserQuorumDetail(creatorAccountId);
         if (quorumDetail != AccountManager.UNREACHABLE_QUORUM) {
+          final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
           userQuorumProvider.setUserQuorumDetail(creatorAccountId,
               quorumDetail + addedSignatories,
               syncTime
