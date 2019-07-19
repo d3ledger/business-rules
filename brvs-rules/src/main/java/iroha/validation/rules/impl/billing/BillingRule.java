@@ -53,13 +53,14 @@ import org.springframework.util.CollectionUtils;
 public class BillingRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
+  private static final String BTC_ASSET = "btc#bitcoin";
+  private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal fee";
   private static final String SEPARATOR = ",";
   private static final String QUEUE_NAME = "brvs_billing_updates";
   private static final String TRANSFER_BILLING_ACCOUNT_NAME = "transfer_billing";
   private static final String CUSTODY_BILLING_ACCOUNT_NAME = "custody_billing";
   private static final String ACCOUNT_CREATION_BILLING_ACCOUNT_NAME = "account_creation_billing";
   private static final String EXCHANGE_BILLING_ACCOUNT_NAME = "exchange_billing";
-  private static final String WITHDRAWAL_BILLING_ACCOUNT_NAME = "withdrawal_billing";
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
@@ -68,7 +69,6 @@ public class BillingRule implements Rule {
     put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
     put(BillingTypeEnum.ACCOUNT_CREATION, ACCOUNT_CREATION_BILLING_ACCOUNT_NAME);
     put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
-    put(BillingTypeEnum.WITHDRAWAL, WITHDRAWAL_BILLING_ACCOUNT_NAME);
   }};
   private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
@@ -81,9 +81,10 @@ public class BillingRule implements Rule {
   private final int rmqPort;
   private final String rmqExchange;
   private final String rmqRoutingKey;
+  private final String ethWithdrawalAccount;
+  private final String btcWithdrawalAccount;
   private final Set<String> userDomains;
   private final Set<String> depositAccounts;
-  private final Set<String> withdrawalAccounts;
   private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
 
   public BillingRule(String getBillingURL,
@@ -94,7 +95,8 @@ public class BillingRule implements Rule {
       String rmqRoutingKey,
       String userDomains,
       String depositAccounts,
-      String withdrawalAccounts) throws IOException {
+      String ethWithdrawalAccount,
+      String btcWithdrawalAccount) throws IOException {
 
     if (Strings.isNullOrEmpty(getBillingURL)) {
       throw new IllegalArgumentException("Billing URL must not be neither null nor empty");
@@ -120,9 +122,13 @@ public class BillingRule implements Rule {
     if (Strings.isNullOrEmpty(depositAccounts)) {
       throw new IllegalArgumentException("Deposit accounts key must not be neither null nor empty");
     }
-    if (Strings.isNullOrEmpty(withdrawalAccounts)) {
+    if (Strings.isNullOrEmpty(ethWithdrawalAccount)) {
       throw new IllegalArgumentException(
-          "Withdrawal accounts key must not be neither null nor empty");
+          "ETH Withdrawal account must not be neither null nor empty");
+    }
+    if (Strings.isNullOrEmpty(btcWithdrawalAccount)) {
+      throw new IllegalArgumentException(
+          "BTC Withdrawal account must not be neither null nor empty");
     }
 
     this.getBillingURL = new URL(getBillingURL);
@@ -133,7 +139,8 @@ public class BillingRule implements Rule {
     this.rmqRoutingKey = rmqRoutingKey;
     this.userDomains = new HashSet<>(Arrays.asList(userDomains.split(SEPARATOR)));
     this.depositAccounts = new HashSet<>(Arrays.asList(depositAccounts.split(SEPARATOR)));
-    this.withdrawalAccounts = new HashSet<>(Arrays.asList(withdrawalAccounts.split(SEPARATOR)));
+    this.ethWithdrawalAccount = ethWithdrawalAccount;
+    this.btcWithdrawalAccount = btcWithdrawalAccount;
     runCacheUpdater();
   }
 
@@ -286,15 +293,25 @@ public class BillingRule implements Rule {
       return ValidationResult.VALIDATED;
     }
 
-    final String userDomain = BillingInfo
-        .getDomain(transaction.getPayload().getReducedPayload().getCreatorAccountId());
     final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
+
+    for (int i = 0; i < transfers.size(); i++) {
+      final TransferAsset transferAsset = transfers.get(i);
+      final BillingTypeEnum currentTransferBilling = getBillingType(transferAsset, isBatch);
+      if (transferAsset.getDescription().equals(WITHDRAWAL_FEE_DESCRIPTION)
+          && currentTransferBilling != null
+          && currentTransferBilling.equals(BillingTypeEnum.WITHDRAWAL)) {
+        fees.add(transferAsset);
+        transfers.remove(transferAsset);
+        i--;
+      }
+    }
 
     for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
       if (originalType != null) {
         final BillingInfo billingInfo = getBillingInfoFor(
-            userDomain,
+            BillingInfo.getDomain(transferAsset.getSrcAccountId()),
             transferAsset.getAssetId(),
             originalType
         );
@@ -326,9 +343,19 @@ public class BillingRule implements Rule {
     final String srcAccountId = transfer.getSrcAccountId();
     final String assetId = transfer.getAssetId();
     final BigDecimal amount = new BigDecimal(transfer.getAmount());
-    final String destAccountName = feeTypesAccounts.get(billingInfo.getBillingType())
-        .concat(Const.accountIdDelimiter)
-        .concat(billingInfo.getDomain());
+    final BillingTypeEnum billingType = billingInfo.getBillingType();
+    final String destAccountName;
+    if (billingType.equals(BillingTypeEnum.WITHDRAWAL)) {
+      if (assetId.equals(BTC_ASSET)) {
+        destAccountName = btcWithdrawalAccount;
+      } else {
+        destAccountName = ethWithdrawalAccount;
+      }
+    } else {
+      destAccountName = feeTypesAccounts.get(billingType)
+          .concat(Const.accountIdDelimiter)
+          .concat(billingInfo.getDomain());
+    }
 
     for (TransferAsset fee : fees) {
       if (fee.getSrcAccountId().equals(srcAccountId)
@@ -368,7 +395,7 @@ public class BillingRule implements Rule {
       // TODO Not yet decided for sure
       return BillingTypeEnum.ACCOUNT_CREATION;
     }
-    if (withdrawalAccounts.contains(destAccountId)
+    if ((destAccountId.equals(ethWithdrawalAccount)) || (destAccountId.equals(btcWithdrawalAccount))
         && userDomains.contains(srcDomain)) {
       return BillingTypeEnum.WITHDRAWAL;
     }

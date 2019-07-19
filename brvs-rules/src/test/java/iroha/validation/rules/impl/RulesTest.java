@@ -49,6 +49,7 @@ class RulesTest {
 
     when(transferAsset.getSrcAccountId()).thenReturn("user@users");
     when(transferAsset.getDestAccountId()).thenReturn("destination@users");
+    when(transferAsset.getDescription()).thenReturn("description");
 
     final Command command = mock(Command.class);
 
@@ -83,7 +84,8 @@ class RulesTest {
         "key",
         "users",
         "deposit@users",
-        "withdrawal@users"
+        "withdrawaleth@users",
+        "withdrawalbtc@users"
     ) {
       @Override
       protected void runCacheUpdater() {

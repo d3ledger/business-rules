@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 public class CheckWhitelistRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(UpdateWhitelistRule.class);
+  private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal fee";
 
   private final QueryAPI queryAPI;
   private final String withdrawalAccount;
@@ -79,8 +80,11 @@ public class CheckWhitelistRule implements Rule {
         if (exceptionAssets.contains(asset)) {
           continue;
         }
-        String clientId = transfer.getSrcAccountId();
         String address = transfer.getDescription();
+        if (address.equals(WITHDRAWAL_FEE_DESCRIPTION)) {
+          continue;
+        }
+        String clientId = transfer.getSrcAccountId();
         String assetDomain = WhitelistUtils.getAssetDomain(asset);
 
         String whitelistKey = WhitelistUtils.assetToWhitelistKey.get(assetDomain);
