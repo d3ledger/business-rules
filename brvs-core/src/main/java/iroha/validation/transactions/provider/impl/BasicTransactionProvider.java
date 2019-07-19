@@ -177,6 +177,7 @@ public class BasicTransactionProvider implements TransactionProvider {
         .map(Command::getAddSignatory)
         .filter(command -> command.getAccountId().equals(creatorAccountId))
         .map(AddSignatory::getPublicKey)
+        .map(String::toUpperCase)
         .collect(Collectors.toSet());
     final Set<String> removedSignatories = commands
         .stream()
@@ -184,6 +185,7 @@ public class BasicTransactionProvider implements TransactionProvider {
         .map(Command::getRemoveSignatory)
         .filter(command -> command.getAccountId().equals(creatorAccountId))
         .map(RemoveSignatory::getPublicKey)
+        .map(String::toUpperCase)
         .collect(Collectors.toSet());
 
     if (addedSignatories.isEmpty() && removedSignatories.isEmpty()) {

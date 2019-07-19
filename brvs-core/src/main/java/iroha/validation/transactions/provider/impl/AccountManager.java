@@ -9,6 +9,7 @@ import static iroha.validation.utils.ValidationUtils.PROPORTION;
 
 import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
 import io.reactivex.Scheduler;
@@ -115,25 +116,27 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   @Override
   public Set<String> getUserSignatoriesDetail(String targetAccount) {
     try {
-      final String keys = ValidationUtils.parser
+      final JsonObject keyNode = ValidationUtils.parser
           .parse(queryAPI.getAccountDetails(targetAccount, brvsAccountId, userSignatoriesAttribute))
           .getAsJsonObject()
-          .getAsJsonObject(brvsAccountId)
-          .getAsJsonPrimitive(userSignatoriesAttribute)
-          .getAsString();
+          .getAsJsonObject(brvsAccountId);
+
+      if (keyNode.isJsonNull() || keyNode.get(userSignatoriesAttribute).isJsonNull()) {
+        logger.warn("Account detail is not set for account: " + targetAccount);
+        return Collections.emptySet();
+      }
 
       return ValidationUtils.gson.fromJson(
-          ValidationUtils.irohaUnEscape(keys),
+          ValidationUtils.irohaUnEscape(
+              keyNode.getAsJsonPrimitive(userSignatoriesAttribute).getAsString()
+          ),
           new TypeToken<Set<String>>() {
           }.getType()
       );
 
-    } catch (ClassCastException | ErrorResponseException e) {
-      logger.warn("Account detail is not set for account: " + targetAccount, e);
-      return Collections.emptySet();
     } catch (Exception e) {
       logger.warn("Unknown exception occurred retrieving quorum data", e);
-      return Collections.emptySet();
+      throw e;
     }
   }
 
@@ -162,7 +165,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
               " signatories detail. Got transaction status: " + txStatus.name()
       );
     }
-    logger.info("Successfully set user quorum DETAIL: " + targetAccount + " - " + jsonedKeys);
+    logger.info("Successfully set signatories detail: " + targetAccount + " - " + jsonedKeys);
   }
 
   /**
