@@ -177,7 +177,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException("Quorum must be positive, got: " + quorum);
     }
     final int currentQuorum = getAccountQuorum(targetAccount);
-    final int userDetailQuorum = getUserSignatoriesDetail(targetAccount).size();
+    final Set<String> userSignatoriesDetail = getUserSignatoriesDetail(targetAccount);
+    final int userDetailQuorum =
+        userSignatoriesDetail.isEmpty() ? INITIAL_KEYS_AMOUNT : userSignatoriesDetail.size();
     // If we increase user quorum set signatures first to be equal to user keys count
     // Otherwise set quorum first
     if (quorum >= currentQuorum) {
