@@ -196,6 +196,10 @@ public class BasicTransactionProvider implements TransactionProvider {
         userQuorumProvider.getUserSignatoriesDetail(creatorAccountId));
     userSignatories.removeAll(removedSignatories);
     userSignatories.addAll(addedSignatories);
+    if (userSignatories.isEmpty()) {
+      logger.warn("User " + creatorAccountId + " tried to delete all their keys");
+      return;
+    }
     final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
     userQuorumProvider.setUserQuorumDetail(creatorAccountId,
         userSignatories,
