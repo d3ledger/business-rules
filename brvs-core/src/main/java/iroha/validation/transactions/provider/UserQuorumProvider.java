@@ -5,24 +5,28 @@
 
 package iroha.validation.transactions.provider;
 
+import java.util.Set;
+
 public interface UserQuorumProvider {
 
   /**
    * Method for getting relevant user related keypairs contained in users quorum
    *
    * @param targetAccount account id in Iroha
-   * @return user quorum
+   * @return user signatories (public keys)
    */
-  int getUserQuorumDetail(String targetAccount);
+  Set<String> getUserSignatoriesDetail(String targetAccount);
 
   /**
    * Method for setting relevant user related keypairs contained in users quorum
    *
    * @param targetAccount account id in Iroha
-   * @param quorum user quorum to be set
+   * @param publicKeys user public keys to be set
    * @param creationTimeMillis time to synchronize operation
    */
-  void setUserQuorumDetail(String targetAccount, int quorum, long creationTimeMillis);
+  void setUserQuorumDetail(String targetAccount,
+      Iterable<String> publicKeys,
+      long creationTimeMillis);
 
   /**
    * Method for setting relevant user Iroha account quorum

@@ -7,7 +7,9 @@ package iroha.validation.transactions.provider.impl;
 
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
+import iroha.protocol.Commands.AddSignatory;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.RemoveSignatory;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.BrvsIrohaChainListener;
 import iroha.validation.transactions.TransactionBatch;
@@ -19,6 +21,7 @@ import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -102,8 +105,8 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private boolean isBatchSignedByUsers(TransactionBatch transactionBatch) {
     for (Transaction transaction : transactionBatch) {
-      if (transaction.getSignaturesCount() < userQuorumProvider.getUserQuorumDetail(
-          transaction.getPayload().getReducedPayload().getCreatorAccountId())) {
+      if (transaction.getSignaturesCount() < userQuorumProvider
+          .getUserSignatoriesDetail(ValidationUtils.getTxAccountId(transaction)).size()) {
         return false;
       }
     }
@@ -159,43 +162,47 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
     final String creatorAccountId = ValidationUtils.getTxAccountId(blockTransaction);
-    if (userDomains.contains(getDomain(creatorAccountId))) {
-
-      final List<Command> commands = blockTransaction
-          .getPayload()
-          .getReducedPayload()
-          .getCommandsList();
-
-      final int addedSignatories = (int) (commands
-          .stream()
-          .filter(Command::hasAddSignatory)
-          .map(Command::getAddSignatory)
-          .filter(command -> command.getAccountId().equals(creatorAccountId))
-          .count()
-          -
-          commands
-              .stream()
-              .filter(Command::hasRemoveSignatory)
-              .map(Command::getRemoveSignatory)
-              .filter(command -> command.getAccountId().equals(creatorAccountId))
-              .count()
-      );
-
-      if (addedSignatories != 0) {
-        final int quorumDetail = userQuorumProvider.getUserQuorumDetail(creatorAccountId);
-        if (quorumDetail != AccountManager.UNREACHABLE_QUORUM) {
-          final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
-          userQuorumProvider.setUserQuorumDetail(creatorAccountId,
-              quorumDetail + addedSignatories,
-              syncTime
-          );
-          userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-              userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
-              syncTime
-          );
-        }
-      }
+    if (!userDomains.contains(getDomain(creatorAccountId))) {
+      return;
     }
+
+    final List<Command> commands = blockTransaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList();
+
+    final Set<String> addedSignatories = commands
+        .stream()
+        .filter(Command::hasAddSignatory)
+        .map(Command::getAddSignatory)
+        .filter(command -> command.getAccountId().equals(creatorAccountId))
+        .map(AddSignatory::getPublicKey)
+        .collect(Collectors.toSet());
+    final Set<String> removedSignatories = commands
+        .stream()
+        .filter(Command::hasRemoveSignatory)
+        .map(Command::getRemoveSignatory)
+        .filter(command -> command.getAccountId().equals(creatorAccountId))
+        .map(RemoveSignatory::getPublicKey)
+        .collect(Collectors.toSet());
+
+    if (addedSignatories.isEmpty() && removedSignatories.isEmpty()) {
+      return;
+    }
+
+    final Set<String> userSignatories = new HashSet<>(
+        userQuorumProvider.getUserSignatoriesDetail(creatorAccountId));
+    userSignatories.removeAll(removedSignatories);
+    userSignatories.addAll(addedSignatories);
+    final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
+    userQuorumProvider.setUserQuorumDetail(creatorAccountId,
+        userSignatories,
+        syncTime
+    );
+    userQuorumProvider.setUserAccountQuorum(creatorAccountId,
+        userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
+        syncTime
+    );
   }
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {

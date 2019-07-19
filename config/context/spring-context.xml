@@ -72,7 +72,7 @@
   <bean id="accountManager"
     class="iroha.validation.transactions.provider.impl.AccountManager">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="userQuorumAttribute" value="${QUORUM_KEY}"/>
+    <constructor-arg name="userSignatoriesAttribute" value="${USER_SIGNATORIES_KEY}"/>
     <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
     <constructor-arg name="userAccountsHolderAccount" value="${ACCOUNTS_HOLDER}"/>
     <constructor-arg name="brvsInstancesHolderAccount" value="${CREDENTIAL_ACCOUNTID}"/>
