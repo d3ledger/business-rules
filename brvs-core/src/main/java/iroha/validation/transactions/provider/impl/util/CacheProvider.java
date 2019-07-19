@@ -46,16 +46,17 @@ public class CacheProvider {
   }
 
   private synchronized void consumeUnlockedTransactionBatches(String accountId) {
-    Set<TransactionBatch> accountTransactions = cache.get(accountId);
+    final Set<TransactionBatch> accountTransactions = cache.get(accountId);
     if (!CollectionUtils.isEmpty(accountTransactions)) {
-      final TransactionBatch transactionBatch = accountTransactions.stream()
-          .filter(this::isBatchUnlocked).findAny().orElse(null);
+      final TransactionBatch transactionBatch = accountTransactions
+          .stream()
+          .filter(this::isBatchUnlocked)
+          .findAny()
+          .orElse(null);
       if (transactionBatch != null) {
-        final String txAccountId = transactionBatch.getBatchInitiator();
-        final Set<TransactionBatch> accountBatches = cache.get(txAccountId);
-        accountBatches.remove(transactionBatch);
-        if (accountBatches.isEmpty()) {
-          cache.remove(txAccountId);
+        accountTransactions.remove(transactionBatch);
+        if (accountTransactions.isEmpty()) {
+          cache.remove(accountId);
         }
         consumeAndLockAccountByTransactionIfNeeded(transactionBatch);
         consumeUnlockedTransactionBatches(accountId);
