@@ -281,7 +281,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private void setBrvsSignatoriesToUser(String userAccountId, int count) {
     if (count < 1 || count > keyPairs.size()) {
       throw new IllegalArgumentException(
-          "Signatories count must be at least 1 and not more than key list size.");
+          "Signatories count must be at least 1 and not more than key list size. Got " + count);
     }
     final int containedCount = (int) getAccountSignatories(userAccountId)
         .stream()
