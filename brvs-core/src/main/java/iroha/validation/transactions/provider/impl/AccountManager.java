@@ -265,14 +265,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
           CollectionUtils.isEmpty(userSignatories) ? INITIAL_KEYS_AMOUNT : userSignatories.size()
       );
       modifyQuorumOnRegistration(accountId);
-    } catch (IllegalStateException e) {
-      logger.warn("Probably, the account " + accountId + " was registered before", e);
+      registeredAccounts.add(accountId);
+      logger.info("Successfully registered " + accountId);
     } catch (Exception e) {
       logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
       throw e;
     }
-    registeredAccounts.add(accountId);
-    logger.info("Successfully registered " + accountId);
   }
 
   private void setBrvsSignatoriesToUser(String userAccountId, int count) {
