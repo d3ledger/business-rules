@@ -9,7 +9,9 @@ import static iroha.validation.utils.ValidationUtils.PROPORTION;
 
 import com.google.common.base.Strings;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.reflect.TypeToken;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Endpoint;
@@ -22,6 +24,7 @@ import iroha.validation.utils.ValidationUtils;
 import java.security.Key;
 import java.security.KeyPair;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -46,7 +49,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final Logger logger = LoggerFactory.getLogger(AccountManager.class);
   // Not to let BRVS to take it in processing
   // Max quorum is 128
-  /* default */ static final int UNREACHABLE_QUORUM = 129;
   private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
@@ -58,7 +60,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private final String brvsAccountId;
   private final KeyPair brvsAccountKeyPair;
   private final QueryAPI queryAPI;
-  private final String userQuorumAttribute;
+  private final String userSignatoriesAttribute;
   private final Set<String> userDomains;
   private final String userAccountsHolderAccount;
   private final String brvsInstancesHolderAccount;
@@ -66,13 +68,13 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private final Set<String> pubKeys;
 
   public AccountManager(QueryAPI queryAPI,
-      String userQuorumAttribute,
+      String userSignatoriesAttribute,
       String userDomains,
       String userAccountsHolderAccount,
       String brvsInstancesHolderAccount, List<KeyPair> keyPairs) {
 
     Objects.requireNonNull(queryAPI, "Query API must not be null");
-    if (Strings.isNullOrEmpty(userQuorumAttribute)) {
+    if (Strings.isNullOrEmpty(userSignatoriesAttribute)) {
       throw new IllegalArgumentException(
           "User quorum attribute name must not be neither null nor empty");
     }
@@ -94,7 +96,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsAccountKeyPair = queryAPI.getKeyPair();
     this.queryAPI = queryAPI;
-    this.userQuorumAttribute = userQuorumAttribute;
+    this.userSignatoriesAttribute = userSignatoriesAttribute;
     this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
     this.userAccountsHolderAccount = userAccountsHolderAccount;
     this.brvsInstancesHolderAccount = brvsInstancesHolderAccount;
@@ -112,20 +114,29 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public int getUserQuorumDetail(String targetAccount) {
+  public Set<String> getUserSignatoriesDetail(String targetAccount) {
     try {
-      return Integer.parseInt(
-          queryAPI.getAccountDetails(targetAccount, brvsAccountId, userQuorumAttribute)
-              .split("\"")[5]);
-    } catch (ArrayIndexOutOfBoundsException | ErrorResponseException e) {
-      logger.warn("Account detail is not set for account: " + targetAccount, e);
-      return UNREACHABLE_QUORUM;
-    } catch (NumberFormatException e) {
-      logger.warn("Error occurred parsing quorum details for " + targetAccount, e);
-      return UNREACHABLE_QUORUM;
+      final JsonObject keyNode = ValidationUtils.parser
+          .parse(queryAPI.getAccountDetails(targetAccount, brvsAccountId, userSignatoriesAttribute))
+          .getAsJsonObject()
+          .getAsJsonObject(brvsAccountId);
+
+      if (keyNode.isJsonNull() || keyNode.get(userSignatoriesAttribute).isJsonNull()) {
+        logger.warn("Account detail is not set for account: " + targetAccount);
+        return Collections.emptySet();
+      }
+
+      return ValidationUtils.gson.fromJson(
+          ValidationUtils.irohaUnEscape(
+              keyNode.getAsJsonPrimitive(userSignatoriesAttribute).getAsString()
+          ),
+          new TypeToken<Set<String>>() {
+          }.getType()
+      );
+
     } catch (Exception e) {
       logger.warn("Unknown exception occurred retrieving quorum data", e);
-      return UNREACHABLE_QUORUM;
+      throw e;
     }
   }
 
@@ -133,24 +144,28 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public void setUserQuorumDetail(String targetAccount, int quorum, long creationTimeMillis) {
+  public void setUserQuorumDetail(String targetAccount,
+      Iterable<String> publicKeys,
+      long creationTimeMillis) {
+
+    final String jsonedKeys = ValidationUtils.irohaEscape(ValidationUtils.gson.toJson(publicKeys));
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
             .builder(brvsAccountId, creationTimeMillis)
-            .setAccountDetail(targetAccount, userQuorumAttribute, String.valueOf(quorum))
+            .setAccountDetail(targetAccount, userSignatoriesAttribute, jsonedKeys)
             .sign(brvsAccountKeyPair)
             .build()
     );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       logger.error("Could not change user " + targetAccount +
-          " quorum (ACC_DETAILS). Got transaction status: " + txStatus.name()
+          " signatories detail. Got transaction status: " + txStatus.name()
       );
       throw new IllegalStateException(
           "Could not change user " + targetAccount +
-              " quorum (ACC_DETAILS). Got transaction status: " + txStatus.name()
+              " signatories detail. Got transaction status: " + txStatus.name()
       );
     }
-    logger.info("Successfully set user quorum DETAIL: " + targetAccount + ", " + quorum);
+    logger.info("Successfully set signatories detail: " + targetAccount + " - " + jsonedKeys);
   }
 
   /**
@@ -162,15 +177,17 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException("Quorum must be positive, got: " + quorum);
     }
     final int currentQuorum = getAccountQuorum(targetAccount);
-    final int userQuorumDetail = getUserQuorumDetail(targetAccount);
+    final Set<String> userSignatoriesDetail = getUserSignatoriesDetail(targetAccount);
+    final int userDetailQuorum =
+        userSignatoriesDetail.isEmpty() ? INITIAL_KEYS_AMOUNT : userSignatoriesDetail.size();
     // If we increase user quorum set signatures first to be equal to user keys count
     // Otherwise set quorum first
     if (quorum >= currentQuorum) {
-      setBrvsSignatoriesToUser(targetAccount, userQuorumDetail);
+      setBrvsSignatoriesToUser(targetAccount, userDetailQuorum);
       setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
     } else {
       setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
-      setBrvsSignatoriesToUser(targetAccount, userQuorumDetail);
+      setBrvsSignatoriesToUser(targetAccount, userDetailQuorum);
     }
   }
 
@@ -242,21 +259,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       throw new IllegalArgumentException(
           "Account " + accountId + " does not exist or an error during querying process occurred.");
     }
-    int quorum = getUserQuorumDetail(accountId);
-    if (quorum == UNREACHABLE_QUORUM) {
-      quorum = INITIAL_KEYS_AMOUNT;
-      setUserQuorumDetail(accountId, quorum, System.currentTimeMillis());
-    }
+    final Set<String> userSignatories = getUserSignatoriesDetail(accountId);
     try {
-      setBrvsSignatoriesToUser(accountId, quorum);
+      setBrvsSignatoriesToUser(accountId,
+          CollectionUtils.isEmpty(userSignatories) ? INITIAL_KEYS_AMOUNT : userSignatories.size()
+      );
+      modifyQuorumOnRegistration(accountId);
     } catch (IllegalStateException e) {
       logger.warn("Probably, the account " + accountId + " was registered before", e);
-    } catch (Exception e) {
-      logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
-      throw e;
-    }
-    try {
-      modifyQuorumOnRegistration(accountId);
     } catch (Exception e) {
       logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
       throw e;
@@ -268,7 +278,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private void setBrvsSignatoriesToUser(String userAccountId, int count) {
     if (count < 1 || count > keyPairs.size()) {
       throw new IllegalArgumentException(
-          "Signatories count must be at least 1 and not more than key list size.");
+          "Signatories count must be at least 1 and not more than key list size. Got " + count);
     }
     final int containedCount = (int) getAccountSignatories(userAccountId)
         .stream()
@@ -320,8 +330,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   }
 
   private int getValidQuorumForUserAccount(String accountId, boolean onRegistration) {
-    int userQuorum = getUserQuorumDetail(accountId);
-    if (userQuorum == UNREACHABLE_QUORUM && onRegistration) {
+    int userQuorum = getUserSignatoriesDetail(accountId).size();
+    if (userQuorum == 0 && onRegistration) {
       userQuorum = INITIAL_USER_QUORUM_VALUE;
     }
     return (PROPORTION * userQuorum * getAccountQuorum(brvsAccountId));

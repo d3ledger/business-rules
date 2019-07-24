@@ -5,6 +5,9 @@
 
 package iroha.validation.rules.impl.whitelist;
 
+import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_NEW_LINE;
+import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_QUOTE;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -34,10 +37,6 @@ public class WhitelistUtils {
     assetToWhitelistKey.put("sora", "eth_whitelist");
     assetToWhitelistKey.put("bitcoin", "btc_whitelist");
   }
-
-  // Iroha friendly symbols
-  private static String IROHA_FRIENDLY_QUOTE = "\\\"";
-  private static String IROHA_FRIENDLY_EOL = "\\n";
 
   private static Gson gson = new GsonBuilder().create();
   private static JsonParser parser = new JsonParser();
@@ -129,7 +128,7 @@ public class WhitelistUtils {
    */
   public static String irohaEscape(String str) {
     return str.replace("\"", IROHA_FRIENDLY_QUOTE)
-        .replace("\n", IROHA_FRIENDLY_EOL);
+        .replace("\n", IROHA_FRIENDLY_NEW_LINE);
   }
 
   /**
@@ -137,6 +136,6 @@ public class WhitelistUtils {
    */
   public static String irohaUnEscape(String str) {
     return str.replace(IROHA_FRIENDLY_QUOTE, "\"")
-        .replace(IROHA_FRIENDLY_EOL, "\n");
+        .replace(IROHA_FRIENDLY_NEW_LINE, "\n");
   }
 }
