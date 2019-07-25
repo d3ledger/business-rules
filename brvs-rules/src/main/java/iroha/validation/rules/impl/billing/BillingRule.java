@@ -35,6 +35,7 @@ import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -283,8 +284,11 @@ public class BillingRule implements Rule {
                 .contains(BillingInfo.getName(transferAsset.getDestAccountId())))
         );
 
-    final List<TransferAsset> fees = transactionsGroups.get(true);
-    final List<TransferAsset> transfers = transactionsGroups.get(false);
+    final List<TransferAsset> feesFromMap = transactionsGroups.get(true);
+    final List<TransferAsset> transfersFromMap = transactionsGroups.get(false);
+
+    final List<TransferAsset> fees = feesFromMap == null ? new ArrayList<>() : feesFromMap;
+    final List<TransferAsset> transfers = transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
 
     if (CollectionUtils.isEmpty(transfers)) {
       if (!CollectionUtils.isEmpty(fees)) {
