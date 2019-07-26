@@ -418,7 +418,8 @@ public class BillingRule implements Rule {
         .stream()
         .filter(entry -> entry.getDomain().equals(domain)
             && entry.getBillingType().equals(originalType)
-            && entry.getAsset().equals(asset))
+            && entry.getAsset().equals(asset)
+            && entry.getFeeFraction().compareTo(BigDecimal.ZERO) > 0)
         .findAny()
         .orElse(null);
   }
