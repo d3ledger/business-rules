@@ -121,8 +121,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
           .getAsJsonObject()
           .getAsJsonObject(brvsAccountId);
 
-      if (keyNode.isJsonNull() || keyNode.size() == 0 || keyNode.get(userSignatoriesAttribute)
-          .isJsonNull()) {
+      if (keyNode == null || keyNode.isJsonNull()
+          || keyNode.size() == 0 || keyNode.get(userSignatoriesAttribute).isJsonNull()) {
         logger.warn("Account detail is not set for account: " + targetAccount);
         return Collections.emptySet();
       }
