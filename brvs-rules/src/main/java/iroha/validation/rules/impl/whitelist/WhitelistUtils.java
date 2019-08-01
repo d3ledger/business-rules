@@ -60,11 +60,11 @@ public class WhitelistUtils {
       logger.debug("Got BRVS whitelist: " + detail);
 
       JsonObject accountNode = parser.parse(detail).getAsJsonObject();
-      if (accountNode.get(brvsAccountId).isJsonNull()) {
+      if (accountNode.size() == 0 || accountNode.get(brvsAccountId).isJsonNull()) {
         return new HashMap<>();
       }
       JsonObject keyNode = accountNode.getAsJsonObject(brvsAccountId);
-      if (keyNode.get(whitelistKey).isJsonNull()) {
+      if (keyNode.size() == 0 || keyNode.get(whitelistKey).isJsonNull()) {
         return new HashMap<>();
       }
       String whitelistJSON = keyNode.getAsJsonPrimitive(whitelistKey).getAsString();
