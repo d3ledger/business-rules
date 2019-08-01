@@ -95,7 +95,7 @@ class UpdateWhitelistRuleTest {
     ethWhitelist.add("0x6826d84158e516f631bBf14586a9BE7e255b2D23");
 
     // BRVS response with empty whitelist
-    String clientListResponse = "{\"brvs@brvs\" : {\"eth_whitelist\" : null}}";
+    String clientListResponse = "{}";
 
     setEnvironmentTest(ethWhitelist, key, clientListResponse);
 
