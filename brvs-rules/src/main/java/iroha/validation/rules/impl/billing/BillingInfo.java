@@ -16,7 +16,7 @@ import jp.co.soramitsu.iroha.java.detail.Const;
 
 public class BillingInfo {
 
-  private static final String ACCOUNT_ID_ATTRIBUTE = "accountId";
+  private static final String DOMAIN_ATTRIBUTE = "domain";
   private static final String BILLING_TYPE_ATTRIBUTE = "billingType";
   private static final String ASSET_ATTRIBUTE = "asset";
   private static final String FEE_FRACTION_ATTRIBUTE = "feeFraction";
@@ -107,7 +107,7 @@ public class BillingInfo {
 
   /* default */ static BillingInfo parseBillingMqDto(JsonObject object) {
     return new BillingInfo(
-        getDomain(object.get(ACCOUNT_ID_ATTRIBUTE).getAsString()),
+        getDomain(object.get(DOMAIN_ATTRIBUTE).getAsString()),
         BillingTypeEnum.valueOfLabel(object.get(BILLING_TYPE_ATTRIBUTE).getAsString()),
         object.get(ASSET_ATTRIBUTE).getAsString(),
         object.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
