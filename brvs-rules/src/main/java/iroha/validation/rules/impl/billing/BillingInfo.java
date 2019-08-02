@@ -107,7 +107,7 @@ public class BillingInfo {
 
   /* default */ static BillingInfo parseBillingMqDto(JsonObject object) {
     return new BillingInfo(
-        getDomain(object.get(DOMAIN_ATTRIBUTE).getAsString()),
+        object.get(DOMAIN_ATTRIBUTE).getAsString(),
         BillingTypeEnum.valueOfLabel(object.get(BILLING_TYPE_ATTRIBUTE).getAsString()),
         object.get(ASSET_ATTRIBUTE).getAsString(),
         object.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
