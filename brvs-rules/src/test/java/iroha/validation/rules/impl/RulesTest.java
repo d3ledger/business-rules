@@ -124,14 +124,6 @@ class RulesTest {
    */
   @Test
   void sampleRuleTest() {
-    final KeyPair keyPair = new Ed25519Sha3().generateKeypair();
-    final KeyPair keyPair2 = new Ed25519Sha3().generateKeypair();
-
-    System.out.println(Utils.toHex(keyPair.getPublic().getEncoded()));
-    System.out.println(Utils.toHex(keyPair.getPrivate().getEncoded()));
-
-    System.out.println(Utils.toHex(keyPair2.getPublic().getEncoded()));
-    System.out.println(Utils.toHex(keyPair2.getPrivate().getEncoded()));
     rule = new SampleRule();
     // any transaction
     transaction = mock(Transaction.class);
