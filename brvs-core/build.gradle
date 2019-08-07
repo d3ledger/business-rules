@@ -49,7 +49,9 @@ dependencies {
 
     compile project(':brvs-rules')
     // Notary
-    compile('com.github.d3ledger.notary:notary-commons:21dc1f835f')
+    compile('com.github.d3ledger.notary:notary-commons:9f811288a43c17dc01a1a6604080b45ad6be22f9')
+    // Chain adapter
+    compile('com.github.d3ledger.chain-adapter:chain-adapter-client:e27b242699c776a92797efa1522f59ab20b737d8')
     // MongoDB
     compile('org.mongodb:mongodb-driver-sync:3.10.1')
     // REST

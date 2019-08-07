@@ -20,6 +20,8 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
+
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -238,7 +240,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   @Override
-  public void close() {
+  public void close() throws IOException {
     executorService.shutdownNow();
     irohaReliableChainListener.close();
   }

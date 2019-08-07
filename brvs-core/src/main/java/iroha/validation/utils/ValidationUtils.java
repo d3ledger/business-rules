@@ -8,8 +8,8 @@ package iroha.validation.utils;
 import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_NEW_LINE;
 import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_QUOTE;
 
+import com.d3.chainadapter.client.RMQConfig;
 import com.d3.commons.config.ConfigsKt;
-import com.d3.commons.config.RMQConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

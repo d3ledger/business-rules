@@ -5,13 +5,15 @@
 
 package iroha.validation.listener;
 
-import com.d3.commons.config.RMQConfig;
-import com.d3.commons.sidechain.iroha.ReliableIrohaChainListener;
+import com.d3.chainadapter.client.BlockSubscription;
+import com.d3.chainadapter.client.RMQConfig;
+import com.d3.chainadapter.client.ReliableIrohaChainListener4J;
 import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import java.io.Closeable;
+import java.io.IOException;
 import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,7 +24,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryAPI;
-import kotlin.Pair;
 
 public class BrvsIrohaChainListener implements Closeable {
 
@@ -33,7 +34,7 @@ public class BrvsIrohaChainListener implements Closeable {
   private final KeyPair brvsKeyPair;
   private final String brvsAccountId;
   private final KeyPair userKeyPair;
-  private final ReliableIrohaChainListener irohaChainListener;
+  private final ReliableIrohaChainListener4J irohaChainListener;
   private final ConcurrentMap<String, QueryAPI> queryAPIMap = new ConcurrentHashMap<>();
 
   public BrvsIrohaChainListener(
@@ -44,7 +45,7 @@ public class BrvsIrohaChainListener implements Closeable {
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     Objects.requireNonNull(userKeyPair, "User Keypair must not be null");
 
-    irohaChainListener = new ReliableIrohaChainListener(rmqConfig, BRVS_QUEUE_RMQ_NAME);
+    irohaChainListener = new ReliableIrohaChainListener4J(rmqConfig, BRVS_QUEUE_RMQ_NAME,true);
     this.irohaAPI = queryAPI.getApi();
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsKeyPair = queryAPI.getKeyPair();
@@ -110,7 +111,7 @@ public class BrvsIrohaChainListener implements Closeable {
   }
 
   public Observable<Block> getBlockStreaming() {
-    return irohaChainListener.getBlockObservable().get().map(Pair::getFirst);
+    return irohaChainListener.getBlockObservable().map(BlockSubscription::getBlock);
   }
 
   public void listen() {
@@ -118,7 +119,7 @@ public class BrvsIrohaChainListener implements Closeable {
   }
 
   @Override
-  public void close() {
+  public void close() throws IOException {
     irohaChainListener.close();
   }
 }

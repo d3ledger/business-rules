@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.d3.commons.config.RMQConfig;
+import com.d3.chainadapter.client.RMQConfig;
 import com.google.common.io.Files;
 import iroha.protocol.BlockOuterClass;
 import iroha.protocol.Endpoint.TxStatus;
@@ -207,7 +207,6 @@ class IrohaIntegrationTest {
     ruleMap.put("volume", new TransferTxVolumeRule(assetId, new BigDecimal(150)));
     final BrvsIrohaChainListener brvsIrohaChainListener = new BrvsIrohaChainListener(
         new RMQConfig() {
-          @NotNull
           @Override
           public String getHost() {
             return rmqHost;
@@ -218,7 +217,6 @@ class IrohaIntegrationTest {
             return rmqPort;
           }
 
-          @NotNull
           @Override
           public String getIrohaExchange() {
             return "iroha";
