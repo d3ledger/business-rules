@@ -5,8 +5,12 @@
 
 package iroha.validation.transactions.provider.impl;
 
+import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
+
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
+import io.reactivex.Scheduler;
+import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Commands.AddSignatory;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.RemoveSignatory;
@@ -20,7 +24,6 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -44,7 +47,13 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final RegistrationProvider registrationProvider;
   private final BlockStorage blockStorage;
   private final BrvsIrohaChainListener irohaReliableChainListener;
-  private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
+  private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+  private final Scheduler blockScheduler = Schedulers.from(createPrettySingleThreadPool(
+      "brvs", "block-processor"
+  ));
+  private final Scheduler rejectScheduler = Schedulers.from(createPrettySingleThreadPool(
+      "brvs", "rejects-processor"
+  ));
   private final Set<String> userDomains;
   private boolean isStarted;
 
@@ -83,9 +92,9 @@ public class BasicTransactionProvider implements TransactionProvider {
   public synchronized Observable<TransactionBatch> getPendingTransactionsStreaming() {
     if (!isStarted) {
       logger.info("Starting pending transactions streaming");
-      executorService.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
-      executorService.schedule(this::processBlockTransactions, 0, TimeUnit.SECONDS);
-      executorService.schedule(this::processRejectedTransactions, 0, TimeUnit.SECONDS);
+      executor.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
+      processBlockTransactions(blockScheduler);
+      processRejectedTransactions(rejectScheduler);
       isStarted = true;
     }
     return cacheProvider.getObservable();
@@ -127,23 +136,26 @@ public class BasicTransactionProvider implements TransactionProvider {
     return result;
   }
 
-  private void processRejectedTransactions() {
+  private void processRejectedTransactions(Scheduler scheduler) {
     transactionVerdictStorage.getRejectedOrFailedTransactionsHashesStreaming()
+        .observeOn(scheduler)
         .subscribe(this::tryToRemoveLock);
   }
 
-  private void processBlockTransactions() {
-    irohaReliableChainListener.getBlockStreaming().subscribe(block -> {
-          // Store new block first
-          blockStorage.store(block);
-          processCommitted(
-              block
-                  .getBlockV1()
-                  .getPayload()
-                  .getTransactionsList()
-          );
-        }
-    );
+  private void processBlockTransactions(Scheduler scheduler) {
+    irohaReliableChainListener.getBlockStreaming()
+        .observeOn(scheduler)
+        .subscribe(block -> {
+              // Store new block first
+              blockStorage.store(block);
+              processCommitted(
+                  block
+                      .getBlockV1()
+                      .getPayload()
+                      .getTransactionsList()
+              );
+            }
+        );
     irohaReliableChainListener.listen();
   }
 
@@ -241,7 +253,9 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   @Override
   public void close() throws IOException {
-    executorService.shutdownNow();
+    executor.shutdownNow();
+    blockScheduler.shutdown();
+    rejectScheduler.shutdown();
     irohaReliableChainListener.close();
   }
 }
