@@ -5,9 +5,16 @@
 
 package iroha.validation.service.impl;
 
+import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
+
+import io.reactivex.Observable;
+import io.reactivex.Scheduler;
+import io.reactivex.internal.functions.Functions;
+import io.reactivex.schedulers.Schedulers;
 import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.rules.RuleMonitor;
 import iroha.validation.service.ValidationService;
+import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
@@ -18,6 +25,7 @@ import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +39,10 @@ public class ValidationServiceImpl implements ValidationService {
   private final RegistrationProvider registrationProvider;
   private final BrvsData brvsData;
   private final RuleMonitor ruleMonitor;
+  private final Scheduler mainScheduler = Schedulers.from(createPrettySingleThreadPool(
+      "brvs", "main"
+  ));
+  private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
 
   public ValidationServiceImpl(ValidationServiceContext validationServiceContext) {
     Objects.requireNonNull(validationServiceContext, "ValidationServiceContext must not be null");
@@ -50,20 +62,35 @@ public class ValidationServiceImpl implements ValidationService {
   public void verifyTransactions() {
     registerExistentAccounts();
     ruleMonitor.monitorUpdates();
-    transactionProvider.getPendingTransactionsStreaming().subscribe(transactionBatch ->
-        {
-          final List<String> hex = ValidationUtils.hexHash(transactionBatch);
-          logger.info("Got transactions to validate: " + hex);
-          final ValidationResult validationResult = validator.validate(transactionBatch);
-          if (Verdict.VALIDATED != validationResult.getStatus()) {
-            final String reason = validationResult.getReason();
-            transactionSigner.rejectAndSend(transactionBatch, reason);
-          } else {
-            transactionSigner.signAndSend(transactionBatch);
-          }
-        },
-        throwable -> logger.error("Error during transaction validation: ", throwable)
-    );
+    transactionProvider.getPendingTransactionsStreaming()
+        .observeOn(mainScheduler)
+        .flatMap(transactionBatch ->
+            Observable.fromCallable(() -> processTransactionBatch(transactionBatch))
+                .subscribeOn(scheduler)
+        )
+        .subscribe(Functions.emptyConsumer(),
+            throwable -> logger.error("Unknown exception was thrown: ", throwable)
+        );
+  }
+
+  private TransactionBatch processTransactionBatch(TransactionBatch transactionBatch) {
+    final List<String> hex = ValidationUtils.hexHash(transactionBatch);
+    try {
+      logger.info("Got transactions to validate: " + hex);
+      final ValidationResult validationResult = validator.validate(transactionBatch);
+      if (Verdict.VALIDATED != validationResult.getStatus()) {
+        final String reason = validationResult.getReason();
+        transactionSigner.rejectAndSend(transactionBatch, reason);
+        logger
+            .info("Transactions " + hex + " have been rejected by the service. Reason: " + reason);
+      } else {
+        transactionSigner.signAndSend(transactionBatch);
+        logger.info("Transactions " + hex + " have been successfully validated and signed");
+      }
+    } catch (Exception exception) {
+      logger.error("Error during " + hex + " transaction validation: ", exception);
+    }
+    return transactionBatch;
   }
 
   private void registerExistentAccounts() {
