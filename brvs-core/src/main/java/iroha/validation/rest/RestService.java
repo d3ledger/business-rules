@@ -9,6 +9,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
 import com.google.protobuf.util.JsonFormat.Printer;
+import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -32,15 +33,19 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Singleton
 @Path("")
 public class RestService {
 
+  private final static Logger logger = LoggerFactory.getLogger(RestService.class);
   private final static Printer printer = JsonFormat.printer()
       .omittingInsignificantWhitespace()
       .preservingProtoFieldNames();
   private final static Parser parser = JsonFormat.parser().ignoringUnknownFields();
+  private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
 
   @Inject
   private RegistrationProvider registrationProvider;
@@ -98,21 +103,34 @@ public class RestService {
       // since final or effectively final is needed
       final Transaction builtTx = builder.build();
       final Transaction transactionsToSend;
+      final String hash = Utils.toHexHash(builtTx);
       if (sign) {
+        logger.info("Going to sign transaction " + hash);
         transactionsToSend = jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
             .sign(brvsAccountKeyPair).build();
       } else {
+        logger.info("Not going to sign transaction " + hash);
         transactionsToSend = builtTx;
       }
+      final int signaturesCount = transactionsToSend.getSignaturesCount();
+      final int quorum = transactionsToSend.getPayload().getReducedPayload().getQuorum();
+      if (signaturesCount < quorum) {
+        final String msg =
+            "Transaction " + hash + " does not have enough signatures: Quorum: " + quorum
+                + " Signatures: " + signaturesCount;
+        logger.error(msg);
+        throw new IllegalArgumentException(msg);
+      }
+      logger.info("Going to send transaction " + hash);
       StreamingOutput streamingOutput = output -> irohaAPI.transaction(transactionsToSend)
-          .subscribeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
+          .subscribeOn(scheduler)
           .blockingSubscribe(toriiResponse -> {
                 output.write(printer.print(toriiResponse).getBytes());
                 output.flush();
               }
           );
       return Response.status(200).entity(streamingOutput).build();
-    } catch (InvalidProtocolBufferException e) {
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       return Response.status(422).build();
     } catch (Throwable t) {
       return Response.status(500).build();
