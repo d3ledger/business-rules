@@ -17,6 +17,7 @@ import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
+import java.security.KeyPair;
 import java.util.concurrent.Executors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -49,6 +50,8 @@ public class RestService {
   private IrohaAPI irohaAPI;
   @Inject
   private CacheProvider cacheProvider;
+  @Inject
+  private KeyPair brvsAccountKeyPair;
 
   @GET
   @Path("/status/{txHash}")
@@ -77,11 +80,31 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransaction(String transaction) {
+    return sendTransaction(transaction, false);
+  }
+
+  @POST
+  @Path("/transaction/sign")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendTransactionWithSigning(String transaction) {
+    return sendTransaction(transaction, true);
+  }
+
+  private Response sendTransaction(String transaction, boolean sign) {
     try {
       final Builder builder = Transaction.newBuilder();
       parser.merge(transaction, builder);
-      final Transaction tx = builder.build();
-      StreamingOutput streamingOutput = output -> irohaAPI.transaction(tx)
+      // since final or effectively final is needed
+      final Transaction builtTx = builder.build();
+      final Transaction transactionsToSend;
+      if (sign) {
+        transactionsToSend = jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
+            .sign(brvsAccountKeyPair).build();
+      } else {
+        transactionsToSend = builtTx;
+      }
+      StreamingOutput streamingOutput = output -> irohaAPI.transaction(transactionsToSend)
           .subscribeOn(Schedulers.from(Executors.newSingleThreadExecutor()))
           .blockingSubscribe(toriiResponse -> {
                 output.write(printer.print(toriiResponse).getBytes());
