@@ -218,8 +218,10 @@ public class RestService {
       return Response.status(HttpStatus.SC_OK).entity(printer.print(irohaAPI.query(queryToSend)))
           .build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during query processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Throwable t) {
+    } catch (Exception e) {
+      logger.error("Error during query processing", e);
       return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
   }
@@ -301,8 +303,10 @@ public class RestService {
           );
       return Response.status(HttpStatus.SC_OK).entity(streamingOutput).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during batch processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Throwable t) {
+    } catch (Exception e) {
+      logger.error("Error during batch processing", e);
       return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
   }
