@@ -38,6 +38,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
+import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +72,7 @@ public class RestService {
     if (transactionVerdict == null) {
       transactionVerdict = ValidationResult.UNKNOWN;
     }
-    return Response.status(200).entity(transactionVerdict).build();
+    return Response.status(HttpStatus.SC_OK).entity(transactionVerdict).build();
   }
 
   @POST
@@ -80,27 +81,47 @@ public class RestService {
     try {
       registrationProvider.register(accountId);
     } catch (Exception e) {
-      return Response.status(422).entity(e).build();
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).entity(e).build();
     }
-    return Response.status(204).build();
+    return Response.status(HttpStatus.SC_NO_CONTENT).build();
   }
 
   @POST
-  @Path("/transaction")
+  @Path("/transaction/send")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendTransaction(String transaction) {
-    return sendTransaction(transaction, false);
+  public Response sendTransactionNoSign(String transaction) {
+    return sendTransactionWithoutSigning(transaction);
   }
 
   @POST
-  @Path("/transaction/sign")
+  @Path("/transaction/send/sign")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendTransactionWithSigning(String transaction) {
+  public Response sendTransactionSign(String transaction) {
+    return sendTransactionWithSigning(transaction);
+  }
+
+  private Response sendTransactionWithSigning(String transaction) {
     return sendTransaction(transaction, true);
   }
 
+  private Response sendTransactionWithoutSigning(String transaction) {
+    return sendTransaction(transaction, false);
+  }
+
+  /**
+   * Parses Iroha serialized transaction to {@link iroha.protocol.TransactionOuterClass.TransactionOrBuilder}
+   * and performs gRPC call to send transaction. If sign parameter is set to true the transaction is
+   * additionally signed with brvs key.
+   *
+   * @param transaction JSONed proto transaction
+   * @param sign sign flag
+   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
+   * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not satisfied
+   * before sending
+   * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   */
   private Response sendTransaction(String transaction, boolean sign) {
     try {
       final Builder builder = Transaction.newBuilder();
@@ -127,11 +148,13 @@ public class RestService {
                 output.flush();
               }
           );
-      return Response.status(200).entity(streamingOutput).build();
+      return Response.status(HttpStatus.SC_OK).entity(streamingOutput).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      return Response.status(422).build();
-    } catch (Throwable t) {
-      return Response.status(500).build();
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
   }
 
@@ -139,26 +162,46 @@ public class RestService {
   @Path("/transactions")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getTransactions() throws InvalidProtocolBufferException {
-    return Response.status(200)
+    return Response.status(HttpStatus.SC_OK)
         .entity(printer.print(Utils.createTxList(cacheProvider.getTransactions()))).build();
   }
 
   @POST
-  @Path("/query")
+  @Path("/query/send")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendQuery(String query) {
-    return sendQuery(query, false);
+  public Response sendQueryNoSign(String query) {
+    return executeQueryWithoutSigning(query);
   }
 
   @POST
-  @Path("/query/sign")
+  @Path("/query/send/sign")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response signQueryWithSigning(String query) {
+  public Response signQueryWithSign(String query) {
+    return executeQueryWithSigning(query);
+  }
+
+  private Response executeQueryWithSigning(String query) {
     return sendQuery(query, true);
   }
 
+  private Response executeQueryWithoutSigning(String query) {
+    return sendQuery(query, false);
+  }
+
+  /**
+   * Parses Iroha serialized query to {@link iroha.protocol.Queries.Query} and performs gRPC call to
+   * execute query. If sign parameter is set to true the query is additionally signed with brvs
+   * key.
+   *
+   * @param query JSONed proto query
+   * @param sign sign flag
+   * @return {@link Response HTTP} {@link HttpStatus 200} with query execution result <br> {@link
+   * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or there is no signature
+   * before sending
+   * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   */
   private Response sendQuery(String query, boolean sign) {
     try {
       final Query.Builder builder = Query.newBuilder();
@@ -170,33 +213,53 @@ public class RestService {
       }
       if (!queryToSend.hasSignature()) {
         final String msg = "Query does not have signature";
-        logger.error(msg);
         throw new IllegalArgumentException(msg);
       }
-      return Response.status(200).entity(printer.print(irohaAPI.query(queryToSend))).build();
+      return Response.status(HttpStatus.SC_OK).entity(printer.print(irohaAPI.query(queryToSend)))
+          .build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      return Response.status(422).build();
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
     } catch (Throwable t) {
-      return Response.status(500).build();
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
   }
 
   @POST
-  @Path("/batch")
+  @Path("/batch/send")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendTransactionsBatch(String transactionList) {
-    return sendTransactionsBatch(transactionList, false);
+  public Response sendTransactionsBatchNoSign(String transactionList) {
+    return sendTransactionsBatchWithoutSigning(transactionList);
   }
 
   @POST
-  @Path("/batch/sign")
+  @Path("/batch/send/sign")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendTransactionsBatchWithSigning(String transactionList) {
+  public Response sendTransactionsBatchWithSign(String transactionList) {
+    return sendTransactionsBatchWithSigning(transactionList);
+  }
+
+  private Response sendTransactionsBatchWithSigning(String transactionList) {
     return sendTransactionsBatch(transactionList, true);
   }
 
+  private Response sendTransactionsBatchWithoutSigning(String transactionList) {
+    return sendTransactionsBatch(transactionList, false);
+  }
+
+  /**
+   * Parses Iroha serialized transaction batch to {@link iroha.protocol.Endpoint.TxList} and
+   * performs gRPC call to send it. If sign parameter is set to true the batch is additionally
+   * signed with brvs key if there is a signature slot for that.
+   *
+   * @param transactionList JSONed proto TxList
+   * @param sign sign flag
+   * @return {@link Response HTTP} {@link HttpStatus 200} with first transaction status stream <br>
+   * {@link Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not
+   * satisfied before sending
+   * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   */
   private Response sendTransactionsBatch(String transactionList, boolean sign) {
     try {
       final TxList.Builder builder = TxList.newBuilder();
@@ -236,11 +299,11 @@ public class RestService {
                 output.flush();
               }
           );
-      return Response.status(200).entity(streamingOutput).build();
+      return Response.status(HttpStatus.SC_OK).entity(streamingOutput).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      return Response.status(422).build();
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
     } catch (Throwable t) {
-      return Response.status(500).build();
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
   }
 
@@ -252,7 +315,6 @@ public class RestService {
           "Transaction " + Utils.toHexHash(transaction)
               + " does not have enough signatures: Quorum: " + quorum
               + " Signatures: " + signaturesCount;
-      logger.error(msg);
       throw new IllegalArgumentException(msg);
     }
   }
