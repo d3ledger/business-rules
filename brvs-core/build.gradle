@@ -49,9 +49,13 @@ dependencies {
 
     compile project(':brvs-rules')
     // Notary
-    compile('com.github.d3ledger.notary:notary-commons:9f811288a43c17dc01a1a6604080b45ad6be22f9')
+    compile('com.github.d3ledger.notary:notary-commons:9f811288a43c17dc01a1a6604080b45ad6be22f9') {
+        exclude group:  'com.github.hyperledger.iroha-java', module: 'client'
+    }
     // Chain adapter
-    compile('com.github.d3ledger.chain-adapter:chain-adapter-client:e27b242699c776a92797efa1522f59ab20b737d8')
+    compile('com.github.d3ledger.chain-adapter:chain-adapter-client:e27b242699c776a92797efa1522f59ab20b737d8') {
+        exclude group:  'com.github.hyperledger.iroha-java', module: 'client'
+    }
     // MongoDB
     compile('org.mongodb:mongodb-driver-sync:3.10.1')
     // REST
@@ -69,7 +73,12 @@ dependencies {
     testCompile('org.junit.jupiter:junit-jupiter-api:5.4.0')
     testRuntime('org.junit.jupiter:junit-jupiter-engine:5.4.0')
     // Test containers iroha
-    testCompile('com.github.hyperledger.iroha-java:testcontainers:6.0.0')
+    testCompile('com.github.hyperledger.iroha-java:testcontainers:de13f51295')
+    // rest testing
+    testCompile('org.glassfish.jersey.test-framework.providers:jersey-test-framework-provider-grizzly2:2.28')
+    testCompile('org.glassfish.jersey.test-framework:jersey-test-framework-core:2.28')
+    // Mockito
+    testCompile('org.mockito:mockito-core:2.24.0')
 }
 
 test {

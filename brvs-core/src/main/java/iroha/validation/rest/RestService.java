@@ -5,12 +5,15 @@
 
 package iroha.validation.rest;
 
+import static iroha.validation.utils.ValidationUtils.subscriptionStrategy;
+
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
 import com.google.protobuf.util.JsonFormat.Printer;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
+import iroha.protocol.Endpoint.TxList;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.protocol.TransactionOuterClass.Transaction.Builder;
@@ -19,7 +22,9 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
+import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
@@ -105,24 +110,17 @@ public class RestService {
       final Transaction transactionsToSend;
       final String hash = Utils.toHexHash(builtTx);
       if (sign) {
-        logger.info("Going to sign transaction " + hash);
+        logger.info("Going to sign transaction:" + hash);
         transactionsToSend = jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
             .sign(brvsAccountKeyPair).build();
       } else {
-        logger.info("Not going to sign transaction " + hash);
+        logger.info("Not going to sign transaction: " + hash);
         transactionsToSend = builtTx;
       }
-      final int signaturesCount = transactionsToSend.getSignaturesCount();
-      final int quorum = transactionsToSend.getPayload().getReducedPayload().getQuorum();
-      if (signaturesCount < quorum) {
-        final String msg =
-            "Transaction " + hash + " does not have enough signatures: Quorum: " + quorum
-                + " Signatures: " + signaturesCount;
-        logger.error(msg);
-        throw new IllegalArgumentException(msg);
-      }
-      logger.info("Going to send transaction " + hash);
-      StreamingOutput streamingOutput = output -> irohaAPI.transaction(transactionsToSend)
+      checkTransactionSignaturesCount(transactionsToSend);
+      logger.info("Going to send transaction: " + hash);
+      StreamingOutput streamingOutput = output -> irohaAPI
+          .transaction(transactionsToSend, subscriptionStrategy)
           .subscribeOn(scheduler)
           .blockingSubscribe(toriiResponse -> {
                 output.write(printer.print(toriiResponse).getBytes());
@@ -149,15 +147,113 @@ public class RestService {
   @Path("/query")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response query(String query) {
+  public Response sendQuery(String query) {
+    return sendQuery(query, false);
+  }
+
+  @POST
+  @Path("/query/sign")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response signQueryWithSigning(String query) {
+    return sendQuery(query, true);
+  }
+
+  private Response sendQuery(String query, boolean sign) {
     try {
       final Query.Builder builder = Query.newBuilder();
       parser.merge(query, builder);
-      return Response.status(200).entity(printer.print(irohaAPI.query(builder.build()))).build();
-    } catch (InvalidProtocolBufferException e) {
+      Query queryToSend = builder.build();
+      if (sign) {
+        queryToSend = new jp.co.soramitsu.iroha.java.Query(queryToSend)
+            .buildSigned(brvsAccountKeyPair);
+      }
+      if (!queryToSend.hasSignature()) {
+        final String msg = "Query does not have signature";
+        logger.error(msg);
+        throw new IllegalArgumentException(msg);
+      }
+      return Response.status(200).entity(printer.print(irohaAPI.query(queryToSend))).build();
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       return Response.status(422).build();
     } catch (Throwable t) {
       return Response.status(500).build();
+    }
+  }
+
+  @POST
+  @Path("/batch")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendTransactionsBatch(String transactionList) {
+    return sendTransactionsBatch(transactionList, false);
+  }
+
+  @POST
+  @Path("/batch/sign")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendTransactionsBatchWithSigning(String transactionList) {
+    return sendTransactionsBatch(transactionList, true);
+  }
+
+  private Response sendTransactionsBatch(String transactionList, boolean sign) {
+    try {
+      final TxList.Builder builder = TxList.newBuilder();
+      parser.merge(transactionList, builder);
+      final TxList builtTx = builder.build();
+      final List<Transaction> transactionsToSend;
+      final String batchHashes = builtTx.getTransactionsList().stream().map(Utils::toHexHash)
+          .collect(Collectors.joining(","));
+      if (sign) {
+        logger.info("Going to sign transaction batch: " + batchHashes);
+        transactionsToSend = builtTx.getTransactionsList().stream()
+            .map(transaction -> {
+              final int signaturesCount = transaction.getSignaturesCount();
+              final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
+              if (signaturesCount < quorum) {
+                return jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction)
+                    .sign(brvsAccountKeyPair)
+                    .build();
+              } else {
+                return transaction;
+              }
+            }).collect(Collectors.toList());
+      } else {
+        logger.info("Not going to sign transaction batch: " + batchHashes);
+        transactionsToSend = builtTx.getTransactionsList().stream().map(
+            transaction -> jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction).build())
+            .collect(Collectors.toList());
+      }
+      transactionsToSend.forEach(this::checkTransactionSignaturesCount);
+      logger.info("Going to send transaction batch: " + batchHashes);
+      irohaAPI.transactionListSync(transactionsToSend);
+      StreamingOutput streamingOutput = output -> subscriptionStrategy
+          .subscribe(irohaAPI, Utils.hash(transactionsToSend.get(0)))
+          .subscribeOn(scheduler)
+          .blockingSubscribe(toriiResponse -> {
+                output.write(printer.print(toriiResponse).getBytes());
+                output.flush();
+              }
+          );
+      return Response.status(200).entity(streamingOutput).build();
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      return Response.status(422).build();
+    } catch (Throwable t) {
+      return Response.status(500).build();
+    }
+  }
+
+  private void checkTransactionSignaturesCount(Transaction transaction) {
+    final int signaturesCount = transaction.getSignaturesCount();
+    final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
+    if (signaturesCount < quorum) {
+      final String msg =
+          "Transaction " + Utils.toHexHash(transaction)
+              + " does not have enough signatures: Quorum: " + quorum
+              + " Signatures: " + signaturesCount;
+      logger.error(msg);
+      throw new IllegalArgumentException(msg);
     }
   }
 }

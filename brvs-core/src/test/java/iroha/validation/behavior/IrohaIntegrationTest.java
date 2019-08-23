@@ -5,6 +5,7 @@
 
 package iroha.validation.behavior;
 
+import static iroha.validation.utils.ValidationUtils.crypto;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -57,7 +58,6 @@ import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 import jp.co.soramitsu.iroha.testcontainers.IrohaContainer;
 import jp.co.soramitsu.iroha.testcontainers.PeerConfig;
 import jp.co.soramitsu.iroha.testcontainers.detail.GenesisBlockBuilder;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer.Alphanumeric;
@@ -69,9 +69,8 @@ import org.testcontainers.containers.GenericContainer;
 
 @TestInstance(Lifecycle.PER_CLASS)
 @TestMethodOrder(Alphanumeric.class)
-class IrohaIntegrationTest {
+public class IrohaIntegrationTest {
 
-  private static final Ed25519Sha3 crypto = new Ed25519Sha3();
   private static final KeyPair peerKeypair = crypto.generateKeypair();
   private static final KeyPair senderKeypair = crypto.generateKeypair();
   private static final KeyPair receiverKeypair = crypto.generateKeypair();
