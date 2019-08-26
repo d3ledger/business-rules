@@ -153,7 +153,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .sign(senderKeypair)
         .build();
 
-    Response response = target("/transaction").request().post(
+    Response response = target("/transaction/send").request().post(
         Entity.entity(
             printer.print(transaction),
             MediaType.APPLICATION_JSON_TYPE
@@ -181,7 +181,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .build()
         .build();
 
-    Response response = target("/transaction/sign").request().post(
+    Response response = target("/transaction/send/sign").request().post(
         Entity.entity(
             printer.print(transaction),
             MediaType.APPLICATION_JSON_TYPE
@@ -205,7 +205,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     final Query query = jp.co.soramitsu.iroha.java.Query.builder(senderId, 1).getAccount(senderId)
         .buildSigned(senderKeypair);
 
-    Response response = target("/query").request()
+    Response response = target("/query/send").request()
         .post(Entity.entity(printer.print(query), MediaType.APPLICATION_JSON_TYPE));
 
     Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
@@ -230,7 +230,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     final Query query = jp.co.soramitsu.iroha.java.Query.builder(senderId, 1).getAccount(senderId)
         .buildUnsigned();
 
-    Response response = target("/query/sign").request()
+    Response response = target("/query/send/sign").request()
         .post(Entity.entity(printer.print(query), MediaType.APPLICATION_JSON_TYPE));
 
     Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
@@ -265,7 +265,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     final Iterable<TransactionOuterClass.Transaction> txAtomicBatch = Utils
         .createTxAtomicBatch(Arrays.asList(transaction1, transaction2), senderKeypair);
 
-    Response response = target("/batch").request()
+    Response response = target("/batch/send").request()
         .post(
             Entity.entity(
                 printer.print(createTxList(txAtomicBatch)),
@@ -298,7 +298,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     final List<Transaction> txAtomicBatch = (List<Transaction>) Utils
         .createTxUnsignedAtomicBatch(Arrays.asList(transaction1, transaction2));
 
-    Response response = target("/batch/sign").request()
+    Response response = target("/batch/send/sign").request()
         .post(
             Entity.entity(
                 printer.print(
