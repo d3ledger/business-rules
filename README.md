@@ -114,7 +114,7 @@ Body:
 ### Sending Iroha transactions and executing Iroha queries using BRVS
 - Sending a JSON serialized transaction
 ```
-http://localhost:8080/brvs/rest/transaction
+http://localhost:8080/brvs/rest/transaction/send
 
 Request body (application/json):
 {
@@ -148,6 +148,9 @@ Response contains Iroha transaction statuses streaming:
 {"tx_status": "COMMITTED","tx_hash": "9f9250c45911e2b3105af08c6e8f04d53587c160674de97144ff9cdb04dec70a"}
 
 ```
+If you want BRVS to sign the transaction with its private key use `*/brvs/rest/transaction/send/sign` endpoint then.
+
+If you want to send a batch of transactions use `*/brvs/rest/batch/send` or `*/brvs/rest/batch/send/sign`
 
 - Executing a JSON serialized query
 ```
@@ -191,6 +194,8 @@ Response contains Iroha query result:
 }
 
 ```
+If you want BRVS to sign the transaction with its private key use `*/brvs/rest/query/send/sign` endpoint then.
+
 
 Full Iroha protobuf schema could be found [here](https://github.com/hyperledger/iroha/tree/master/shared_model/schema)
 

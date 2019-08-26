@@ -5,7 +5,7 @@
 
 dependencies {
     // IPJ
-    compile('com.github.hyperledger.iroha-java:client:6.0.0')
+    compile('com.github.hyperledger.iroha-java:client:de13f51295')
     // Spring
     compile('org.springframework:spring-context:5.1.4.RELEASE')
     // Logging
