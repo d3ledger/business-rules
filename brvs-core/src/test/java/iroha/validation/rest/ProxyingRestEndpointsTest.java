@@ -10,7 +10,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static jp.co.soramitsu.iroha.java.Utils.createTxList;
 import static org.mockito.Mockito.mock;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
 import com.google.protobuf.util.JsonFormat.Printer;
