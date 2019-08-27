@@ -11,8 +11,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
 import com.google.protobuf.util.JsonFormat.Printer;
-import io.reactivex.Scheduler;
-import io.reactivex.schedulers.Schedulers;
+import iroha.protocol.Endpoint.ToriiResponse;
 import iroha.protocol.Endpoint.TxList;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -23,7 +22,6 @@ import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -35,7 +33,6 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
 import org.apache.http.HttpStatus;
@@ -51,7 +48,6 @@ public class RestService {
       .omittingInsignificantWhitespace()
       .preservingProtoFieldNames();
   private final static Parser parser = JsonFormat.parser().ignoringUnknownFields();
-  private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
 
   @Inject
   private RegistrationProvider registrationProvider;
@@ -131,7 +127,7 @@ public class RestService {
       final Transaction transactionsToSend;
       final String hash = Utils.toHexHash(builtTx);
       if (sign) {
-        logger.info("Going to sign transaction:" + hash);
+        logger.info("Going to sign transaction: " + hash);
         transactionsToSend = jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
             .sign(brvsAccountKeyPair).build();
       } else {
@@ -140,15 +136,10 @@ public class RestService {
       }
       checkTransactionSignaturesCount(transactionsToSend);
       logger.info("Going to send transaction: " + hash);
-      StreamingOutput streamingOutput = output -> irohaAPI
+      final ToriiResponse toriiResponse = irohaAPI
           .transaction(transactionsToSend, subscriptionStrategy)
-          .subscribeOn(scheduler)
-          .blockingSubscribe(toriiResponse -> {
-                output.write(printer.print(toriiResponse).getBytes());
-                output.flush();
-              }
-          );
-      return Response.status(HttpStatus.SC_OK).entity(streamingOutput).build();
+          .blockingLast();
+      return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during transaction processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
@@ -293,15 +284,10 @@ public class RestService {
       transactionsToSend.forEach(this::checkTransactionSignaturesCount);
       logger.info("Going to send transaction batch: " + batchHashes);
       irohaAPI.transactionListSync(transactionsToSend);
-      StreamingOutput streamingOutput = output -> subscriptionStrategy
+      final ToriiResponse toriiResponse = subscriptionStrategy
           .subscribe(irohaAPI, Utils.hash(transactionsToSend.get(0)))
-          .subscribeOn(scheduler)
-          .blockingSubscribe(toriiResponse -> {
-                output.write(printer.print(toriiResponse).getBytes());
-                output.flush();
-              }
-          );
-      return Response.status(HttpStatus.SC_OK).entity(streamingOutput).build();
+          .blockingLast();
+      return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during batch processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
