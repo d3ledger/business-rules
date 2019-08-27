@@ -457,7 +457,7 @@ public class IrohaIntegrationTest {
    * @then {@link TransferTxVolumeRule} is NOT replaced by new rule
    */
   @Test
-  void x_groovyRuleAlreadyExistsTest() throws IOException {
+  void x_groovyRuleAlreadyExistsTest() throws IOException, InterruptedException {
     final String ruleName = "volume";
     final TxStatus volumeRepositoryStatus = irohaAPI.transaction(Transaction.builder(validatorId)
             .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
@@ -491,6 +491,7 @@ public class IrohaIntegrationTest {
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
     final String txHash = ValidationUtils.hexHash(transaction);
+    Thread.sleep(2000);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
@@ -509,7 +510,7 @@ public class IrohaIntegrationTest {
    * @then {@link ValidationService} added the rule and transaction failed
    */
   @Test
-  void y_groovyNewRuleTest() throws IOException {
+  void y_groovyNewRuleTest() throws IOException, InterruptedException {
     final String ruleName = "new";
     final TxStatus volumeRepositoryStatus = irohaAPI.transaction(Transaction.builder(validatorId)
             .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
@@ -543,6 +544,7 @@ public class IrohaIntegrationTest {
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
     final String txHash = ValidationUtils.hexHash(transaction);
+    Thread.sleep(2000);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
@@ -567,7 +569,7 @@ public class IrohaIntegrationTest {
    * @then {@link ValidationService} added overwrote existing rule and transaction failed
    */
   @Test
-  void z_groovyNewRuleOverwriteTest() throws IOException {
+  void z_groovyNewRuleOverwriteTest() throws IOException, InterruptedException {
     final String ruleName = "volume";
     final TxStatus volumeRepositoryStatus = irohaAPI.transaction(Transaction.builder(validatorId)
             .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
@@ -602,6 +604,7 @@ public class IrohaIntegrationTest {
         .sign(senderKeypair).build();
     cacheProvider.unlockPendingAccount(senderId);
     final String txHash = ValidationUtils.hexHash(transaction);
+    Thread.sleep(2000);
     irohaAPI.transaction(transaction, terminalStrategy).blockingSubscribe(status -> {
       if (status.getTxStatus().equals(TxStatus.ENOUGH_SIGNATURES_COLLECTED)) {
         // Check account is blocked
