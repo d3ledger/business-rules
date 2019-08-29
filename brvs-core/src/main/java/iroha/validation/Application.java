@@ -5,6 +5,7 @@
 
 package iroha.validation;
 
+import iroha.validation.filter.CrossDomainFilter;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
@@ -61,6 +62,7 @@ public class Application {
         bind(context.getBean("brvsAccountKeyPair", KeyPair.class)).to(KeyPair.class);
       }
     });
+    resourceConfig.register(new CrossDomainFilter());
     resourceConfig.property(ServerProperties.OUTBOUND_CONTENT_LENGTH_BUFFER, 0);
 
     int port = getPort(context);
