@@ -1,6 +1,7 @@
+def dockerTags = ['master': 'latest', 'develop': 'dev']
 pipeline {
     options {
-        buildDiscarder(logRotator(numToKeepStr: '20'))
+        buildDiscarder(logRotator(numToKeepStr: '30'))
         timestamps()
     }
     agent {
@@ -11,13 +12,6 @@ pipeline {
         }
     }
     stages {
-        stage('Build') {
-            steps {
-                script {
-                    sh "./gradlew build --info"
-                }
-            }
-        }
         stage('Test') {
             steps {
                 script {
@@ -25,24 +19,29 @@ pipeline {
                     sh """#!/bin/sh
                       apk update && apk add docker
                       docker login --username ${login} --password '${password}' https://nexus.iroha.tech:19002
-                      ./gradlew test --info
+                      ./gradlew clean test --info
                      """
-                  }
+                    }
                 }
             }
         }
-        stage('Build artifacts') {
+        stage('Build') {
             steps {
                 script {
-                    if (env.BRANCH_NAME ==~ /(master|develop)/ || env.TAG_NAME) {
-                        DOCKER_TAGS = ['master': 'latest', 'develop': 'develop']
-                        withCredentials([usernamePassword(credentialsId: 'nexus-d3-docker', usernameVariable: 'login', passwordVariable: 'password')]) {
-                          env.DOCKER_REGISTRY_URL = "https://nexus.iroha.tech:19002"
-                          env.DOCKER_REGISTRY_USERNAME = "${login}"
-                          env.DOCKER_REGISTRY_PASSWORD = "${password}"
-                          env.TAG = env.TAG_NAME ? env.TAG_NAME : DOCKER_TAGS[env.BRANCH_NAME]
-                          sh "./gradlew dockerPush"
-                        }
+                    sh "./gradlew clean build --info"
+                }
+            }
+        }
+        stage('Push artifacts') {
+            when {
+              expression { return (env.GIT_BRANCH in dockerTags || env.TAG_NAME) }
+            }
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'nexus-d3-docker', usernameVariable: 'DOCKER_REGISTRY_USERNAME', passwordVariable: 'DOCKER_REGISTRY_PASSWORD')]) {
+                        env.DOCKER_REGISTRY_URL = "https://nexus.iroha.tech:19002"
+                        env.DOCKER_TAG = env.TAG_NAME ? env.TAG_NAME : dockerTags[env.GIT_BRANCH]
+                        sh "./gradlew dockerPush"
                     }
                 }
             }
