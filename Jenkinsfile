@@ -40,7 +40,7 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'nexus-d3-docker', usernameVariable: 'DOCKER_REGISTRY_USERNAME', passwordVariable: 'DOCKER_REGISTRY_PASSWORD')]) {
                         env.DOCKER_REGISTRY_URL = "https://nexus.iroha.tech:19002"
-                        env.DOCKER_TAG = env.TAG_NAME ? env.TAG_NAME : dockerTags[env.GIT_BRANCH]
+                        env.TAG = env.TAG_NAME ? env.TAG_NAME : dockerTags[env.GIT_BRANCH]
                         sh "./gradlew dockerPush"
                     }
                 }
