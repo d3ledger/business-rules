@@ -98,6 +98,22 @@ public class RestService {
     return sendTransactionWithSigning(transaction);
   }
 
+  @POST
+  @Path("/transaction/sendBinary")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendTransactionNoSign(byte[] transaction) {
+    return sendBinaryTransaction(transaction, false);
+  }
+
+  @POST
+  @Path("/transaction/sendBinary/sign")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendTransactionSign(byte[] transaction) {
+    return sendBinaryTransaction(transaction, true);
+  }
+
   private Response sendTransactionWithSigning(String transaction) {
     return sendTransaction(transaction, true);
   }
@@ -122,24 +138,8 @@ public class RestService {
     try {
       final Builder builder = Transaction.newBuilder();
       parser.merge(transaction, builder);
-      // since final or effectively final is needed
       final Transaction builtTx = builder.build();
-      final Transaction transactionsToSend;
-      final String hash = Utils.toHexHash(builtTx);
-      if (sign) {
-        logger.info("Going to sign transaction: " + hash);
-        transactionsToSend = jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
-            .sign(brvsAccountKeyPair).build();
-      } else {
-        logger.info("Not going to sign transaction: " + hash);
-        transactionsToSend = builtTx;
-      }
-      checkTransactionSignaturesCount(transactionsToSend);
-      logger.info("Going to send transaction: " + hash);
-      final ToriiResponse toriiResponse = irohaAPI
-          .transaction(transactionsToSend, subscriptionStrategy)
-          .blockingLast();
-      return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
+      return sendBuiltTransaction(builtTx, sign);
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during transaction processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
@@ -147,6 +147,50 @@ public class RestService {
       logger.error("Error during transaction processing", e);
       return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
+  }
+
+  /**
+   * Send transaction built from byte array.
+   * @param transaction - byte array representing transaction
+   * @param sign - sign flag
+   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
+   *    * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not satisfied
+   *    * before sending
+   *    * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   */
+  private Response sendBinaryTransaction(byte[] transaction, boolean sign) {
+    try {
+      final Transaction builtTx = jp.co.soramitsu.iroha.java.Transaction
+          .parseFrom(transaction)
+          .build();
+      return sendBuiltTransaction(builtTx, sign);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
+  private Response sendBuiltTransaction(Transaction builtTx, boolean sign) throws Exception {
+    final Transaction transactionsToSend;
+    final String hash = Utils.toHexHash(builtTx);
+    if (sign) {
+      logger.info("Going to sign transaction: " + hash);
+      transactionsToSend = jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
+          .sign(brvsAccountKeyPair)
+          .build();
+    } else {
+      logger.info("Not going to sign transaction: " + hash);
+      transactionsToSend = builtTx;
+    }
+    checkTransactionSignaturesCount(transactionsToSend);
+    logger.info("Going to send transaction: " + hash);
+    final ToriiResponse toriiResponse = irohaAPI
+        .transaction(transactionsToSend, subscriptionStrategy)
+        .blockingLast();
+    return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
   }
 
   @GET
@@ -233,12 +277,52 @@ public class RestService {
     return sendTransactionsBatchWithSigning(transactionList);
   }
 
+  @POST
+  @Path("/batch/sendBinary")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendBatchNoSign(byte[] transaction) {
+    return sendBinaryBatch(transaction, false);
+  }
+
+  @POST
+  @Path("/batch/sendBinary/sign")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendBatchSign(byte[] transaction) {
+    return sendBinaryBatch(transaction, true);
+  }
+
   private Response sendTransactionsBatchWithSigning(String transactionList) {
     return sendTransactionsBatch(transactionList, true);
   }
 
   private Response sendTransactionsBatchWithoutSigning(String transactionList) {
     return sendTransactionsBatch(transactionList, false);
+  }
+
+  /**
+   * Send transaction built from byte array.
+   * @param transactionList - byte array representing list of transactions
+   * @param sign - sign flag
+   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
+   *    * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not satisfied
+   *    * before sending
+   *    * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   */
+  private Response sendBinaryBatch(byte[] transactionList, boolean sign) {
+    try {
+      final TxList builtTxs = TxList.parseFrom(transactionList)
+          .toBuilder()
+          .build();
+      return sendBuiltBatch(builtTxs, sign);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   /**
@@ -258,36 +342,7 @@ public class RestService {
       final TxList.Builder builder = TxList.newBuilder();
       parser.merge(transactionList, builder);
       final TxList builtTx = builder.build();
-      final List<Transaction> transactionsToSend;
-      final String batchHashes = builtTx.getTransactionsList().stream().map(Utils::toHexHash)
-          .collect(Collectors.joining(","));
-      if (sign) {
-        logger.info("Going to sign transaction batch: " + batchHashes);
-        transactionsToSend = builtTx.getTransactionsList().stream()
-            .map(transaction -> {
-              final int signaturesCount = transaction.getSignaturesCount();
-              final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
-              if (signaturesCount < quorum) {
-                return jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction)
-                    .sign(brvsAccountKeyPair)
-                    .build();
-              } else {
-                return transaction;
-              }
-            }).collect(Collectors.toList());
-      } else {
-        logger.info("Not going to sign transaction batch: " + batchHashes);
-        transactionsToSend = builtTx.getTransactionsList().stream().map(
-            transaction -> jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction).build())
-            .collect(Collectors.toList());
-      }
-      transactionsToSend.forEach(this::checkTransactionSignaturesCount);
-      logger.info("Going to send transaction batch: " + batchHashes);
-      irohaAPI.transactionListSync(transactionsToSend);
-      final ToriiResponse toriiResponse = subscriptionStrategy
-          .subscribe(irohaAPI, Utils.hash(transactionsToSend.get(0)))
-          .blockingLast();
-      return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
+      return sendBuiltBatch(builtTx, sign);
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during batch processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
@@ -295,6 +350,39 @@ public class RestService {
       logger.error("Error during batch processing", e);
       return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
+  }
+
+  private Response sendBuiltBatch(TxList builtTxs, boolean sign) throws Exception {
+    final String batchHashes = builtTxs.getTransactionsList().stream().map(Utils::toHexHash)
+        .collect(Collectors.joining(","));
+    final List<Transaction> transactionsToSend;
+    if (sign) {
+      logger.info("Going to sign transaction batch: " + batchHashes);
+      transactionsToSend = builtTxs.getTransactionsList().stream()
+          .map(transaction -> {
+            final int signaturesCount = transaction.getSignaturesCount();
+            final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
+            if (signaturesCount < quorum) {
+              return jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction)
+                  .sign(brvsAccountKeyPair)
+                  .build();
+            } else {
+              return transaction;
+            }
+          }).collect(Collectors.toList());
+    } else {
+      logger.info("Not going to sign transaction batch: " + batchHashes);
+      transactionsToSend = builtTxs.getTransactionsList().stream().map(
+          transaction -> jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction).build())
+          .collect(Collectors.toList());
+    }
+    transactionsToSend.forEach(this::checkTransactionSignaturesCount);
+    logger.info("Going to send transaction batch: " + batchHashes);
+    irohaAPI.transactionListSync(transactionsToSend);
+    final ToriiResponse toriiResponse = subscriptionStrategy
+        .subscribe(irohaAPI, Utils.hash(transactionsToSend.get(0)))
+        .blockingLast();
+    return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
   }
 
   private void checkTransactionSignaturesCount(Transaction transaction) {
