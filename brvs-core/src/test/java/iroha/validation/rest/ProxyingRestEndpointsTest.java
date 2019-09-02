@@ -14,6 +14,7 @@ import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
 import com.google.protobuf.util.JsonFormat.Printer;
 import iroha.protocol.BlockOuterClass;
+import iroha.protocol.Endpoint.TxList;
 import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.Queries.Query;
@@ -42,6 +43,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 import org.junit.Assert;
 import org.junit.Test;
+import org.testcontainers.shaded.com.google.common.primitives.Bytes;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 public class ProxyingRestEndpointsTest extends JerseyTest {
@@ -196,6 +198,36 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
 
   /**
    * @given {@link RestService} instance with a creator's signature inside
+   * @when {@link Query} without a valid creator's signature is passed to the
+   *    * '/transaction/sendBinary/sign' as byte array
+   * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
+   *    * stream
+   */
+  @Test
+  public void sendBinaryUnsignedTransaction() throws IOException {
+    final String amount = "1";
+    final TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
+        .build()
+        .build();
+
+    byte[] bytes = transaction.toByteArray();
+
+    Response response = target("/transaction/sendBinary/sign").request().post(
+        Entity.entity(
+            bytes,
+            MediaType.APPLICATION_JSON_TYPE
+        )
+    );
+
+    Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
+    Assert.assertTrue(IOUtils.toString((InputStream) response.getEntity(), UTF_8)
+        .contains("COMMITTED")
+    );
+  }
+
+  /**
+   * @given {@link RestService} instance with a creator's signature inside
    * @when {@link Query} with a valid creator's signature is passed to the '/query'
    * @then BRVS proxies the query, signs it and returns successful status code 200 with a
    * corresponding query response
@@ -312,6 +344,42 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
                 MediaType.APPLICATION_JSON_TYPE
             )
         );
+
+    Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
+    Assert.assertTrue(IOUtils.toString((InputStream) response.getEntity(), UTF_8)
+        .contains("COMMITTED")
+    );
+  }
+
+  /**
+   * @given {@link RestService} instance with a creator's signature inside
+   * @when {@link Query} without a valid creator's signature is passed to the
+   *    * '/batch/sendBinary/sign' as byte array
+   * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
+   *    * stream
+   */
+  @Test
+  public void sendBinaryUnsignedBatch() throws IOException {
+    final String amount = "1";
+    final Transaction transaction1 = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer1", amount)
+        .build();
+    final Transaction transaction2 = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer2", amount)
+        .build();
+    TxList txList = TxList.newBuilder()
+        .addTransactions(transaction1.build())
+        .addTransactions(transaction2.build())
+        .build();
+
+    byte[] bytes = txList.toByteArray();
+
+    Response response = target("/batch/sendBinary/sign").request().post(
+        Entity.entity(
+            bytes,
+            MediaType.APPLICATION_JSON_TYPE
+        )
+    );
 
     Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
     Assert.assertTrue(IOUtils.toString((InputStream) response.getEntity(), UTF_8)
