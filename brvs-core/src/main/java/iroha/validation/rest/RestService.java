@@ -43,6 +43,16 @@ import org.slf4j.LoggerFactory;
 @Path("")
 public class RestService {
 
+  /**
+   * Lambda function interface with unhandled exception
+   * @param <T> input parameter type
+   * @param <R> return type
+   */
+  @FunctionalInterface
+  public interface CheckedFunction<T, R> {
+    R apply(T t) throws Exception;
+  }
+
   private final static Logger logger = LoggerFactory.getLogger(RestService.class);
   private final static Printer printer = JsonFormat.printer()
       .omittingInsignificantWhitespace()
@@ -87,16 +97,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionNoSign(String transaction) {
-    try {
-      final Transaction builtTx = buildTransaction(transaction);
+    CheckedFunction<String, ToriiResponse> handler = tx -> {
+      final Transaction builtTx = buildTransaction(tx);
       return sendBuiltTransaction(builtTx);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transaction, handler);
   }
 
   @POST
@@ -104,17 +109,12 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionSign(String transaction) {
-    try {
-      final Transaction builtTx = buildTransaction(transaction);
+    CheckedFunction<String, ToriiResponse> handler = tx -> {
+      final Transaction builtTx = buildTransaction(tx);
       final Transaction signedTx = signTransaction(builtTx);
       return sendBuiltTransaction(signedTx);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transaction, handler);
   }
 
   @POST
@@ -122,16 +122,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionNoSign(byte[] transaction) {
-    try {
-      final Transaction builtTx = buildTransaction(transaction);
+    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+      final Transaction builtTx = buildTransaction(tx);
       return sendBuiltTransaction(builtTx);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transaction, handler);
   }
 
   @POST
@@ -139,17 +134,12 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionSign(byte[] transaction) {
-    try {
-      final Transaction builtTx = buildTransaction(transaction);
+    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+      final Transaction builtTx = buildTransaction(tx);
       final Transaction signedTx = signTransaction(builtTx);
       return sendBuiltTransaction(signedTx);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transaction, handler);
   }
 
   /**
@@ -198,19 +188,14 @@ public class RestService {
    * Performs gRPC call to send transaction.
    *
    * @param transaction - proto transaction
-   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
-   * * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not
-   * satisfied * before sending * <br> {@link Response HTTP} {@link HttpStatus 500} if any other
-   * error occurred
+   * @return ToriiResponse with transaction status stream
    */
-  private Response sendBuiltTransaction(Transaction transaction) throws Exception {
+  private ToriiResponse sendBuiltTransaction(Transaction transaction) throws Exception {
     final String hash = Utils.toHexHash(transaction);
     checkTransactionSignaturesCount(transaction);
     logger.info("Going to send transaction: " + hash);
-    final ToriiResponse toriiResponse = irohaAPI
-        .transaction(transaction, subscriptionStrategy)
+    return irohaAPI.transaction(transaction, subscriptionStrategy)
         .blockingLast();
-    return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
   }
 
   @GET
@@ -286,16 +271,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionsBatchNoSign(String transactionList) {
-    try {
-      List<Transaction> builtTransactions = buildBatch(transactionList);
+    CheckedFunction<String, ToriiResponse> handler = tx -> {
+      List<Transaction> builtTransactions = buildBatch(tx);
       return sendBuiltBatch(builtTransactions);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transactionList, handler);
   }
 
   @POST
@@ -303,17 +283,12 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionsBatchWithSign(String transactionList) {
-    try {
-      List<Transaction> builtTransactions = buildBatch(transactionList);
+    CheckedFunction<String, ToriiResponse> handler = tx -> {
+      List<Transaction> builtTransactions = buildBatch(tx);
       List<Transaction> signedTransactions = signBatch(builtTransactions);
       return sendBuiltBatch(signedTransactions);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transactionList, handler);
   }
 
   @POST
@@ -321,16 +296,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchNoSign(byte[] transactionList) {
-    try {
-      List<Transaction> builtTransactions = buildBatch(transactionList);
+    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+      List<Transaction> builtTransactions = buildBatch(tx);
       return sendBuiltBatch(builtTransactions);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transactionList, handler);
   }
 
   @POST
@@ -338,17 +308,12 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchSign(byte[] transactionList) {
-    try {
-      List<Transaction> builtTransactions = buildBatch(transactionList);
+    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+      List<Transaction> builtTransactions = buildBatch(tx);
       List<Transaction> signedTransactions = signBatch(builtTransactions);
       return sendBuiltBatch(signedTransactions);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+    };
+    return buildResponse(transactionList, handler);
   }
 
   /**
@@ -407,32 +372,51 @@ public class RestService {
   /**
    * Performs gRPC call to send transaction.
    *
-   * @param txList - list of proto transaction return {@link Response HTTP} {@link HttpStatus 200}
-   * with first transaction status stream <br> {@link Response HTTP} {@link HttpStatus 422} if JSON
-   * supplied is incorrect or quorum is not satisfied before sending
-   * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   * @return ToriiResponse with transaction status stream
    */
-  private Response sendBuiltBatch(List<Transaction> txList) throws Exception {
+  private ToriiResponse sendBuiltBatch(List<Transaction> txList) throws Exception {
     final String batchHashes = txList.stream().map(Utils::toHexHash)
         .collect(Collectors.joining(","));
     txList.forEach(this::checkTransactionSignaturesCount);
     logger.info("Going to send transaction batch: " + batchHashes);
     irohaAPI.transactionListSync(txList);
-    final ToriiResponse toriiResponse = subscriptionStrategy
+    return subscriptionStrategy
         .subscribe(irohaAPI, Utils.hash(txList.get(0)))
         .blockingLast();
-    return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
   }
 
   private void checkTransactionSignaturesCount(Transaction transaction) {
     final int signaturesCount = transaction.getSignaturesCount();
     final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
     if (signaturesCount < quorum) {
-      final String msg =
-          "Transaction " + Utils.toHexHash(transaction)
-              + " does not have enough signatures: Quorum: " + quorum
-              + " Signatures: " + signaturesCount;
+      final String msg = "Transaction " + Utils.toHexHash(transaction)
+          + " does not have enough signatures: Quorum: " + quorum
+          + " Signatures: " + signaturesCount;
       throw new IllegalArgumentException(msg);
+    }
+  }
+
+  /**
+   * Build HTTP REST response with handler.
+   *
+   * @param requestedTx - requested transaction
+   * @param handler - handler for requested transaction
+   * @param <T> - parameter of requested transaction
+   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
+   * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not satisfied
+   * before sending
+   * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   */
+  private <T> Response buildResponse(T requestedTx, CheckedFunction<T, ToriiResponse> handler) {
+    try {
+      ToriiResponse res = handler.apply(requestedTx);
+      return Response.status(HttpStatus.SC_OK).entity(printer.print(res)).build();
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
     }
   }
 }

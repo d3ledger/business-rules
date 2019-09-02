@@ -196,7 +196,6 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     );
   }
 
-  @Test
   /**
    * @given {@link RestService} instance with a creator's signature inside
    * @when {@link Query} without a valid creator's signature is passed to the
@@ -204,6 +203,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
    *    * stream
    */
+  @Test
   public void sendBinaryUnsignedTransaction() throws IOException {
     final String amount = "1";
     final TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
@@ -351,7 +351,6 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     );
   }
 
-  @Test
   /**
    * @given {@link RestService} instance with a creator's signature inside
    * @when {@link Query} without a valid creator's signature is passed to the
@@ -359,6 +358,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
    *    * stream
    */
+  @Test
   public void sendBinaryUnsignedBatch() throws IOException {
     final String amount = "1";
     final Transaction transaction1 = Transaction.builder(senderId)
