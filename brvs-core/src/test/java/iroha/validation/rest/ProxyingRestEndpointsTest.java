@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Application;
@@ -43,7 +44,6 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 import org.junit.Assert;
 import org.junit.Test;
-import org.testcontainers.shaded.com.google.common.primitives.Bytes;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 public class ProxyingRestEndpointsTest extends JerseyTest {
@@ -198,10 +198,10 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
 
   /**
    * @given {@link RestService} instance with a creator's signature inside
-   * @when {@link Query} without a valid creator's signature is passed to the
-   *    * '/transaction/sendBinary/sign' as byte array
+   * @when {@link Query} without a valid creator's signature is passed to the *
+   * '/transaction/sendBinary/sign' as byte array
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
-   *    * stream
+   * * stream
    */
   @Test
   public void sendBinaryUnsignedTransaction() throws IOException {
@@ -210,12 +210,12 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
         .build()
         .build();
-
     byte[] bytes = transaction.toByteArray();
+    String hexString = Base64.getEncoder().encodeToString(bytes);
 
     Response response = target("/transaction/sendBinary/sign").request().post(
         Entity.entity(
-            bytes,
+            hexString,
             MediaType.APPLICATION_JSON_TYPE
         )
     );
@@ -353,10 +353,10 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
 
   /**
    * @given {@link RestService} instance with a creator's signature inside
-   * @when {@link Query} without a valid creator's signature is passed to the
-   *    * '/batch/sendBinary/sign' as byte array
+   * @when {@link Query} without a valid creator's signature is passed to the *
+   * '/batch/sendBinary/sign' as byte array
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
-   *    * stream
+   * * stream
    */
   @Test
   public void sendBinaryUnsignedBatch() throws IOException {
@@ -371,12 +371,12 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .addTransactions(transaction1.build())
         .addTransactions(transaction2.build())
         .build();
-
     byte[] bytes = txList.toByteArray();
+    String hexString = Base64.getEncoder().encodeToString(bytes);
 
     Response response = target("/batch/sendBinary/sign").request().post(
         Entity.entity(
-            bytes,
+            hexString,
             MediaType.APPLICATION_JSON_TYPE
         )
     );

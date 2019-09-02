@@ -21,6 +21,7 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
+import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -121,9 +122,10 @@ public class RestService {
   @Path("/transaction/sendBinary")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendTransactionNoSign(byte[] transaction) {
-    return buildResponse(transaction, tx -> {
-      final Transaction builtTx = buildTransaction(tx);
+  public Response sendTransactionBinaryNoSign(String hexString) {
+    return buildResponse(hexString, tx -> {
+      byte[] bytes = Base64.getDecoder().decode(tx);
+      final Transaction builtTx = buildTransaction(bytes);
       return sendBuiltTransaction(builtTx);
     });
   }
@@ -132,9 +134,10 @@ public class RestService {
   @Path("/transaction/sendBinary/sign")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendTransactionSign(byte[] transaction) {
-    return buildResponse(transaction, tx -> {
-      final Transaction builtTx = buildTransaction(tx);
+  public Response sendTransactionBinarySign(String hexString) {
+    return buildResponse(hexString, tx -> {
+      byte[] bytes = Base64.getDecoder().decode(tx);
+      final Transaction builtTx = buildTransaction(bytes);
       final Transaction signedTx = signTransaction(builtTx);
       return sendBuiltTransaction(signedTx);
     });
@@ -291,9 +294,10 @@ public class RestService {
   @Path("/batch/sendBinary")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendBatchNoSign(byte[] transactionList) {
-    return buildResponse(transactionList, tx -> {
-      List<Transaction> builtTransactions = buildBatch(tx);
+  public Response sendBatchBinaryNoSign(String transactionListHex) {
+    return buildResponse(transactionListHex, tx -> {
+      byte[] bytes = Base64.getDecoder().decode(tx);
+      List<Transaction> builtTransactions = buildBatch(bytes);
       return sendBuiltBatch(builtTransactions);
     });
   }
@@ -302,9 +306,10 @@ public class RestService {
   @Path("/batch/sendBinary/sign")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendBatchSign(byte[] transactionList) {
-    return buildResponse(transactionList, tx -> {
-      List<Transaction> builtTransactions = buildBatch(tx);
+  public Response sendBatchBinarySign(String transactionListHex) {
+    return buildResponse(transactionListHex, tx -> {
+      byte[] bytes = Base64.getDecoder().decode(tx);
+      List<Transaction> builtTransactions = buildBatch(bytes);
       List<Transaction> signedTransactions = signBatch(builtTransactions);
       return sendBuiltBatch(signedTransactions);
     });
@@ -368,7 +373,7 @@ public class RestService {
    *
    * @return ToriiResponse with transaction status stream
    */
-  private ToriiResponse sendBuiltBatch(List<Transaction> txList) throws Exception {
+  private ToriiResponse sendBuiltBatch(List<Transaction> txList) {
     final String batchHashes = txList.stream().map(Utils::toHexHash)
         .collect(Collectors.joining(","));
     txList.forEach(this::checkTransactionSignaturesCount);
