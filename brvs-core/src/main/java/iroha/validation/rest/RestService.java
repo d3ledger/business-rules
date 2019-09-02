@@ -87,7 +87,16 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionNoSign(String transaction) {
-    return sendTransactionWithoutSigning(transaction);
+    try {
+      final Transaction builtTx = buildTransaction(transaction);
+      return sendBuiltTransaction(builtTx);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   @POST
@@ -95,7 +104,17 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionSign(String transaction) {
-    return sendTransactionWithSigning(transaction);
+    try {
+      final Transaction builtTx = buildTransaction(transaction);
+      final Transaction signedTx = signTransaction(builtTx);
+      return sendBuiltTransaction(signedTx);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   @POST
@@ -103,7 +122,16 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionNoSign(byte[] transaction) {
-    return sendBinaryTransaction(transaction, false);
+    try {
+      final Transaction builtTx = buildTransaction(transaction);
+      return sendBuiltTransaction(builtTx);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   @POST
@@ -111,84 +139,76 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionSign(byte[] transaction) {
-    return sendBinaryTransaction(transaction, true);
-  }
-
-  private Response sendTransactionWithSigning(String transaction) {
-    return sendTransaction(transaction, true);
-  }
-
-  private Response sendTransactionWithoutSigning(String transaction) {
-    return sendTransaction(transaction, false);
+    try {
+      final Transaction builtTx = buildTransaction(transaction);
+      final Transaction signedTx = signTransaction(builtTx);
+      return sendBuiltTransaction(signedTx);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during transaction processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   /**
-   * Parses Iroha serialized transaction to {@link iroha.protocol.TransactionOuterClass.TransactionOrBuilder}
-   * and performs gRPC call to send transaction. If sign parameter is set to true the transaction is
-   * additionally signed with brvs key.
+   * Parses Iroha serialized transaction to {@link iroha.protocol.TransactionOuterClass.Transaction}
    *
-   * @param transaction JSONed proto transaction
-   * @param sign sign flag
-   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
-   * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not satisfied
-   * before sending
-   * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   * @param transaction - JSONed proto transaction
+   * @return built protobuf transaction
+   * @throws com.google.protobuf.InvalidProtocolBufferException on invalid format
    */
-  private Response sendTransaction(String transaction, boolean sign) {
-    try {
-      final Builder builder = Transaction.newBuilder();
-      parser.merge(transaction, builder);
-      final Transaction builtTx = builder.build();
-      return sendBuiltTransaction(builtTx, sign);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+  private Transaction buildTransaction(String transaction)
+      throws com.google.protobuf.InvalidProtocolBufferException {
+    final Builder builder = Transaction.newBuilder();
+    parser.merge(transaction, builder);
+    return builder.build();
   }
 
   /**
-   * Send transaction built from byte array.
-   * @param transaction - byte array representing transaction
-   * @param sign - sign flag
-   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
-   *    * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not satisfied
-   *    * before sending
-   *    * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
+   * Parses Iroha serialized transaction to {@link iroha.protocol.TransactionOuterClass.Transaction}
+   *
+   * @param transaction - byte array representation of protobuf transaction
+   * @return built protobuf transaction
+   * @throws com.google.protobuf.InvalidProtocolBufferException on invalid format
    */
-  private Response sendBinaryTransaction(byte[] transaction, boolean sign) {
-    try {
-      final Transaction builtTx = jp.co.soramitsu.iroha.java.Transaction
-          .parseFrom(transaction)
-          .build();
-      return sendBuiltTransaction(builtTx, sign);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
+  private Transaction buildTransaction(byte[] transaction)
+      throws com.google.protobuf.InvalidProtocolBufferException {
+    return jp.co.soramitsu.iroha.java.Transaction
+        .parseFrom(transaction)
+        .build();
   }
 
-  private Response sendBuiltTransaction(Transaction builtTx, boolean sign) throws Exception {
-    final Transaction transactionsToSend;
+  /**
+   * Sign transaction with brvs key
+   *
+   * @param builtTx - protobuf transaction
+   * @return signed protobuf Transaction
+   */
+  private Transaction signTransaction(Transaction builtTx) {
     final String hash = Utils.toHexHash(builtTx);
-    if (sign) {
-      logger.info("Going to sign transaction: " + hash);
-      transactionsToSend = jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
-          .sign(brvsAccountKeyPair)
-          .build();
-    } else {
-      logger.info("Not going to sign transaction: " + hash);
-      transactionsToSend = builtTx;
-    }
-    checkTransactionSignaturesCount(transactionsToSend);
+    logger.info("Going to sign transaction: " + hash);
+    return jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
+        .sign(brvsAccountKeyPair)
+        .build();
+  }
+
+  /**
+   * Performs gRPC call to send transaction.
+   *
+   * @param transaction - proto transaction
+   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
+   * * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not
+   * satisfied * before sending * <br> {@link Response HTTP} {@link HttpStatus 500} if any other
+   * error occurred
+   */
+  private Response sendBuiltTransaction(Transaction transaction) throws Exception {
+    final String hash = Utils.toHexHash(transaction);
+    checkTransactionSignaturesCount(transaction);
     logger.info("Going to send transaction: " + hash);
     final ToriiResponse toriiResponse = irohaAPI
-        .transaction(transactionsToSend, subscriptionStrategy)
+        .transaction(transaction, subscriptionStrategy)
         .blockingLast();
     return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
   }
@@ -266,7 +286,16 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionsBatchNoSign(String transactionList) {
-    return sendTransactionsBatchWithoutSigning(transactionList);
+    try {
+      List<Transaction> builtTransactions = buildBatch(transactionList);
+      return sendBuiltBatch(builtTransactions);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   @POST
@@ -274,48 +303,45 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionsBatchWithSign(String transactionList) {
-    return sendTransactionsBatchWithSigning(transactionList);
+    try {
+      List<Transaction> builtTransactions = buildBatch(transactionList);
+      List<Transaction> signedTransactions = signBatch(builtTransactions);
+      return sendBuiltBatch(signedTransactions);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   @POST
   @Path("/batch/sendBinary")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendBatchNoSign(byte[] transaction) {
-    return sendBinaryBatch(transaction, false);
+  public Response sendBatchNoSign(byte[] transactionList) {
+    try {
+      List<Transaction> builtTransactions = buildBatch(transactionList);
+      return sendBuiltBatch(builtTransactions);
+    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
+    } catch (Exception e) {
+      logger.error("Error during batch processing", e);
+      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
   }
 
   @POST
   @Path("/batch/sendBinary/sign")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendBatchSign(byte[] transaction) {
-    return sendBinaryBatch(transaction, true);
-  }
-
-  private Response sendTransactionsBatchWithSigning(String transactionList) {
-    return sendTransactionsBatch(transactionList, true);
-  }
-
-  private Response sendTransactionsBatchWithoutSigning(String transactionList) {
-    return sendTransactionsBatch(transactionList, false);
-  }
-
-  /**
-   * Send transaction built from byte array.
-   * @param transactionList - byte array representing list of transactions
-   * @param sign - sign flag
-   * @return {@link Response HTTP} {@link HttpStatus 200} with transaction status stream <br> {@link
-   *    * Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not satisfied
-   *    * before sending
-   *    * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
-   */
-  private Response sendBinaryBatch(byte[] transactionList, boolean sign) {
+  public Response sendBatchSign(byte[] transactionList) {
     try {
-      final TxList builtTxs = TxList.parseFrom(transactionList)
-          .toBuilder()
-          .build();
-      return sendBuiltBatch(builtTxs, sign);
+      List<Transaction> builtTransactions = buildBatch(transactionList);
+      List<Transaction> signedTransactions = signBatch(builtTransactions);
+      return sendBuiltBatch(signedTransactions);
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during batch processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
@@ -326,61 +352,74 @@ public class RestService {
   }
 
   /**
-   * Parses Iroha serialized transaction batch to {@link iroha.protocol.Endpoint.TxList} and
-   * performs gRPC call to send it. If sign parameter is set to true the batch is additionally
-   * signed with brvs key if there is a signature slot for that.
+   * Parses Iroha serialized transaction list to {@link iroha.protocol.Endpoint.TxList}
    *
-   * @param transactionList JSONed proto TxList
-   * @param sign sign flag
-   * @return {@link Response HTTP} {@link HttpStatus 200} with first transaction status stream <br>
-   * {@link Response HTTP} {@link HttpStatus 422} if JSON supplied is incorrect or quorum is not
-   * satisfied before sending
+   * @param transactionList - JSONed proto transaction list
+   * @return built protobuf transaction list
+   * @throws com.google.protobuf.InvalidProtocolBufferException on invalid format
+   */
+  private List<Transaction> buildBatch(String transactionList)
+      throws com.google.protobuf.InvalidProtocolBufferException {
+    final TxList.Builder builder = TxList.newBuilder();
+    parser.merge(transactionList, builder);
+    return builder.build().getTransactionsList();
+  }
+
+  /**
+   * Parses Iroha serialized transaction to {@link iroha.protocol.Endpoint.TxList}
+   *
+   * @param transactionList - byte array representation of protobuf transaction list
+   * @return list of built protobuf transaction
+   * @throws com.google.protobuf.InvalidProtocolBufferException on invalid format
+   */
+  private List<Transaction> buildBatch(byte[] transactionList)
+      throws com.google.protobuf.InvalidProtocolBufferException {
+    return TxList.parseFrom(transactionList)
+        .toBuilder()
+        .build()
+        .getTransactionsList();
+  }
+
+  /**
+   * Sign batch transactions with brvs key if there is a signature slot for that
+   *
+   * @param txList - protobuf transaction list
+   * @return signed protobuf transaction list
+   */
+  private List<Transaction> signBatch(List<Transaction> txList) {
+    final String batchHashes = txList.stream().map(Utils::toHexHash)
+        .collect(Collectors.joining(","));
+    logger.info("Going to sign transaction batch: " + batchHashes);
+    return txList.stream()
+        .map(transaction -> {
+          final int signaturesCount = transaction.getSignaturesCount();
+          final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
+          if (signaturesCount < quorum) {
+            return jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction)
+                .sign(brvsAccountKeyPair)
+                .build();
+          } else {
+            return transaction;
+          }
+        }).collect(Collectors.toList());
+  }
+
+  /**
+   * Performs gRPC call to send transaction.
+   *
+   * @param txList - list of proto transaction return {@link Response HTTP} {@link HttpStatus 200}
+   * with first transaction status stream <br> {@link Response HTTP} {@link HttpStatus 422} if JSON
+   * supplied is incorrect or quorum is not satisfied before sending
    * <br> {@link Response HTTP} {@link HttpStatus 500} if any other error occurred
    */
-  private Response sendTransactionsBatch(String transactionList, boolean sign) {
-    try {
-      final TxList.Builder builder = TxList.newBuilder();
-      parser.merge(transactionList, builder);
-      final TxList builtTx = builder.build();
-      return sendBuiltBatch(builtTx, sign);
-    } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during batch processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
-    }
-  }
-
-  private Response sendBuiltBatch(TxList builtTxs, boolean sign) throws Exception {
-    final String batchHashes = builtTxs.getTransactionsList().stream().map(Utils::toHexHash)
+  private Response sendBuiltBatch(List<Transaction> txList) throws Exception {
+    final String batchHashes = txList.stream().map(Utils::toHexHash)
         .collect(Collectors.joining(","));
-    final List<Transaction> transactionsToSend;
-    if (sign) {
-      logger.info("Going to sign transaction batch: " + batchHashes);
-      transactionsToSend = builtTxs.getTransactionsList().stream()
-          .map(transaction -> {
-            final int signaturesCount = transaction.getSignaturesCount();
-            final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
-            if (signaturesCount < quorum) {
-              return jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction)
-                  .sign(brvsAccountKeyPair)
-                  .build();
-            } else {
-              return transaction;
-            }
-          }).collect(Collectors.toList());
-    } else {
-      logger.info("Not going to sign transaction batch: " + batchHashes);
-      transactionsToSend = builtTxs.getTransactionsList().stream().map(
-          transaction -> jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction).build())
-          .collect(Collectors.toList());
-    }
-    transactionsToSend.forEach(this::checkTransactionSignaturesCount);
+    txList.forEach(this::checkTransactionSignaturesCount);
     logger.info("Going to send transaction batch: " + batchHashes);
-    irohaAPI.transactionListSync(transactionsToSend);
+    irohaAPI.transactionListSync(txList);
     final ToriiResponse toriiResponse = subscriptionStrategy
-        .subscribe(irohaAPI, Utils.hash(transactionsToSend.get(0)))
+        .subscribe(irohaAPI, Utils.hash(txList.get(0)))
         .blockingLast();
     return Response.status(HttpStatus.SC_OK).entity(printer.print(toriiResponse)).build();
   }
