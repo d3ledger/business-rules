@@ -45,11 +45,13 @@ public class RestService {
 
   /**
    * Lambda function interface with unhandled exception
+   *
    * @param <T> input parameter type
    * @param <R> return type
    */
   @FunctionalInterface
   public interface CheckedFunction<T, R> {
+
     R apply(T t) throws Exception;
   }
 
@@ -97,11 +99,10 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionNoSign(String transaction) {
-    CheckedFunction<String, ToriiResponse> handler = tx -> {
+    return buildResponse(transaction, tx -> {
       final Transaction builtTx = buildTransaction(tx);
       return sendBuiltTransaction(builtTx);
-    };
-    return buildResponse(transaction, handler);
+    });
   }
 
   @POST
@@ -109,12 +110,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionSign(String transaction) {
-    CheckedFunction<String, ToriiResponse> handler = tx -> {
+    return buildResponse(transaction, tx -> {
       final Transaction builtTx = buildTransaction(tx);
       final Transaction signedTx = signTransaction(builtTx);
       return sendBuiltTransaction(signedTx);
-    };
-    return buildResponse(transaction, handler);
+    });
   }
 
   @POST
@@ -122,11 +122,10 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionNoSign(byte[] transaction) {
-    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+    return buildResponse(transaction, tx -> {
       final Transaction builtTx = buildTransaction(tx);
       return sendBuiltTransaction(builtTx);
-    };
-    return buildResponse(transaction, handler);
+    });
   }
 
   @POST
@@ -134,12 +133,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionSign(byte[] transaction) {
-    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+    return buildResponse(transaction, tx -> {
       final Transaction builtTx = buildTransaction(tx);
       final Transaction signedTx = signTransaction(builtTx);
       return sendBuiltTransaction(signedTx);
-    };
-    return buildResponse(transaction, handler);
+    });
   }
 
   /**
@@ -271,11 +269,10 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionsBatchNoSign(String transactionList) {
-    CheckedFunction<String, ToriiResponse> handler = tx -> {
+    return buildResponse(transactionList, tx -> {
       List<Transaction> builtTransactions = buildBatch(tx);
       return sendBuiltBatch(builtTransactions);
-    };
-    return buildResponse(transactionList, handler);
+    });
   }
 
   @POST
@@ -283,12 +280,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionsBatchWithSign(String transactionList) {
-    CheckedFunction<String, ToriiResponse> handler = tx -> {
+    return buildResponse(transactionList, tx -> {
       List<Transaction> builtTransactions = buildBatch(tx);
       List<Transaction> signedTransactions = signBatch(builtTransactions);
       return sendBuiltBatch(signedTransactions);
-    };
-    return buildResponse(transactionList, handler);
+    });
   }
 
   @POST
@@ -296,11 +292,10 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchNoSign(byte[] transactionList) {
-    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+    return buildResponse(transactionList, tx -> {
       List<Transaction> builtTransactions = buildBatch(tx);
       return sendBuiltBatch(builtTransactions);
-    };
-    return buildResponse(transactionList, handler);
+    });
   }
 
   @POST
@@ -308,12 +303,11 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchSign(byte[] transactionList) {
-    CheckedFunction<byte[], ToriiResponse> handler = tx -> {
+    return buildResponse(transactionList, tx -> {
       List<Transaction> builtTransactions = buildBatch(tx);
       List<Transaction> signedTransactions = signBatch(builtTransactions);
       return sendBuiltBatch(signedTransactions);
-    };
-    return buildResponse(transactionList, handler);
+    });
   }
 
   /**
