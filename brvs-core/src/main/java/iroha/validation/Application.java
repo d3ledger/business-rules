@@ -60,6 +60,7 @@ public class Application {
         bind(context.getBean(IrohaAPI.class)).to(IrohaAPI.class);
         bind(context.getBean(CacheProvider.class)).to(CacheProvider.class);
         bind(context.getBean("brvsAccountKeyPair", KeyPair.class)).to(KeyPair.class);
+        bind(context.getBean("signerKeyPair", KeyPair.class)).to(KeyPair.class);
       }
     });
     resourceConfig.register(new CrossDomainFilter());

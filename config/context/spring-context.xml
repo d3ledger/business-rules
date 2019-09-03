@@ -35,6 +35,11 @@
     <constructor-arg name="hexPublicKey" value="${CREDENTIAL_PUBKEY}"/>
     <constructor-arg name="hexPrivateKey" value="${CREDENTIAL_PRIVKEY}"/>
   </bean>
+  <bean id="signerKeyPair" class="jp.co.soramitsu.iroha.java.Utils"
+    factory-method="parseHexKeypair">
+    <constructor-arg name="hexPublicKey" value="${SIGNER_CREDENTIAL_PUBKEY}"/>
+    <constructor-arg name="hexPrivateKey" value="${SIGNER_CREDENTIAL_PRIVKEY}"/>
+  </bean>
   <bean id="keysList" class="iroha.validation.utils.ValidationUtils"
     factory-method="generateOrImportKeypairs">
     <constructor-arg name="amount" value="${BRVS_USERKEYSCOUNT}"/>
