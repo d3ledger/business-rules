@@ -26,6 +26,7 @@ import java.security.KeyPair;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -41,7 +42,6 @@ import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
-import org.springframework.beans.factory.annotation.Qualifier;
 
 @Singleton
 @Path("")
@@ -79,7 +79,7 @@ public class RestService {
    * Keypair used to sign incoming transactions
    */
   @Inject
-  @Qualifier("signerKeyPair")
+  @Named("signerKeyPair")
   private KeyPair signerKeyPair;
 
   @GET
