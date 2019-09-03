@@ -10,6 +10,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static jp.co.soramitsu.iroha.java.Utils.createTxList;
 import static org.mockito.Mockito.mock;
 
+import com.google.gson.Gson;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
 import com.google.protobuf.util.JsonFormat.Printer;
@@ -19,6 +20,7 @@ import iroha.protocol.Primitive.RolePermission;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass;
+import iroha.validation.rest.dto.BinaryTransaction;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
@@ -26,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Application;
@@ -66,6 +67,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   private final static Parser parser = JsonFormat.parser().ignoringUnknownFields();
   private static IrohaContainer iroha;
   private static IrohaAPI irohaAPI;
+  private static final Gson gson = new Gson();
 
   private static BlockOuterClass.Block getGenesisBlock() {
     return new GenesisBlockBuilder()
@@ -198,7 +200,35 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
 
   /**
    * @given {@link RestService} instance with a creator's signature inside
-   * @when {@link Query} without a valid creator's signature is passed to the *
+   * @when {@link Transaction} with a valid creator's signature is passed to the
+   * '/transaction/sendBinary' as byte array
+   * @then BRVS proxies the transaction and returns successful status code 200 with status stream
+   */
+  @Test
+  public void sendBinaryTransaction() throws IOException {
+    final String amount = "1";
+    final TransactionOuterClass.Transaction transaction = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
+        .sign(senderKeypair)
+        .build();
+    BinaryTransaction bt = new BinaryTransaction(transaction.toByteArray());
+
+    Response response = target("/transaction/sendBinary/sign").request().post(
+        Entity.entity(
+            gson.toJson(bt),
+            MediaType.APPLICATION_JSON_TYPE
+        )
+    );
+
+    Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
+    Assert.assertTrue(IOUtils.toString((InputStream) response.getEntity(), UTF_8)
+        .contains("COMMITTED")
+    );
+  }
+
+  /**
+   * @given {@link RestService} instance with a creator's signature inside
+   * @when {@link Transaction} without a valid creator's signature is passed to the
    * '/transaction/sendBinary/sign' as byte array
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
    * * stream
@@ -210,12 +240,11 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
         .build()
         .build();
-    byte[] bytes = transaction.toByteArray();
-    String hexString = Base64.getEncoder().encodeToString(bytes);
+    BinaryTransaction bt = new BinaryTransaction(transaction.toByteArray());
 
     Response response = target("/transaction/sendBinary/sign").request().post(
         Entity.entity(
-            hexString,
+            gson.toJson(bt),
             MediaType.APPLICATION_JSON_TYPE
         )
     );
@@ -353,10 +382,49 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
 
   /**
    * @given {@link RestService} instance with a creator's signature inside
-   * @when {@link Query} without a valid creator's signature is passed to the *
+   * @when {@link Transaction} with a valid creator's signature is passed to the '/batch/sendBinary'
+   * as byte array
+   * @then BRVS proxies the transaction and returns successful status code 200 with status stream
+   */
+  @Test
+  public void sendBinaryBatch() throws IOException {
+    final String amount = "1";
+    final TransactionOuterClass.Transaction transaction1 = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer1", amount)
+        .build()
+        .build();
+    final TransactionOuterClass.Transaction transaction2 = Transaction.builder(senderId)
+        .transferAsset(senderId, receiverId, assetId, "test valid transfer2", amount)
+        .build()
+        .build();
+
+    final Iterable<TransactionOuterClass.Transaction> txAtomicBatch = Utils
+        .createTxAtomicBatch(Arrays.asList(transaction1, transaction2), senderKeypair);
+
+    TxList.Builder txListBuilder = TxList.newBuilder();
+    txAtomicBatch.forEach(txListBuilder::addTransactions);
+    TxList txList = txListBuilder.build();
+    BinaryTransaction bt = new BinaryTransaction(txList.toByteArray());
+
+    Response response = target("/batch/sendBinary/sign").request().post(
+        Entity.entity(
+            gson.toJson(bt),
+            MediaType.APPLICATION_JSON_TYPE
+        )
+    );
+
+    Assert.assertEquals(Status.OK.getStatusCode(), response.getStatus());
+    Assert.assertTrue(IOUtils.toString((InputStream) response.getEntity(), UTF_8)
+        .contains("COMMITTED")
+    );
+  }
+
+  /**
+   * @given {@link RestService} instance with a creator's signature inside
+   * @when {@link Transaction} without a valid creator's signature is passed to the
    * '/batch/sendBinary/sign' as byte array
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
-   * * stream
+   * stream
    */
   @Test
   public void sendBinaryUnsignedBatch() throws IOException {
@@ -371,12 +439,11 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .addTransactions(transaction1.build())
         .addTransactions(transaction2.build())
         .build();
-    byte[] bytes = txList.toByteArray();
-    String hexString = Base64.getEncoder().encodeToString(bytes);
+    BinaryTransaction bt = new BinaryTransaction(txList.toByteArray());
 
     Response response = target("/batch/sendBinary/sign").request().post(
         Entity.entity(
-            hexString,
+            gson.toJson(bt),
             MediaType.APPLICATION_JSON_TYPE
         )
     );
