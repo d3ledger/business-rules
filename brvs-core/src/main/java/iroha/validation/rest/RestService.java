@@ -127,8 +127,7 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionBinaryNoSign(String jsonBinaryTx) {
     return buildResponse(jsonBinaryTx, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Hex.decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryTx);
       final Transaction builtTx = buildTransaction(bytes);
       return sendBuiltTransaction(builtTx);
     });
@@ -140,8 +139,7 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionBinarySign(String jsonBinaryTx) {
     return buildResponse(jsonBinaryTx, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Hex.decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryTx);
       final Transaction builtTx = buildTransaction(bytes);
       final Transaction signedTx = signTransaction(builtTx);
       return sendBuiltTransaction(signedTx);
@@ -301,8 +299,7 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchBinaryNoSign(String jsonBinaryList) {
     return buildResponse(jsonBinaryList, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Hex.decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryList);
       List<Transaction> builtTransactions = buildBatch(bytes);
       return sendBuiltBatch(builtTransactions);
     });
@@ -314,12 +311,21 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchBinarySign(String jsonBinaryList) {
     return buildResponse(jsonBinaryList, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Hex.decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryList);
       List<Transaction> builtTransactions = buildBatch(bytes);
       List<Transaction> signedTransactions = signBatch(builtTransactions);
       return sendBuiltBatch(signedTransactions);
     });
+  }
+
+  /**
+   * Decode hex string to bytes proto transactions
+   * @param hexString hex string representation
+   * @return bytes of proto transaction
+   */
+  private byte[] decode(String hexString) {
+    BinaryTransaction bt = gson.fromJson(hexString, BinaryTransaction.class);
+    return Hex.decode(bt.hexString);
   }
 
   /**
