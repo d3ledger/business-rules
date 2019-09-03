@@ -41,6 +41,7 @@ import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 @Singleton
 @Path("")
@@ -78,6 +79,7 @@ public class RestService {
    * Keypair used to sign incoming transactions
    */
   @Inject
+  @Qualifier("signerKeyPair")
   private KeyPair signerKeyPair;
 
   @GET
@@ -324,6 +326,7 @@ public class RestService {
 
   /**
    * Decode hex string to bytes proto transactions
+   *
    * @param hexString hex string representation
    * @return bytes of proto transaction
    */
