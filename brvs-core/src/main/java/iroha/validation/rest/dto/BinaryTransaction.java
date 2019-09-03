@@ -6,7 +6,6 @@
 package iroha.validation.rest.dto;
 
 import java.util.Objects;
-import org.apache.commons.codec.binary.Hex;
 
 /**
  * Binary representation of protobuf transaction in hex.
@@ -18,11 +17,6 @@ public final class BinaryTransaction {
   public BinaryTransaction(String hexString) {
     Objects.requireNonNull(hexString);
     this.hexString = hexString;
-  }
-
-  public BinaryTransaction(byte[] bytes) {
-    Objects.requireNonNull(bytes);
-    hexString = Hex.encodeHexString(bytes);
   }
 
 }
