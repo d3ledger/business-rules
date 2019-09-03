@@ -5,7 +5,6 @@
 
 package iroha.validation.rest.dto;
 
-import java.util.Base64;
 import java.util.Objects;
 
 /**
@@ -18,11 +17,6 @@ public final class BinaryTransaction {
   public BinaryTransaction(String hexString) {
     Objects.requireNonNull(hexString);
     this.hexString = hexString;
-  }
-
-  public BinaryTransaction(byte[] bytes) {
-    Objects.requireNonNull(bytes);
-    hexString = Base64.getEncoder().encodeToString(bytes);
   }
 
 }

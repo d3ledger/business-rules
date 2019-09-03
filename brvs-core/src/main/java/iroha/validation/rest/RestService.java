@@ -23,7 +23,6 @@ import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
-import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -41,6 +40,7 @@ import jp.co.soramitsu.iroha.java.Utils;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.spongycastle.util.encoders.Hex;
 
 @Singleton
 @Path("")
@@ -127,8 +127,7 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionBinaryNoSign(String jsonBinaryTx) {
     return buildResponse(jsonBinaryTx, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Base64.getDecoder().decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryTx);
       final Transaction builtTx = buildTransaction(bytes);
       return sendBuiltTransaction(builtTx);
     });
@@ -140,8 +139,7 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendTransactionBinarySign(String jsonBinaryTx) {
     return buildResponse(jsonBinaryTx, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Base64.getDecoder().decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryTx);
       final Transaction builtTx = buildTransaction(bytes);
       final Transaction signedTx = signTransaction(builtTx);
       return sendBuiltTransaction(signedTx);
@@ -301,8 +299,7 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchBinaryNoSign(String jsonBinaryList) {
     return buildResponse(jsonBinaryList, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Base64.getDecoder().decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryList);
       List<Transaction> builtTransactions = buildBatch(bytes);
       return sendBuiltBatch(builtTransactions);
     });
@@ -314,12 +311,21 @@ public class RestService {
   @Produces(MediaType.APPLICATION_JSON)
   public Response sendBatchBinarySign(String jsonBinaryList) {
     return buildResponse(jsonBinaryList, tx -> {
-      BinaryTransaction bt = gson.fromJson(tx, BinaryTransaction.class);
-      byte[] bytes = Base64.getDecoder().decode(bt.hexString);
+      byte[] bytes = decode(jsonBinaryList);
       List<Transaction> builtTransactions = buildBatch(bytes);
       List<Transaction> signedTransactions = signBatch(builtTransactions);
       return sendBuiltBatch(signedTransactions);
     });
+  }
+
+  /**
+   * Decode hex string to bytes proto transactions
+   * @param hexString hex string representation
+   * @return bytes of proto transaction
+   */
+  private byte[] decode(String hexString) {
+    BinaryTransaction bt = gson.fromJson(hexString, BinaryTransaction.class);
+    return Hex.decode(bt.hexString);
   }
 
   /**

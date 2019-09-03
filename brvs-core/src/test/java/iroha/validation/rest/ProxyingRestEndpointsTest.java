@@ -45,6 +45,7 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 import org.junit.Assert;
 import org.junit.Test;
+import org.testcontainers.shaded.org.apache.commons.codec.binary.Hex;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 public class ProxyingRestEndpointsTest extends JerseyTest {
@@ -116,6 +117,16 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     config.withPeerKeyPair(peerKeypair);
 
     return config;
+  }
+
+  /**
+   * Encode protobuf transaction
+   *
+   * @param bytes - raw bytes of protobuf transaction
+   * @return BinaryTransaction object
+   */
+  private static BinaryTransaction getBinaryTransaction(byte[] bytes) {
+    return new BinaryTransaction(Hex.encodeHexString(bytes));
   }
 
   static {
@@ -211,7 +222,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
         .sign(senderKeypair)
         .build();
-    BinaryTransaction bt = new BinaryTransaction(transaction.toByteArray());
+    BinaryTransaction bt = getBinaryTransaction(transaction.toByteArray());
 
     Response response = target("/transaction/sendBinary/sign").request().post(
         Entity.entity(
@@ -240,7 +251,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .transferAsset(senderId, receiverId, assetId, "test valid transfer", amount)
         .build()
         .build();
-    BinaryTransaction bt = new BinaryTransaction(transaction.toByteArray());
+    BinaryTransaction bt = getBinaryTransaction(transaction.toByteArray());
 
     Response response = target("/transaction/sendBinary/sign").request().post(
         Entity.entity(
@@ -404,7 +415,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
     TxList.Builder txListBuilder = TxList.newBuilder();
     txAtomicBatch.forEach(txListBuilder::addTransactions);
     TxList txList = txListBuilder.build();
-    BinaryTransaction bt = new BinaryTransaction(txList.toByteArray());
+    BinaryTransaction bt = getBinaryTransaction(txList.toByteArray());
 
     Response response = target("/batch/sendBinary/sign").request().post(
         Entity.entity(
@@ -439,7 +450,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         .addTransactions(transaction1.build())
         .addTransactions(transaction2.build())
         .build();
-    BinaryTransaction bt = new BinaryTransaction(txList.toByteArray());
+    BinaryTransaction bt = getBinaryTransaction(txList.toByteArray());
 
     Response response = target("/batch/sendBinary/sign").request().post(
         Entity.entity(
