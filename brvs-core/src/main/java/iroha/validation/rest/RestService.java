@@ -427,7 +427,9 @@ public class RestService {
   private <T> Response buildResponse(T requestedTx, CheckedFunction<T, ToriiResponse> handler) {
     try {
       ToriiResponse res = handler.apply(requestedTx);
-      return Response.status(HttpStatus.SC_OK).entity(printer.print(res)).build();
+      String status = printer.print(res);
+      logger.info("Got transaction status " + status);
+      return Response.status(HttpStatus.SC_OK).entity(status).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during transaction processing", e);
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
