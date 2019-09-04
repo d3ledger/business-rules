@@ -26,7 +26,6 @@ import java.security.KeyPair;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
-import javax.inject.Named;
 import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -79,8 +78,7 @@ public class RestService {
    * Keypair used to sign incoming transactions
    */
   @Inject
-  @Named("signerKeyPair")
-  private KeyPair signerKeyPair;
+  private KeyPair brvsAccountKeyPair;
 
   @GET
   @Path("/status/{txHash}")
@@ -190,7 +188,7 @@ public class RestService {
     final String hash = Utils.toHexHash(builtTx);
     logger.info("Going to sign transaction: " + hash);
     return jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
-        .sign(signerKeyPair)
+        .sign(brvsAccountKeyPair)
         .build();
   }
 
@@ -259,7 +257,7 @@ public class RestService {
       Query queryToSend = builder.build();
       if (sign) {
         queryToSend = new jp.co.soramitsu.iroha.java.Query(queryToSend)
-            .buildSigned(signerKeyPair);
+            .buildSigned(brvsAccountKeyPair);
       }
       if (!queryToSend.hasSignature()) {
         final String msg = "Query does not have signature";
@@ -380,7 +378,7 @@ public class RestService {
           final int quorum = transaction.getPayload().getReducedPayload().getQuorum();
           if (signaturesCount < quorum) {
             return jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction)
-                .sign(signerKeyPair)
+                .sign(brvsAccountKeyPair)
                 .build();
           } else {
             return transaction;
