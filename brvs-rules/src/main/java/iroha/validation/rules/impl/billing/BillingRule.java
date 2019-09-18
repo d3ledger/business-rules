@@ -26,6 +26,7 @@ import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.billing.BillingInfo.BillingTypeEnum;
+import iroha.validation.rules.impl.billing.BillingInfo.FeeTypeEnum;
 import iroha.validation.verdict.ValidationResult;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -54,6 +55,7 @@ import org.springframework.util.CollectionUtils;
 public class BillingRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
+
   private static final String BTC_ASSET = "btc#bitcoin";
   private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal fee";
   private static final String SEPARATOR = ",";
@@ -65,6 +67,7 @@ public class BillingRule implements Rule {
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
+  private static final BigDecimal INCORRECT_FEE_VALUE = new BigDecimal(Integer.MIN_VALUE);
   private static final Map<BillingTypeEnum, String> feeTypesAccounts = new HashMap<BillingTypeEnum, String>() {{
     put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
     put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
@@ -288,7 +291,8 @@ public class BillingRule implements Rule {
     final List<TransferAsset> transfersFromMap = transactionsGroups.get(false);
 
     final List<TransferAsset> fees = feesFromMap == null ? new ArrayList<>() : feesFromMap;
-    final List<TransferAsset> transfers = transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
+    final List<TransferAsset> transfers =
+        transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
 
     if (CollectionUtils.isEmpty(transfers)) {
       if (!CollectionUtils.isEmpty(fees)) {
@@ -374,9 +378,21 @@ public class BillingRule implements Rule {
   }
 
   private BigDecimal calculateRelevantFeeAmount(BigDecimal amount, BillingInfo billingInfo) {
-    final int assetPrecision = getAssetPrecision(billingInfo.getAsset());
-    return amount.multiply(billingInfo.getFeeFraction())
-        .setScale(assetPrecision, RoundingMode.UP);
+    final FeeTypeEnum feeType = billingInfo.getFeeType();
+    switch (feeType) {
+      case FIXED: {
+        return billingInfo.getFeeFraction();
+      }
+      case FRACTION: {
+        final int assetPrecision = getAssetPrecision(billingInfo.getAsset());
+        return amount.multiply(billingInfo.getFeeFraction())
+            .setScale(assetPrecision, RoundingMode.UP);
+      }
+      default: {
+        logger.error("Unknown fee type: " + feeType);
+        return INCORRECT_FEE_VALUE;
+      }
+    }
   }
 
   private int getAssetPrecision(String assetId) {
