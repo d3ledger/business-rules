@@ -27,7 +27,6 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   private static final ReplaceOptions replaceOptions = new ReplaceOptions().upsert(true);
   private static final String TX_HASH_ATTRIBUTE = "txHash";
 
-  private final MongoClient mongoClient;
   private final MongoCollection<MongoVerdict> collection;
   private final PublishSubject<String> subject = PublishSubject.create();
 
@@ -38,14 +37,16 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
     if (mongoPort < 1 || mongoPort > 65535) {
       throw new IllegalArgumentException("MongoDB port must be valid");
     }
-    mongoClient = MongoClients.create(String.format("mongodb://%s:%d", mongoHost, mongoPort));
-    CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
-        MongoClientSettings.getDefaultCodecRegistry(),
-        fromProviders(PojoCodecProvider.builder().automatic(true).build()));
-    collection = mongoClient
-        .getDatabase("verdictStorage")
-        .getCollection("verdicts", MongoVerdict.class)
-        .withCodecRegistry(mongoVerdictCodecRegistry);
+    try (MongoClient mongoClient = MongoClients
+        .create(String.format("mongodb://%s:%d", mongoHost, mongoPort))) {
+      CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
+          MongoClientSettings.getDefaultCodecRegistry(),
+          fromProviders(PojoCodecProvider.builder().automatic(true).build()));
+      collection = mongoClient
+          .getDatabase("verdictStorage")
+          .getCollection("verdicts", MongoVerdict.class)
+          .withCodecRegistry(mongoVerdictCodecRegistry);
+    }
   }
 
   /**
@@ -116,6 +117,5 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
 
   @Override
   public void close() {
-    mongoClient.close();
   }
 }

@@ -133,7 +133,7 @@ public class BillingInfo {
     if (other == this) {
       return true;
     }
-    if (!this.getClass().isAssignableFrom(other.getClass())) {
+    if (other == null || !this.getClass().isAssignableFrom(other.getClass())) {
       return false;
     }
     BillingInfo otherObj = (BillingInfo) other;

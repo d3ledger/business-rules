@@ -38,16 +38,17 @@ public class MongoBlockStorage implements BlockStorage {
     if (mongoPort < 1 || mongoPort > 65535) {
       throw new IllegalArgumentException("MongoDB port must be valid");
     }
-    MongoClient mongoClient = MongoClients
-        .create(String.format("mongodb://%s:%d", mongoHost, mongoPort));
-    CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
-        MongoClientSettings.getDefaultCodecRegistry(),
-        fromProviders(PojoCodecProvider.builder().automatic(true).build())
-    );
-    collection = mongoClient
-        .getDatabase("blockStorage")
-        .getCollection("blocks", MongoBlock.class)
-        .withCodecRegistry(mongoVerdictCodecRegistry);
+    try (MongoClient mongoClient = MongoClients
+        .create(String.format("mongodb://%s:%d", mongoHost, mongoPort))) {
+      CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
+          MongoClientSettings.getDefaultCodecRegistry(),
+          fromProviders(PojoCodecProvider.builder().automatic(true).build())
+      );
+      collection = mongoClient
+          .getDatabase("blockStorage")
+          .getCollection("blocks", MongoBlock.class)
+          .withCodecRegistry(mongoVerdictCodecRegistry);
+    }
   }
 
   /**
