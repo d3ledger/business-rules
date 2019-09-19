@@ -96,3 +96,38 @@ jar {
 shadowJar {
     mergeServiceFiles('META-INF/spring.*')
 }
+
+sourceSets {
+    integrationTest {
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+            srcDirs += 'src/integration-test/java'
+        }
+        resources {
+            srcDirs = ["src/integration-test/resources"]
+        }
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestCompile.extendsFrom testCompile
+    integrationTestRuntime.extendsFrom testRuntime
+}
+
+task integrationTest(type: Test) {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Runs BRVS integration tests.'
+
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    setWorkingDir("$rootDir/")
+    // Enable JUnit5 tests
+    useJUnitPlatform {
+    }
+
+    mustRunAfter test
+}
+check.dependsOn integrationTest
+
