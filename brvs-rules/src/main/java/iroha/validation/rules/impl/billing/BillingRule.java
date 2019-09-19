@@ -65,12 +65,7 @@ public class BillingRule implements Rule {
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
-  private static final Map<BillingTypeEnum, String> feeTypesAccounts = new HashMap<BillingTypeEnum, String>() {{
-    put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
-    put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
-    put(BillingTypeEnum.ACCOUNT_CREATION, ACCOUNT_CREATION_BILLING_ACCOUNT_NAME);
-    put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
-  }};
+  private static final Map<BillingTypeEnum, String> feeTypesAccounts;
   private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
@@ -87,6 +82,14 @@ public class BillingRule implements Rule {
   private final Set<String> userDomains;
   private final Set<String> depositAccounts;
   private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
+
+  static {
+    feeTypesAccounts = new HashMap<>();
+    feeTypesAccounts.put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
+    feeTypesAccounts.put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
+    feeTypesAccounts.put(BillingTypeEnum.ACCOUNT_CREATION, ACCOUNT_CREATION_BILLING_ACCOUNT_NAME);
+    feeTypesAccounts.put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
+  }
 
   public BillingRule(String getBillingURL,
       String getAssetPrecisionURL,
@@ -288,7 +291,8 @@ public class BillingRule implements Rule {
     final List<TransferAsset> transfersFromMap = transactionsGroups.get(false);
 
     final List<TransferAsset> fees = feesFromMap == null ? new ArrayList<>() : feesFromMap;
-    final List<TransferAsset> transfers = transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
+    final List<TransferAsset> transfers =
+        transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
 
     if (CollectionUtils.isEmpty(transfers)) {
       if (!CollectionUtils.isEmpty(fees)) {
