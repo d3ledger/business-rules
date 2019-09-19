@@ -19,7 +19,6 @@ import iroha.protocol.BlockOuterClass.Block;
 import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.Closeable;
-import java.io.IOException;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
 import org.slf4j.Logger;
