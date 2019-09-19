@@ -130,11 +130,11 @@ public class BillingInfo {
 
   @Override
   public boolean equals(Object other) {
-    if (other == this) {
-      return true;
-    }
     if (other == null || !this.getClass().isAssignableFrom(other.getClass())) {
       return false;
+    }
+    if (other == this) {
+      return true;
     }
     BillingInfo otherObj = (BillingInfo) other;
     return otherObj.asset.equals(this.asset)
