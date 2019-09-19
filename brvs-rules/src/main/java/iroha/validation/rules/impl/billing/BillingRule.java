@@ -89,7 +89,6 @@ public class BillingRule implements Rule {
     feeTypesAccounts.put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
     feeTypesAccounts.put(BillingTypeEnum.ACCOUNT_CREATION, ACCOUNT_CREATION_BILLING_ACCOUNT_NAME);
     feeTypesAccounts.put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
-
   }
 
   public BillingRule(String getBillingURL,
