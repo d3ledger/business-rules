@@ -131,3 +131,6 @@ task integrationTest(type: Test) {
 }
 check.dependsOn integrationTest
 
+project.afterEvaluate {
+    test.finalizedBy(integrationTest)
+}
