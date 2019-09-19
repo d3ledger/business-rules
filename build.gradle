@@ -3,6 +3,10 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
+plugins {
+    id "org.sonarqube" version "2.7.1"
+}
+
 allprojects {
     apply plugin: 'java'
     repositories {
@@ -16,4 +20,16 @@ sourceCompatibility = 1.8
 
 wrapper {
     gradleVersion = 4.10
+}
+
+allprojects {
+    sonarqube {
+        properties {
+            property "sonar.github.repository", "d3ledger/business-rules"
+            property "sonar.projectKey", "d3:business-rules"
+            property "sonar.java.binaries", "${project.projectDir}/build/classes"
+            property "sonar.java.libraries", "${project.projectDir}/build/libs"
+            property "sonar.exclusions", "**/integration-test/**"
+        }
+    }
 }

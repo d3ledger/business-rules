@@ -46,6 +46,23 @@ pipeline {
                 }
             }
         }
+        stage('Sonar') {
+          steps {
+            script {
+              if (env.BRANCH_NAME == 'develop') {
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]){
+                  sh(script: "./gradlew sonarqube -x test --configure-on-demand \
+                    -Dsonar.links.ci=${BUILD_URL} \
+                    -Dsonar.github.pullRequest=${env.CHANGE_ID} \
+                    -Dsonar.github.disableInlineComments=true \
+                    -Dsonar.host.url=https://sonar.soramitsu.co.jp \
+                    -Dsonar.login=${SONAR_TOKEN} \
+                    ")
+                  }
+              }
+            }
+        }
+    }
     }
     post {
         cleanup {
