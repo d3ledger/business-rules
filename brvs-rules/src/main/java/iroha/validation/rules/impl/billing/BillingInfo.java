@@ -89,7 +89,16 @@ public class BillingInfo {
 
   public enum FeeTypeEnum {
     FIXED,
-    FRACTION
+    FRACTION,
+    UNKNOWN;
+
+    /* default */ static FeeTypeEnum safeValueOf(String name) {
+      try {
+        return FeeTypeEnum.valueOf(name);
+      } catch (IllegalArgumentException e) {
+        return FeeTypeEnum.UNKNOWN;
+      }
+    }
   }
 
   /* default */ static Set<BillingInfo> parseBillingHttpDto(String billingType,
@@ -104,7 +113,7 @@ public class BillingInfo {
                       domain,
                       BillingTypeEnum.valueOfLabel(billingType),
                       asset,
-                      FeeTypeEnum.valueOf(info.get(FEE_TYPE_ATTRIBUTE).getAsString()),
+                      FeeTypeEnum.safeValueOf(info.get(FEE_TYPE_ATTRIBUTE).getAsString()),
                       info.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
                       info.get(CREATED_ATTRIBUTE).getAsLong()
                   )
@@ -121,7 +130,7 @@ public class BillingInfo {
         object.get(DOMAIN_ATTRIBUTE).getAsString(),
         BillingTypeEnum.valueOfLabel(object.get(BILLING_TYPE_ATTRIBUTE).getAsString()),
         object.get(ASSET_ATTRIBUTE).getAsString(),
-        FeeTypeEnum.valueOf(object.get(FEE_TYPE_ATTRIBUTE).getAsString()),
+        FeeTypeEnum.safeValueOf(object.get(FEE_TYPE_ATTRIBUTE).getAsString()),
         object.get(FEE_FRACTION_ATTRIBUTE).getAsBigDecimal(),
         object.get(UPDATED_ATTRIBUTE).getAsLong()
     );
