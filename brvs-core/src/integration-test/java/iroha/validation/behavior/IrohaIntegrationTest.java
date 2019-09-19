@@ -463,7 +463,7 @@ public class IrohaIntegrationTest {
             .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
                 Files
                     .toString(
-                        new File("src/test/resources/fake_rule.groovy"),
+                        new File("src/integration-test/resources/fake_rule.groovy"),
                         Charset.defaultCharset()
                     )
             ))
@@ -516,7 +516,7 @@ public class IrohaIntegrationTest {
             .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
                 Files
                     .toString(
-                        new File("src/test/resources/fake_rule.groovy"),
+                        new File("src/integration-test/resources/fake_rule.groovy"),
                         Charset.defaultCharset()
                     )
             ))
@@ -575,7 +575,7 @@ public class IrohaIntegrationTest {
             .setAccountDetail(validatorId, ruleName, Utils.irohaEscape(
                 Files
                     .toString(
-                        new File("src/test/resources/fake_rule.groovy"),
+                        new File("src/integration-test/resources/fake_rule.groovy"),
                         Charset.defaultCharset()
                     )
             ))
