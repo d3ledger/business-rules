@@ -18,17 +18,20 @@ import com.mongodb.client.model.ReplaceOptions;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.utils.ValidationUtils;
+import java.io.Closeable;
+import java.io.IOException;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MongoBlockStorage implements BlockStorage {
+public class MongoBlockStorage implements BlockStorage, Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(MongoBlockStorage.class);
   private static final String BLOCK_HASH_ATTRIBUTE = "blockHash";
   private static final ReplaceOptions replaceOptions = new ReplaceOptions().upsert(true);
 
+  private final MongoClient mongoClient;
   private final MongoCollection<MongoBlock> collection;
 
   public MongoBlockStorage(String mongoHost, int mongoPort) {
@@ -38,17 +41,16 @@ public class MongoBlockStorage implements BlockStorage {
     if (mongoPort < 1 || mongoPort > 65535) {
       throw new IllegalArgumentException("MongoDB port must be valid");
     }
-    try (MongoClient mongoClient = MongoClients
-        .create(String.format("mongodb://%s:%d", mongoHost, mongoPort))) {
-      CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
-          MongoClientSettings.getDefaultCodecRegistry(),
-          fromProviders(PojoCodecProvider.builder().automatic(true).build())
-      );
-      collection = mongoClient
-          .getDatabase("blockStorage")
-          .getCollection("blocks", MongoBlock.class)
-          .withCodecRegistry(mongoVerdictCodecRegistry);
-    }
+     mongoClient = MongoClients
+        .create(String.format("mongodb://%s:%d", mongoHost, mongoPort));
+    CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
+        MongoClientSettings.getDefaultCodecRegistry(),
+        fromProviders(PojoCodecProvider.builder().automatic(true).build())
+    );
+    collection = mongoClient
+        .getDatabase("blockStorage")
+        .getCollection("blocks", MongoBlock.class)
+        .withCodecRegistry(mongoVerdictCodecRegistry);
   }
 
   /**
@@ -65,5 +67,10 @@ public class MongoBlockStorage implements BlockStorage {
     logger.info(
         "Saved new Iroha block in storage " + irohaBlock.getBlockV1().getPayload().getHeight()
     );
+  }
+
+  @Override
+  public void close() {
+    mongoClient.close();
   }
 }
