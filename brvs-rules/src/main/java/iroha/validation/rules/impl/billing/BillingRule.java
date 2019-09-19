@@ -22,6 +22,7 @@ import io.reactivex.Observable;
 import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.SubtractAssetQuantity;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
@@ -42,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -89,6 +91,7 @@ public class BillingRule implements Rule {
   private final String btcWithdrawalAccount;
   private final Set<String> userDomains;
   private final Set<String> depositAccounts;
+  private final Set<String> burnableFeeAssets;
   private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
 
   public BillingRule(String getBillingURL,
@@ -100,7 +103,8 @@ public class BillingRule implements Rule {
       String userDomains,
       String depositAccounts,
       String ethWithdrawalAccount,
-      String btcWithdrawalAccount) throws IOException {
+      String btcWithdrawalAccount,
+      String burnableFeeAssets) throws IOException {
 
     if (Strings.isNullOrEmpty(getBillingURL)) {
       throw new IllegalArgumentException("Billing URL must not be neither null nor empty");
@@ -134,6 +138,7 @@ public class BillingRule implements Rule {
       throw new IllegalArgumentException(
           "BTC Withdrawal account must not be neither null nor empty");
     }
+    Objects.requireNonNull(burnableFeeAssets, "Burnable fee assets must not be null");
 
     this.getBillingURL = new URL(getBillingURL);
     this.getAssetPrecisionURL = getAssetPrecisionURL;
@@ -145,6 +150,7 @@ public class BillingRule implements Rule {
     this.depositAccounts = new HashSet<>(Arrays.asList(depositAccounts.split(SEPARATOR)));
     this.ethWithdrawalAccount = ethWithdrawalAccount;
     this.btcWithdrawalAccount = btcWithdrawalAccount;
+    this.burnableFeeAssets = new HashSet<>(Arrays.asList(burnableFeeAssets.split(SEPARATOR)));
     runCacheUpdater();
   }
 
@@ -275,10 +281,11 @@ public class BillingRule implements Rule {
   public ValidationResult isSatisfiedBy(Transaction transaction) {
     // Group 'true' means fee transfers
     // Group 'false' means original transfers
-    final Map<Boolean, List<TransferAsset>> transactionsGroups = transaction
+    final List<Command> commandsList = transaction
         .getPayload()
         .getReducedPayload()
-        .getCommandsList()
+        .getCommandsList();
+    final Map<Boolean, List<TransferAsset>> transactionsGroups = commandsList
         .stream()
         .filter(Command::hasTransferAsset)
         .map(Command::getTransferAsset)
@@ -287,6 +294,11 @@ public class BillingRule implements Rule {
                 .contains(BillingInfo.getName(transferAsset.getDestAccountId())))
         );
 
+    final List<SubtractAssetQuantity> feesAsBurns = commandsList
+        .stream()
+        .filter(Command::hasSubtractAssetQuantity)
+        .map(Command::getSubtractAssetQuantity)
+        .collect(Collectors.toList());
     final List<TransferAsset> feesFromMap = transactionsGroups.get(true);
     final List<TransferAsset> transfersFromMap = transactionsGroups.get(false);
 
@@ -295,8 +307,9 @@ public class BillingRule implements Rule {
         transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
 
     if (CollectionUtils.isEmpty(transfers)) {
-      if (!CollectionUtils.isEmpty(fees)) {
-        return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
+      if (!CollectionUtils.isEmpty(fees) || !CollectionUtils.isEmpty(feesAsBurns)) {
+        return ValidationResult.REJECTED("There are more fee transfers than needed:\n"
+            + fees + "\n" + feesAsBurns);
       }
       return ValidationResult.VALIDATED;
     }
@@ -328,24 +341,24 @@ public class BillingRule implements Rule {
           continue;
         }
 
-        final TransferAsset feeCandidate = filterFee(transferAsset, fees, billingInfo);
+        final boolean isFeeFound = findAndRemoveFee(transferAsset, fees, feesAsBurns, billingInfo);
         // If operation is billable but there is no corresponding fee attached
-        if (feeCandidate == null) {
+        if (!isFeeFound) {
           logger.error("There is no correct fee for:\n" + transferAsset);
           return ValidationResult.REJECTED("There is no fee for:\n" + transferAsset);
         }
-        // To prevent case when there are two identical operations and only one fee
-        fees.remove(feeCandidate);
       }
     }
-    if (!CollectionUtils.isEmpty(fees)) {
-      return ValidationResult.REJECTED("There are more fee transfers than needed:\n" + fees);
+    if (!CollectionUtils.isEmpty(fees) || !CollectionUtils.isEmpty(feesAsBurns)) {
+      return ValidationResult.REJECTED("There are more fee transfers than needed:\n"
+          + fees + "\n" + feesAsBurns);
     }
     return ValidationResult.VALIDATED;
   }
 
-  private TransferAsset filterFee(TransferAsset transfer,
-      List<TransferAsset> fees,
+  private boolean findAndRemoveFee(TransferAsset transfer,
+      List<TransferAsset> transferableFees,
+      List<SubtractAssetQuantity> burnableFees,
       BillingInfo billingInfo) {
 
     final String srcAccountId = transfer.getSrcAccountId();
@@ -365,16 +378,30 @@ public class BillingRule implements Rule {
           .concat(billingInfo.getDomain());
     }
 
-    for (TransferAsset fee : fees) {
-      if (fee.getSrcAccountId().equals(srcAccountId)
-          && fee.getAssetId().equals(assetId)
-          && fee.getDestAccountId().equals(destAccountName)
-          && new BigDecimal(fee.getAmount())
-          .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
-        return fee;
+    if (burnableFeeAssets.contains(assetId)) {
+      for (SubtractAssetQuantity fee : burnableFees) {
+        if (fee.getAssetId().equals(assetId)
+            && new BigDecimal(fee.getAmount())
+            .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
+          // To prevent case when there are two identical operations and only one fee
+          burnableFees.remove(fee);
+          return true;
+        }
+      }
+    } else {
+      for (TransferAsset fee : transferableFees) {
+        if (fee.getSrcAccountId().equals(srcAccountId)
+            && fee.getAssetId().equals(assetId)
+            && fee.getDestAccountId().equals(destAccountName)
+            && new BigDecimal(fee.getAmount())
+            .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
+          // To prevent case when there are two identical operations and only one fee
+          transferableFees.remove(fee);
+          return true;
+        }
       }
     }
-    return null;
+    return false;
   }
 
   private BigDecimal calculateRelevantFeeAmount(BigDecimal amount, BillingInfo billingInfo) {

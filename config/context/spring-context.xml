@@ -180,6 +180,7 @@
     <constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>
     <constructor-arg name="ethWithdrawalAccount" value="${BILLING_ETHWITHDRAWALACCOUNT}"/>
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
+    <constructor-arg name="burnableFeeAssets" value="${BILLING_BURNABLE_FEE_ASSETS}"/>
   </bean>
   <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
   <util:map id="rules" map-class="java.util.HashMap">
