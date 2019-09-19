@@ -85,7 +85,8 @@ class RulesTest {
         "users",
         "deposit@users",
         "withdrawaleth@users",
-        "withdrawalbtc@users"
+        "withdrawalbtc@users",
+        ""
     ) {
       @Override
       protected void runCacheUpdater() {
