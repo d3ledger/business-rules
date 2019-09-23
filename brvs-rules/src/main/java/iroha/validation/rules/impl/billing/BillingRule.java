@@ -37,19 +37,16 @@ import java.math.RoundingMode;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import jp.co.soramitsu.iroha.java.detail.Const;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
@@ -58,31 +55,24 @@ public class BillingRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
 
-  private static final String BTC_ASSET = "btc#bitcoin";
-  private static final String WITHDRAWAL_FEE_DESCRIPTION = "withdrawal fee";
+  private static final String ETHER_ASSET_ID = "ether#ethereum";
   private static final String SEPARATOR = ",";
   private static final String QUEUE_NAME = "brvs_billing_updates";
-  private static final String TRANSFER_BILLING_ACCOUNT_NAME = "transfer_billing";
-  private static final String CUSTODY_BILLING_ACCOUNT_NAME = "custody_billing";
-  private static final String ACCOUNT_CREATION_BILLING_ACCOUNT_NAME = "account_creation_billing";
-  private static final String EXCHANGE_BILLING_ACCOUNT_NAME = "exchange_billing";
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
+  private static final String BILLING_GASPRICE_ERROR_MESSAGE = "Couldn't request gas price.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
+  private static final String GET_BILLING_PATH = "get/billing";
+  private static final String PRECISION_PATH = "iroha/asset/precision/";
+  private static final String GAS_PATH = "gas";
   private static final BigDecimal INCORRECT_FEE_VALUE = new BigDecimal(Integer.MIN_VALUE);
-  private static final Map<BillingTypeEnum, String> feeTypesAccounts = new HashMap<BillingTypeEnum, String>() {{
-    put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
-    put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
-    put(BillingTypeEnum.ACCOUNT_CREATION, ACCOUNT_CREATION_BILLING_ACCOUNT_NAME);
-    put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
-  }};
+  private static final BigDecimal GAS_LIMIT = new BigDecimal("21000");
   private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
 
   private boolean isRunning;
-  private final URL getBillingURL;
-  private final String getAssetPrecisionURL;
+  private final String getBillingBaseURL;
   private final String rmqHost;
   private final int rmqPort;
   private final String rmqExchange;
@@ -91,11 +81,9 @@ public class BillingRule implements Rule {
   private final String btcWithdrawalAccount;
   private final Set<String> userDomains;
   private final Set<String> depositAccounts;
-  private final Set<String> burnableFeeAssets;
   private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
 
-  public BillingRule(String getBillingURL,
-      String getAssetPrecisionURL,
+  public BillingRule(String getBillingBaseURL,
       String rmqHost,
       int rmqPort,
       String rmqExchange,
@@ -103,14 +91,10 @@ public class BillingRule implements Rule {
       String userDomains,
       String depositAccounts,
       String ethWithdrawalAccount,
-      String btcWithdrawalAccount,
-      String burnableFeeAssets) throws IOException {
+      String btcWithdrawalAccount) throws MalformedURLException {
 
-    if (Strings.isNullOrEmpty(getBillingURL)) {
+    if (Strings.isNullOrEmpty(getBillingBaseURL)) {
       throw new IllegalArgumentException("Billing URL must not be neither null nor empty");
-    }
-    if (Strings.isNullOrEmpty(getAssetPrecisionURL)) {
-      throw new IllegalArgumentException("Asset precision URL must not be neither null nor empty");
     }
     if (Strings.isNullOrEmpty(rmqHost)) {
       throw new IllegalArgumentException("RMQ host must not be neither null nor empty");
@@ -138,10 +122,8 @@ public class BillingRule implements Rule {
       throw new IllegalArgumentException(
           "BTC Withdrawal account must not be neither null nor empty");
     }
-    Objects.requireNonNull(burnableFeeAssets, "Burnable fee assets must not be null");
 
-    this.getBillingURL = new URL(getBillingURL);
-    this.getAssetPrecisionURL = getAssetPrecisionURL;
+    this.getBillingBaseURL = getBillingBaseURL;
     this.rmqHost = rmqHost;
     this.rmqPort = rmqPort;
     this.rmqExchange = rmqExchange;
@@ -150,11 +132,10 @@ public class BillingRule implements Rule {
     this.depositAccounts = new HashSet<>(Arrays.asList(depositAccounts.split(SEPARATOR)));
     this.ethWithdrawalAccount = ethWithdrawalAccount;
     this.btcWithdrawalAccount = btcWithdrawalAccount;
-    this.burnableFeeAssets = new HashSet<>(Arrays.asList(burnableFeeAssets.split(SEPARATOR)));
     runCacheUpdater();
   }
 
-  protected void runCacheUpdater() {
+  protected void runCacheUpdater() throws MalformedURLException {
     if (isRunning) {
       logger.warn("Cache updater is already running");
       return;
@@ -181,9 +162,14 @@ public class BillingRule implements Rule {
     logger.info("Billing cache updater has been started");
   }
 
-  private void readBillingOnStartup() {
+  private void readBillingOnStartup() throws MalformedURLException {
     final JsonObject root = jsonParser
-        .parse(executeGetRequest(getBillingURL, BILLING_ERROR_MESSAGE)).getAsJsonObject();
+        .parse(
+            executeGetRequest(
+                new URL(getBillingBaseURL + GET_BILLING_PATH),
+                BILLING_ERROR_MESSAGE)
+        )
+        .getAsJsonObject();
     logger.info("Got billing data response from HTTP server: " + root);
     for (BillingTypeEnum billingType : BillingTypeEnum.values()) {
       final String label = billingType.label;
@@ -232,7 +218,10 @@ public class BillingRule implements Rule {
       return jsonParser
           .parse(
               executeGetRequest(
-                  new URL(getAssetPrecisionURL + assetId.replace("#", "%23")),
+                  new URL(
+                      getBillingBaseURL + PRECISION_PATH
+                          + assetId.replace("#", "%23")
+                  ),
                   BILLING_PRECISION_ERROR_MESSAGE
               )
           )
@@ -241,6 +230,23 @@ public class BillingRule implements Rule {
           .getAsString();
     } catch (MalformedURLException e) {
       throw new BillingRuleException(BILLING_PRECISION_ERROR_MESSAGE, e);
+    }
+  }
+
+  private String getRawGasPriceResponse() {
+    try {
+      return jsonParser
+          .parse(
+              executeGetRequest(
+                  new URL(getBillingBaseURL + GAS_PATH),
+                  BILLING_GASPRICE_ERROR_MESSAGE
+              )
+          )
+          .getAsJsonObject()
+          .get(BILLING_PRECISION_JSON_FIELD)
+          .getAsString();
+    } catch (MalformedURLException e) {
+      throw new BillingRuleException(BILLING_GASPRICE_ERROR_MESSAGE, e);
     }
   }
 
@@ -279,55 +285,31 @@ public class BillingRule implements Rule {
    */
   @Override
   public ValidationResult isSatisfiedBy(Transaction transaction) {
-    // Group 'true' means fee transfers
-    // Group 'false' means original transfers
     final List<Command> commandsList = transaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList();
-    final Map<Boolean, List<TransferAsset>> transactionsGroups = commandsList
+    final List<TransferAsset> transfers = commandsList
         .stream()
         .filter(Command::hasTransferAsset)
         .map(Command::getTransferAsset)
-        .collect(Collectors.groupingBy(transferAsset ->
-            feeTypesAccounts.values()
-                .contains(BillingInfo.getName(transferAsset.getDestAccountId())))
-        );
-
+        .collect(Collectors.toList());
     final List<SubtractAssetQuantity> feesAsBurns = commandsList
         .stream()
         .filter(Command::hasSubtractAssetQuantity)
         .map(Command::getSubtractAssetQuantity)
         .collect(Collectors.toList());
-    final List<TransferAsset> feesFromMap = transactionsGroups.get(true);
-    final List<TransferAsset> transfersFromMap = transactionsGroups.get(false);
-
-    final List<TransferAsset> fees = feesFromMap == null ? new ArrayList<>() : feesFromMap;
-    final List<TransferAsset> transfers =
-        transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
 
     if (CollectionUtils.isEmpty(transfers)) {
-      if (!CollectionUtils.isEmpty(fees) || !CollectionUtils.isEmpty(feesAsBurns)) {
-        return ValidationResult
-            .REJECTED("There are more fee operations supplied than needed:\nTransfer fees: "
-                + fees + "\nSubtraction fees: " + feesAsBurns);
+      if (CollectionUtils.isEmpty(feesAsBurns)) {
+        return ValidationResult.REJECTED(
+            "There are more fee operations supplied than needed:\nSubtraction fees: " + feesAsBurns
+        );
       }
       return ValidationResult.VALIDATED;
     }
 
     final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
-
-    for (int i = 0; i < transfers.size(); i++) {
-      final TransferAsset transferAsset = transfers.get(i);
-      final BillingTypeEnum currentTransferBilling = getBillingType(transferAsset, isBatch);
-      if (transferAsset.getDescription().equals(WITHDRAWAL_FEE_DESCRIPTION)
-          && currentTransferBilling != null
-          && currentTransferBilling.equals(BillingTypeEnum.WITHDRAWAL)) {
-        fees.add(transferAsset);
-        transfers.remove(transferAsset);
-        i--;
-      }
-    }
 
     for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
@@ -342,7 +324,7 @@ public class BillingRule implements Rule {
           continue;
         }
 
-        final boolean isFeeFound = findAndRemoveFee(transferAsset, fees, feesAsBurns, billingInfo);
+        final boolean isFeeFound = findAndRemoveFee(transferAsset, feesAsBurns, billingInfo);
         // If operation is billable but there is no corresponding fee attached
         if (!isFeeFound) {
           logger.error("There is no correct fee for:\n" + transferAsset);
@@ -350,60 +332,48 @@ public class BillingRule implements Rule {
         }
       }
     }
-    if (!CollectionUtils.isEmpty(fees) || !CollectionUtils.isEmpty(feesAsBurns)) {
+    if (!CollectionUtils.isEmpty(feesAsBurns)) {
       return ValidationResult.REJECTED(
-          "There are more fee operations left than needed after evaluation:\nTransfer fees"
-              + fees + "\nSubtraction fees: " + feesAsBurns);
+          "There are more fee operations left than needed after evaluation:\nSubtraction fees: "
+              + feesAsBurns
+      );
     }
     return ValidationResult.VALIDATED;
   }
 
   private boolean findAndRemoveFee(TransferAsset transfer,
-      List<TransferAsset> transferableFees,
       List<SubtractAssetQuantity> burnableFees,
       BillingInfo billingInfo) {
 
-    final String srcAccountId = transfer.getSrcAccountId();
     final String assetId = transfer.getAssetId();
     final BigDecimal amount = new BigDecimal(transfer.getAmount());
     final BillingTypeEnum billingType = billingInfo.getBillingType();
-    final String destAccountName;
-    if (billingType.equals(BillingTypeEnum.WITHDRAWAL)) {
-      if (assetId.equals(BTC_ASSET)) {
-        destAccountName = btcWithdrawalAccount;
-      } else {
-        destAccountName = ethWithdrawalAccount;
-      }
-    } else {
-      destAccountName = feeTypesAccounts.get(billingType)
-          .concat(Const.accountIdDelimiter)
-          .concat(billingInfo.getDomain());
-    }
+    boolean isFeeCorrect = false;
 
-    if (burnableFeeAssets.contains(assetId)) {
-      for (SubtractAssetQuantity fee : burnableFees) {
-        if (fee.getAssetId().equals(assetId)
-            && new BigDecimal(fee.getAmount())
-            .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
-          // To prevent case when there are two identical operations and only one fee
-          burnableFees.remove(fee);
-          return true;
-        }
+    for (SubtractAssetQuantity fee : burnableFees) {
+      if (fee.getAssetId().equals(assetId)
+          && new BigDecimal(fee.getAmount())
+          .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
+        // To prevent case when there are two identical operations and only one fee
+        burnableFees.remove(fee);
+        isFeeCorrect = true;
+        break;
       }
-    } else {
-      for (TransferAsset fee : transferableFees) {
-        if (fee.getSrcAccountId().equals(srcAccountId)
-            && fee.getAssetId().equals(assetId)
-            && fee.getDestAccountId().equals(destAccountName)
+    }
+    // check for relevant gas price * gas limit fee in case of withdrawal
+    if (billingType.equals(BillingTypeEnum.WITHDRAWAL)) {
+      isFeeCorrect = false;
+      for (SubtractAssetQuantity fee : burnableFees) {
+        if (fee.getAssetId().equals(ETHER_ASSET_ID)
             && new BigDecimal(fee.getAmount())
-            .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
-          // To prevent case when there are two identical operations and only one fee
-          transferableFees.remove(fee);
-          return true;
+            .compareTo(new BigDecimal(getRawGasPriceResponse()).multiply(GAS_LIMIT)) == 0) {
+          burnableFees.remove(fee);
+          isFeeCorrect = true;
+          break;
         }
       }
     }
-    return false;
+    return isFeeCorrect;
   }
 
   private BigDecimal calculateRelevantFeeAmount(BigDecimal amount, BillingInfo billingInfo) {

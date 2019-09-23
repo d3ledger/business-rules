@@ -170,8 +170,7 @@
     <constructor-arg name="amount" value="${MIN_SIGNATORIES_RULE_AMOUNT}"/>
   </bean>
   <bean id="billingRule" class="iroha.validation.rules.impl.billing.BillingRule">
-    <constructor-arg name="getBillingURL" value="${BILLING_URL}"/>
-    <constructor-arg name="getAssetPrecisionURL" value="${BILLING_ASSET_PRECISION_URL}"/>
+    <constructor-arg name="getBillingBaseURL" value="${BILLING_URL}"/>
     <constructor-arg name="rmqHost" value="${rmq.host}"/>
     <constructor-arg name="rmqPort" value="${rmq.port}"/>
     <constructor-arg name="rmqExchange" value="${BILLING_RMQ_EXCHANGE}"/>
@@ -180,7 +179,6 @@
     <constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>
     <constructor-arg name="ethWithdrawalAccount" value="${BILLING_ETHWITHDRAWALACCOUNT}"/>
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
-    <constructor-arg name="burnableFeeAssets" value="${BILLING_BURNABLE_FEE_ASSETS}"/>
   </bean>
   <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
   <util:map id="rules" map-class="java.util.HashMap">
