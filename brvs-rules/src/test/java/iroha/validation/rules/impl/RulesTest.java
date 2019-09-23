@@ -77,7 +77,6 @@ class RulesTest {
         .thenReturn("user@users");
     when(transaction.getPayload().getBatch().getReducedHashesCount()).thenReturn(1);
     rule = new BillingRule("http://url",
-        "http://url",
         "rmqHost",
         1,
         "exchange",
@@ -85,8 +84,7 @@ class RulesTest {
         "users",
         "deposit@users",
         "withdrawaleth@users",
-        "withdrawalbtc@users",
-        ""
+        "withdrawalbtc@users"
     ) {
       @Override
       protected void runCacheUpdater() {
