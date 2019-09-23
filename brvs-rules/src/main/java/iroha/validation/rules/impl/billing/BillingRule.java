@@ -308,8 +308,9 @@ public class BillingRule implements Rule {
 
     if (CollectionUtils.isEmpty(transfers)) {
       if (!CollectionUtils.isEmpty(fees) || !CollectionUtils.isEmpty(feesAsBurns)) {
-        return ValidationResult.REJECTED("There are more fee transfers than needed:\n"
-            + fees + "\n" + feesAsBurns);
+        return ValidationResult
+            .REJECTED("There are more fee operations supplied than needed:\nTransfer fees: "
+                + fees + "\nSubtraction fees: " + feesAsBurns);
       }
       return ValidationResult.VALIDATED;
     }
@@ -350,8 +351,9 @@ public class BillingRule implements Rule {
       }
     }
     if (!CollectionUtils.isEmpty(fees) || !CollectionUtils.isEmpty(feesAsBurns)) {
-      return ValidationResult.REJECTED("There are more fee transfers than needed:\n"
-          + fees + "\n" + feesAsBurns);
+      return ValidationResult.REJECTED(
+          "There are more fee operations left than needed after evaluation:\nTransfer fees"
+              + fees + "\nSubtraction fees: " + feesAsBurns);
     }
     return ValidationResult.VALIDATED;
   }
