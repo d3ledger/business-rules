@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.RemoveSignatory;
+import iroha.protocol.Commands.SubtractAssetQuantity;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
@@ -24,6 +25,7 @@ import iroha.validation.verdict.Verdict;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.security.KeyPair;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
@@ -36,6 +38,7 @@ class RulesTest {
   private String asset;
   private Transaction transaction;
   private TransferAsset transferAsset;
+  private SubtractAssetQuantity subtractAssetQuantity;
   private List<Command> commands;
   private Rule rule;
 
@@ -77,7 +80,6 @@ class RulesTest {
         .thenReturn("user@users");
     when(transaction.getPayload().getBatch().getReducedHashesCount()).thenReturn(1);
     rule = new BillingRule("http://url",
-        "http://url",
         "rmqHost",
         1,
         "exchange",
@@ -85,8 +87,7 @@ class RulesTest {
         "users",
         "deposit@users",
         "withdrawaleth@users",
-        "withdrawalbtc@users",
-        ""
+        "withdrawalbtc@users"
     ) {
       @Override
       protected void runCacheUpdater() {
@@ -206,9 +207,21 @@ class RulesTest {
   void emptyBillingRuleBadTest() throws IOException {
     initBillingTest();
 
-    when(transferAsset.getAssetId()).thenReturn(asset);
-    when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
-    when(transferAsset.getDestAccountId()).thenReturn("transfer_billing@users");
+    subtractAssetQuantity = mock(SubtractAssetQuantity.class);
+    when(subtractAssetQuantity.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
+    when(subtractAssetQuantity.getAssetId()).thenReturn(asset);
+    final Command command = mock(Command.class);
+
+    when(command.hasSubtractAssetQuantity()).thenReturn(true);
+    when(command.getSubtractAssetQuantity()).thenReturn(subtractAssetQuantity);
+
+    commands = Collections.singletonList(command);
+
+    when(transaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList())
+        .thenReturn(commands);
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
