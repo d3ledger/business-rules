@@ -59,8 +59,6 @@ class RulesTest {
     when(command.hasTransferAsset()).thenReturn(true);
     when(command.getTransferAsset()).thenReturn(transferAsset);
     when(command.hasRemoveSignatory()).thenReturn(true);
-    when(command.hasSubtractAssetQuantity()).thenReturn(true);
-    when(command.getSubtractAssetQuantity()).thenReturn(subtractAssetQuantity);
 
     commands = Collections.singletonList(command);
 
@@ -212,6 +210,18 @@ class RulesTest {
     subtractAssetQuantity = mock(SubtractAssetQuantity.class);
     when(subtractAssetQuantity.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
     when(subtractAssetQuantity.getAssetId()).thenReturn(asset);
+    final Command command = mock(Command.class);
+
+    when(command.hasSubtractAssetQuantity()).thenReturn(true);
+    when(command.getSubtractAssetQuantity()).thenReturn(subtractAssetQuantity);
+
+    commands = Collections.singletonList(command);
+
+    when(transaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList())
+        .thenReturn(commands);
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }

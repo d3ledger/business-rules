@@ -301,7 +301,7 @@ public class BillingRule implements Rule {
         .collect(Collectors.toList());
 
     if (CollectionUtils.isEmpty(transfers)) {
-      if (CollectionUtils.isEmpty(feesAsBurns)) {
+      if (!CollectionUtils.isEmpty(feesAsBurns)) {
         return ValidationResult.REJECTED(
             "There are more fee operations supplied than needed:\nSubtraction fees: " + feesAsBurns
         );
