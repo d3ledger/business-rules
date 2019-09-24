@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.RemoveSignatory;
+import iroha.protocol.Commands.SubtractAssetQuantity;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
@@ -24,6 +25,7 @@ import iroha.validation.verdict.Verdict;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.security.KeyPair;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
@@ -36,6 +38,7 @@ class RulesTest {
   private String asset;
   private Transaction transaction;
   private TransferAsset transferAsset;
+  private SubtractAssetQuantity subtractAssetQuantity;
   private List<Command> commands;
   private Rule rule;
 
@@ -56,6 +59,8 @@ class RulesTest {
     when(command.hasTransferAsset()).thenReturn(true);
     when(command.getTransferAsset()).thenReturn(transferAsset);
     when(command.hasRemoveSignatory()).thenReturn(true);
+    when(command.hasSubtractAssetQuantity()).thenReturn(true);
+    when(command.getSubtractAssetQuantity()).thenReturn(subtractAssetQuantity);
 
     commands = Collections.singletonList(command);
 
@@ -204,9 +209,9 @@ class RulesTest {
   void emptyBillingRuleBadTest() throws IOException {
     initBillingTest();
 
-    when(transferAsset.getAssetId()).thenReturn(asset);
-    when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
-    when(transferAsset.getDestAccountId()).thenReturn("transfer_billing@users");
+    subtractAssetQuantity = mock(SubtractAssetQuantity.class);
+    when(subtractAssetQuantity.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
+    when(subtractAssetQuantity.getAssetId()).thenReturn(asset);
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
