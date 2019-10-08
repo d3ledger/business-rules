@@ -60,11 +60,9 @@ public class BillingRule implements Rule {
   private static final String QUEUE_NAME = "brvs_billing_updates";
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
-  private static final String BILLING_GASPRICE_ERROR_MESSAGE = "Couldn't request gas price.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
   private static final String GET_BILLING_PATH = "get/billing";
   private static final String PRECISION_PATH = "iroha/asset/precision/";
-  private static final String GAS_PATH = "gas";
   private static final BigDecimal INCORRECT_FEE_VALUE = new BigDecimal(Integer.MIN_VALUE);
   private static final BigDecimal GAS_LIMIT = new BigDecimal("21000");
   private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
@@ -233,23 +231,6 @@ public class BillingRule implements Rule {
     }
   }
 
-  private String getRawGasPriceResponse() {
-    try {
-      return jsonParser
-          .parse(
-              executeGetRequest(
-                  new URL(getBillingBaseURL + GAS_PATH),
-                  BILLING_GASPRICE_ERROR_MESSAGE
-              )
-          )
-          .getAsJsonObject()
-          .get(BILLING_PRECISION_JSON_FIELD)
-          .getAsString();
-    } catch (MalformedURLException e) {
-      throw new BillingRuleException(BILLING_GASPRICE_ERROR_MESSAGE, e);
-    }
-  }
-
   private Observable<BillingInfo> getMqUpdatesObservable() {
     ConnectionFactory factory = new ConnectionFactory();
     factory.setHost(rmqHost);
@@ -347,8 +328,6 @@ public class BillingRule implements Rule {
 
     final String assetId = transfer.getAssetId();
     final BigDecimal amount = new BigDecimal(transfer.getAmount());
-    final BillingTypeEnum billingType = billingInfo.getBillingType();
-    boolean isFeeCorrect = false;
 
     for (SubtractAssetQuantity fee : burnableFees) {
       if (fee.getAssetId().equals(assetId)
@@ -356,24 +335,10 @@ public class BillingRule implements Rule {
           .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
         // To prevent case when there are two identical operations and only one fee
         burnableFees.remove(fee);
-        isFeeCorrect = true;
-        break;
+        return true;
       }
     }
-    // check for relevant gas price * gas limit fee in case of withdrawal
-    if (billingType.equals(BillingTypeEnum.WITHDRAWAL)) {
-      isFeeCorrect = false;
-      for (SubtractAssetQuantity fee : burnableFees) {
-        if (fee.getAssetId().equals(ETHER_ASSET_ID)
-            && new BigDecimal(fee.getAmount())
-            .compareTo(new BigDecimal(getRawGasPriceResponse()).multiply(GAS_LIMIT)) == 0) {
-          burnableFees.remove(fee);
-          isFeeCorrect = true;
-          break;
-        }
-      }
-    }
-    return isFeeCorrect;
+    return false;
   }
 
   private BigDecimal calculateRelevantFeeAmount(BigDecimal amount, BillingInfo billingInfo) {
