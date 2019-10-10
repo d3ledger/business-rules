@@ -79,22 +79,25 @@ public class RuleMonitor {
     }
     logger.info("Starting rules updates monitoring");
     irohaChainListener.getBlockStreaming().observeOn(scheduler).subscribe(blockSubscription -> {
-          blockSubscription.getBlock().getBlockV1().getPayload().getTransactionsList().stream()
-              .map(transaction -> transaction.getPayload().getReducedPayload())
-              .filter(
-                  reducedPayload -> reducedPayload.getCreatorAccountId().equals(setterAccountId)
-              )
-              .map(ReducedPayload::getCommandsList)
-              .forEach(commands -> commands.stream()
-                  .filter(Command::hasSetAccountDetail)
-                  .map(Command::getSetAccountDetail)
-                  .filter(
-                      setAccountDetail -> setAccountDetail.getAccountId()
-                          .equals(settingsAccountId)
-                  )
-                  .forEach(this::processUpdate)
-              );
-          blockSubscription.getAcknowledgment().ack();
+          try {
+            blockSubscription.getBlock().getBlockV1().getPayload().getTransactionsList().stream()
+                .map(transaction -> transaction.getPayload().getReducedPayload())
+                .filter(
+                    reducedPayload -> reducedPayload.getCreatorAccountId().equals(setterAccountId)
+                )
+                .map(ReducedPayload::getCommandsList)
+                .forEach(commands -> commands.stream()
+                    .filter(Command::hasSetAccountDetail)
+                    .map(Command::getSetAccountDetail)
+                    .filter(
+                        setAccountDetail -> setAccountDetail.getAccountId()
+                            .equals(settingsAccountId)
+                    )
+                    .forEach(this::processUpdate)
+                );
+          } finally {
+            blockSubscription.getAcknowledgment().ack();
+          }
         }
     );
     isStarted = true;

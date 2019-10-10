@@ -147,16 +147,19 @@ public class BasicTransactionProvider implements TransactionProvider {
     irohaReliableChainListener.getBlockStreaming()
         .observeOn(scheduler)
         .subscribe(blockSubscription -> {
-              // Store new block first
-              final Block block = blockSubscription.getBlock();
-              blockStorage.store(block);
-              processCommitted(
-                  block
-                      .getBlockV1()
-                      .getPayload()
-                      .getTransactionsList()
-              );
-              blockSubscription.getAcknowledgment().ack();
+              try {
+                // Store new block first
+                final Block block = blockSubscription.getBlock();
+                blockStorage.store(block);
+                processCommitted(
+                    block
+                        .getBlockV1()
+                        .getPayload()
+                        .getTransactionsList()
+                );
+              } finally {
+                blockSubscription.getAcknowledgment().ack();
+              }
             }
         );
     irohaReliableChainListener.listen();
