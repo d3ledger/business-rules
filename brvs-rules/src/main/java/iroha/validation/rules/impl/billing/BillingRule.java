@@ -55,16 +55,14 @@ public class BillingRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
 
-  private static final String ETHER_ASSET_ID = "ether#ethereum";
   private static final String SEPARATOR = ",";
   private static final String QUEUE_NAME = "brvs_billing_updates";
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
-  private static final String GET_BILLING_PATH = "get/billing";
+  private static final String GET_BILLING_PATH = "cache/get/billing";
   private static final String PRECISION_PATH = "iroha/asset/precision/";
   private static final BigDecimal INCORRECT_FEE_VALUE = new BigDecimal(Integer.MIN_VALUE);
-  private static final BigDecimal GAS_LIMIT = new BigDecimal("21000");
   private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
