@@ -78,8 +78,8 @@ public class RuleMonitor {
       return;
     }
     logger.info("Starting rules updates monitoring");
-    irohaChainListener.getBlockStreaming().observeOn(scheduler).subscribe(block ->
-        block.getBlockV1().getPayload().getTransactionsList().stream()
+    irohaChainListener.getBlockStreaming().observeOn(scheduler).subscribe(blockSubscription ->
+        blockSubscription.getBlock().getBlockV1().getPayload().getTransactionsList().stream()
             .map(transaction -> transaction.getPayload().getReducedPayload())
             .filter(
                 reducedPayload -> reducedPayload.getCreatorAccountId().equals(setterAccountId)
