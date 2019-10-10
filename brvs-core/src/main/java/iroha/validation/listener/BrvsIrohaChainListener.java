@@ -9,7 +9,6 @@ import com.d3.chainadapter.client.BlockSubscription;
 import com.d3.chainadapter.client.RMQConfig;
 import com.d3.chainadapter.client.ReliableIrohaChainListener4J;
 import io.reactivex.Observable;
-import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import java.io.Closeable;
@@ -45,7 +44,7 @@ public class BrvsIrohaChainListener implements Closeable {
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     Objects.requireNonNull(userKeyPair, "User Keypair must not be null");
 
-    irohaChainListener = new ReliableIrohaChainListener4J(rmqConfig, BRVS_QUEUE_RMQ_NAME,true);
+    irohaChainListener = new ReliableIrohaChainListener4J(rmqConfig, BRVS_QUEUE_RMQ_NAME,false);
     this.irohaAPI = queryAPI.getApi();
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsKeyPair = queryAPI.getKeyPair();
@@ -110,8 +109,8 @@ public class BrvsIrohaChainListener implements Closeable {
     return transactionBatches;
   }
 
-  public Observable<Block> getBlockStreaming() {
-    return irohaChainListener.getBlockObservable().map(BlockSubscription::getBlock);
+  public Observable<BlockSubscription> getBlockStreaming() {
+    return irohaChainListener.getBlockObservable();
   }
 
   public void listen() {

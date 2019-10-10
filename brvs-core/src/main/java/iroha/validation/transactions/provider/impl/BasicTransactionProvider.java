@@ -11,6 +11,7 @@ import com.google.common.base.Strings;
 import io.reactivex.Observable;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.AddSignatory;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.RemoveSignatory;
@@ -145,8 +146,9 @@ public class BasicTransactionProvider implements TransactionProvider {
   private void processBlockTransactions(Scheduler scheduler) {
     irohaReliableChainListener.getBlockStreaming()
         .observeOn(scheduler)
-        .subscribe(block -> {
+        .subscribe(blockSubscription -> {
               // Store new block first
+              final Block block = blockSubscription.getBlock();
               blockStorage.store(block);
               processCommitted(
                   block
@@ -154,6 +156,7 @@ public class BasicTransactionProvider implements TransactionProvider {
                       .getPayload()
                       .getTransactionsList()
               );
+              blockSubscription.getAcknowledgment().ack();
             }
         );
     irohaReliableChainListener.listen();
