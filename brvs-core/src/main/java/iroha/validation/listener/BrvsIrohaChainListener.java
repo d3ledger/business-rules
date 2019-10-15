@@ -23,10 +23,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryAPI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BrvsIrohaChainListener implements Closeable {
 
   private static final String BRVS_QUEUE_RMQ_NAME = "brvs";
+  private static final Logger logger = LoggerFactory.getLogger(BrvsIrohaChainListener.class);
 
   private final IrohaAPI irohaAPI;
   // BRVS keypair to query Iroha
@@ -64,6 +67,7 @@ public class BrvsIrohaChainListener implements Closeable {
     accountsToMonitor.forEach(account ->
         pendingTransactions.addAll(getPendingTransactions(account, userKeyPair))
     );
+    logger.info("Got " + pendingTransactions.size() + " pending batches from Iroha");
     return pendingTransactions;
   }
 
@@ -75,12 +79,25 @@ public class BrvsIrohaChainListener implements Closeable {
    * @return list of user transactions that are in pending state
    */
   private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
-    queryAPIMap.putIfAbsent(accountId, new QueryAPI(irohaAPI, accountId, keyPair));
     return constructBatches(
-        queryAPIMap.get(accountId)
+        getQueryApiFor(accountId, keyPair)
             .getPendingTransactions()
             .getTransactionsList()
     );
+  }
+
+  /**
+   * Returns a relevant query api instance
+   *
+   * @param accountId user that transactions should be queried for
+   * @param keyPair user keypair
+   * @return user {@link QueryAPI} instance
+   */
+  private QueryAPI getQueryApiFor(String accountId, KeyPair keyPair) {
+    if (!queryAPIMap.containsKey(accountId)) {
+      queryAPIMap.put(accountId, new QueryAPI(irohaAPI, accountId, keyPair));
+    }
+    return queryAPIMap.get(accountId);
   }
 
   /**
