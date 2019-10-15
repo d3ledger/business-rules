@@ -93,7 +93,7 @@ public class BrvsIrohaChainListener implements Closeable {
    * @param keyPair user keypair
    * @return user {@link QueryAPI} instance
    */
-  private QueryAPI getQueryApiFor(String accountId, KeyPair keyPair) {
+  private synchronized QueryAPI getQueryApiFor(String accountId, KeyPair keyPair) {
     if (!queryAPIMap.containsKey(accountId)) {
       queryAPIMap.put(accountId, new QueryAPI(irohaAPI, accountId, keyPair));
     }
