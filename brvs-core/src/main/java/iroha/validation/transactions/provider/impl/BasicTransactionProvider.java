@@ -109,10 +109,8 @@ public class BasicTransactionProvider implements TransactionProvider {
           .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
           .forEach(transactionBatch -> {
                 // if only BRVS signatory remains
-                if (isBatchSignedByUsers(transactionBatch)) {
-                  if (savedMissingInStorage(transactionBatch)) {
-                    cacheProvider.put(transactionBatch);
-                  }
+                if (isBatchSignedByUsers(transactionBatch) && savedMissingInStorage(transactionBatch)) {
+                  cacheProvider.put(transactionBatch);
                 }
               }
           );
