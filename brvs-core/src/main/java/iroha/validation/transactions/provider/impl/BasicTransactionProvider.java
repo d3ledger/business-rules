@@ -5,6 +5,7 @@
 
 package iroha.validation.transactions.provider.impl;
 
+import static com.d3.commons.util.ThreadUtilKt.createPrettyScheduledThreadPool;
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
 
 import com.google.common.base.Strings;
@@ -31,7 +32,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -48,7 +48,9 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final RegistrationProvider registrationProvider;
   private final BlockStorage blockStorage;
   private final BrvsIrohaChainListener irohaReliableChainListener;
-  private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+  private final ScheduledExecutorService executor = createPrettyScheduledThreadPool(
+      "brvs", "pending-processor"
+  );
   private final Scheduler blockScheduler = Schedulers.from(createPrettySingleThreadPool(
       "brvs", "block-processor"
   ));
@@ -102,17 +104,20 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void monitorIrohaPending() {
-    irohaReliableChainListener
-        .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
-        .forEach(transactionBatch -> {
-              // if only BRVS signatory remains
-              if (isBatchSignedByUsers(transactionBatch)) {
-                if (savedMissingInStorage(transactionBatch)) {
+    try {
+      irohaReliableChainListener
+          .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
+          .forEach(transactionBatch -> {
+                // if only BRVS signatory remains
+                if (isBatchSignedByUsers(transactionBatch) && savedMissingInStorage(transactionBatch)) {
                   cacheProvider.put(transactionBatch);
                 }
               }
-            }
-        );
+          );
+    } catch (Throwable t) {
+      logger.error("Pending transactions monitor encountered an error", t);
+      System.exit(1);
+    }
   }
 
   private boolean isBatchSignedByUsers(TransactionBatch transactionBatch) {
