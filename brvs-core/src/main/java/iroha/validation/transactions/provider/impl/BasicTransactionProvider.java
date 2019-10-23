@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -188,6 +189,11 @@ public class BasicTransactionProvider implements TransactionProvider {
   private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
     final String creatorAccountId = ValidationUtils.getTxAccountId(blockTransaction);
     if (!userDomains.contains(getDomain(creatorAccountId))) {
+      return;
+    }
+
+    if (StreamSupport.stream(registrationProvider.getRegisteredAccounts().spliterator(), false)
+        .noneMatch(registeredAccount -> registeredAccount.equals(creatorAccountId))) {
       return;
     }
 
