@@ -21,10 +21,12 @@ import iroha.validation.rest.dto.BinaryTransaction;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
@@ -41,6 +43,7 @@ import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
+import org.springframework.util.StringUtils;
 
 @Singleton
 @Path("")
@@ -100,6 +103,29 @@ public class RestService {
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).entity(e).build();
     }
     return Response.status(HttpStatus.SC_NO_CONTENT).build();
+  }
+
+  @POST
+  @Path("/isRegistered")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response isRegistered(String jsonBody) {
+    try {
+      final String accountId = ValidationUtils.gson
+          .fromJson(jsonBody, AccountIdJsonWrapper.class)
+          .getAccountId();
+      if (StringUtils.isEmpty(accountId)) {
+        throw new IllegalArgumentException("Invalid input");
+      }
+      final boolean isRegistered = StreamSupport
+          .stream(registrationProvider.getRegisteredAccounts().spliterator(), false)
+          .anyMatch(registeredAccount -> registeredAccount.equals(accountId));
+      return Response.status(HttpStatus.SC_OK)
+          .entity(ValidationUtils.gson.toJson(new AccountRegisteredBooleanWrapper(isRegistered)))
+          .build();
+    } catch (Exception e) {
+      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).entity(e).build();
+    }
   }
 
   @POST
@@ -436,6 +462,30 @@ public class RestService {
     } catch (Exception e) {
       logger.error("Error during transaction processing", e);
       return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+    }
+  }
+
+  /**
+   * A simple wrapper class for (de)serializing JSONed account id in Iroha
+   */
+  private class AccountIdJsonWrapper {
+
+    private String accountId;
+
+    String getAccountId() {
+      return accountId;
+    }
+  }
+
+  /**
+   * A simple wrapper class for (de)serializing JSONed boolean result
+   */
+  private class AccountRegisteredBooleanWrapper {
+
+    private boolean registered;
+
+    AccountRegisteredBooleanWrapper(boolean registered) {
+      this.registered = registered;
     }
   }
 }
