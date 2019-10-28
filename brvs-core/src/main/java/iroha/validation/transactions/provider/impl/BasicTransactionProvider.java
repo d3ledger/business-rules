@@ -176,8 +176,8 @@ public class BasicTransactionProvider implements TransactionProvider {
       blockTransactions.forEach(transaction -> {
             tryToRemoveLock(transaction);
             try {
-              modifyUserQuorumIfNeeded(transaction);
               registerCreatedAccountByTransactionScanning(transaction);
+              modifyUserQuorumIfNeeded(transaction);
             } catch (Exception e) {
               logger.warn("Couldn't process account changes from the committed block", e);
             }
