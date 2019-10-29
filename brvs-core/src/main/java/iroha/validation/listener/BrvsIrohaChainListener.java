@@ -26,6 +26,10 @@ import jp.co.soramitsu.iroha.java.QueryAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Wrapper class that reuses {@link ReliableIrohaChainListener4J} and provides additional
+ * functionality to make friendly processable abstraction on top of Iroha batches
+ */
 public class BrvsIrohaChainListener implements Closeable {
 
   private static final String BRVS_QUEUE_RMQ_NAME = "brvs";
@@ -47,7 +51,7 @@ public class BrvsIrohaChainListener implements Closeable {
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     Objects.requireNonNull(userKeyPair, "User Keypair must not be null");
 
-    irohaChainListener = new ReliableIrohaChainListener4J(rmqConfig, BRVS_QUEUE_RMQ_NAME,false);
+    irohaChainListener = new ReliableIrohaChainListener4J(rmqConfig, BRVS_QUEUE_RMQ_NAME, false);
     this.irohaAPI = queryAPI.getApi();
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsKeyPair = queryAPI.getKeyPair();
@@ -126,6 +130,11 @@ public class BrvsIrohaChainListener implements Closeable {
     return transactionBatches;
   }
 
+  /**
+   * Iroha blocks observable entrypoint
+   *
+   * @return {@link Observable} of {@link BlockSubscription}
+   */
   public Observable<BlockSubscription> getBlockStreaming() {
     return irohaChainListener.getBlockObservable();
   }

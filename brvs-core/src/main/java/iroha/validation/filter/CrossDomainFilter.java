@@ -4,8 +4,14 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerResponseContext;
 import javax.ws.rs.container.ContainerResponseFilter;
 
+/**
+ * Useful utility class to provide CORS-friendly interaction
+ */
 public class CrossDomainFilter implements ContainerResponseFilter {
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public void filter(ContainerRequestContext creq, ContainerResponseContext cres) {
     cres.getHeaders().add("Access-Control-Allow-Origin", "*");

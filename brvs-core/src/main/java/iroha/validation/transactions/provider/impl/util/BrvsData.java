@@ -5,6 +5,9 @@
 
 package iroha.validation.transactions.provider.impl.util;
 
+/**
+ * Simple pojo to be used as an service instance identity
+ */
 public class BrvsData {
 
   private String hexPubKey;

@@ -29,6 +29,9 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Core BRVS service abstraction impl
+ */
 public class ValidationServiceImpl implements ValidationService {
 
   private static Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
@@ -73,6 +76,12 @@ public class ValidationServiceImpl implements ValidationService {
         );
   }
 
+  /**
+   * Calls relevant validators and rules for each passed user transaction
+   *
+   * @param transactionBatch user related {@link TransactionBatch}
+   * @return the same {@link TransactionBatch} that was passed as an argument
+   */
   private TransactionBatch processTransactionBatch(TransactionBatch transactionBatch) {
     final List<String> hex = ValidationUtils.hexHash(transactionBatch);
     try {
@@ -93,6 +102,9 @@ public class ValidationServiceImpl implements ValidationService {
     return transactionBatch;
   }
 
+  /**
+   * Reads Iroha details containing a list of accounts that should be checked by BRVS
+   */
   private void registerExistentAccounts() {
     logger.info("Going to register existent user accounts in BRVS: " + brvsData.getHostname());
     final Iterable<String> userAccounts;
