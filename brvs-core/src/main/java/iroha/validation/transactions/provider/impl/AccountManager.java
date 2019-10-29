@@ -44,6 +44,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
 
+/**
+ * Class responsible for user related Iroha interaction
+ */
 public class AccountManager implements UserQuorumProvider, RegistrationProvider {
 
   private static final Logger logger = LoggerFactory.getLogger(AccountManager.class);
@@ -169,6 +172,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     logger.info("Successfully set signatories detail: " + targetAccount + " - " + jsonedKeys);
   }
 
+  /**
+   * {@inheritDoc}
+   */
   @Override
   public int getUserAccountQuorum(String targetAccount) {
     return queryAPI.getAccount(targetAccount).getAccount().getQuorum();

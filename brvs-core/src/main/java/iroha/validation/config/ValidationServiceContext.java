@@ -13,6 +13,9 @@ import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.validators.Validator;
 import java.util.Objects;
 
+/**
+ * Simple data structure used to aggregate all significant modules of the brvs in a one place
+ */
 public class ValidationServiceContext {
 
   private final Validator validator;

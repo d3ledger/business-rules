@@ -38,6 +38,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Service interacting with cached user transactions queues and block listener
+ */
 public class BasicTransactionProvider implements TransactionProvider {
 
   private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
