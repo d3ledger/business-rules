@@ -35,10 +35,12 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Service interacting with cached user transactions queues and block listener
+ */
 public class BasicTransactionProvider implements TransactionProvider {
 
   private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
@@ -122,13 +124,22 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private boolean isBatchSignedByUsers(TransactionBatch transactionBatch) {
-    for (Transaction transaction : transactionBatch) {
-      if (transaction.getSignaturesCount() < userQuorumProvider
-          .getUserSignatoriesDetail(ValidationUtils.getTxAccountId(transaction)).size()) {
-        return false;
-      }
+    return transactionBatch
+        .stream()
+        .allMatch(transaction ->
+            transaction.getSignaturesCount() >= getSignatoriesToPresentNum(transaction)
+        );
+  }
+
+  private int getSignatoriesToPresentNum(Transaction transaction) {
+    final String creatorAccountId = ValidationUtils.getTxAccountId(transaction);
+    int signatoriesToPresent = userQuorumProvider
+        .getUserSignatoriesDetail(creatorAccountId).size();
+    if (signatoriesToPresent == 0) {
+      signatoriesToPresent =
+          userQuorumProvider.getUserAccountQuorum(creatorAccountId) / ValidationUtils.PROPORTION;
     }
-    return true;
+    return signatoriesToPresent;
   }
 
   private boolean savedMissingInStorage(TransactionBatch transactionBatch) {
@@ -176,8 +187,8 @@ public class BasicTransactionProvider implements TransactionProvider {
       blockTransactions.forEach(transaction -> {
             tryToRemoveLock(transaction);
             try {
-              modifyUserQuorumIfNeeded(transaction);
               registerCreatedAccountByTransactionScanning(transaction);
+              modifyUserQuorumIfNeeded(transaction);
             } catch (Exception e) {
               logger.warn("Couldn't process account changes from the committed block", e);
             }
@@ -192,10 +203,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       return;
     }
 
-    if (StreamSupport.stream(registrationProvider.getRegisteredAccounts().spliterator(), false)
-        .noneMatch(registeredAccount -> registeredAccount.equals(creatorAccountId))) {
-      return;
-    }
+    // TODO add multithreading compatible registered accounts check (not just contains)
 
     final List<Command> commands = blockTransaction
         .getPayload()
@@ -224,7 +232,8 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
 
     final Set<String> userSignatories = new HashSet<>(
-        userQuorumProvider.getUserSignatoriesDetail(creatorAccountId));
+        userQuorumProvider.getUserSignatoriesDetail(creatorAccountId)
+    );
     userSignatories.removeAll(removedSignatories);
     userSignatories.addAll(addedSignatories);
     if (userSignatories.isEmpty()) {

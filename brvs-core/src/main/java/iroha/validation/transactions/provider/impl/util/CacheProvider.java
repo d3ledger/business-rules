@@ -23,6 +23,9 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.springframework.util.CollectionUtils;
 
+/**
+ * Service in-memory queue of transactions. Implements isolated queue processing for each user.
+ */
 public class CacheProvider {
 
   // Local BRVS cache
@@ -32,6 +35,8 @@ public class CacheProvider {
   // Observable
   private final PublishSubject<TransactionBatch> subject = PublishSubject.create();
 
+  // Puts a transaction in the corresponding user queue if needed
+  // Or immediately consumes it if possible
   public synchronized void put(TransactionBatch transactionBatch) {
     if (isBatchUnlocked(transactionBatch)) {
       // do not even put in cache if possible
@@ -45,6 +50,7 @@ public class CacheProvider {
     cache.get(accountId).add(transactionBatch);
   }
 
+  // Initiates consuming of a user queue
   private synchronized void consumeUnlockedTransactionBatches(String accountId) {
     final Set<TransactionBatch> accountTransactions = cache.get(accountId);
     if (!CollectionUtils.isEmpty(accountTransactions)) {
@@ -64,6 +70,7 @@ public class CacheProvider {
     }
   }
 
+  // Consumes a single transaction of the queue and locks a user queue from next consuming if needed
   private synchronized void consumeAndLockAccountByTransactionIfNeeded(
       TransactionBatch transactionBatch) {
     if (transactionBatch != null) {
@@ -82,6 +89,7 @@ public class CacheProvider {
     }
   }
 
+  // Returns accounts locked by a transaction hash provided
   public synchronized Set<String> getAccountsBlockedBy(String txHash) {
     return pendingAccounts.entrySet()
         .stream()
@@ -94,6 +102,7 @@ public class CacheProvider {
     unlockPendingAccounts(Collections.singleton(account));
   }
 
+  // Unlocks accounts and continues consuming
   public synchronized void unlockPendingAccounts(Iterable<String> accounts) {
     accounts.forEach(pendingAccounts::remove);
     accounts.forEach(this::consumeUnlockedTransactionBatches);
@@ -103,12 +112,14 @@ public class CacheProvider {
     return subject;
   }
 
+  // Returns all transactions from all user queues
   public synchronized Iterable<Transaction> getTransactions() {
     return Iterables.concat(StreamSupport
         .stream(Iterables.concat(cache.values()).spliterator(), false)
         .map(TransactionBatch::getTransactionList).distinct().collect(Collectors.toList()));
   }
 
+  // Checks if the batch lead to locking of the queue
   private boolean isBatchUnlocked(TransactionBatch transactionBatch) {
     return transactionBatch.stream().noneMatch(transaction ->
         transaction.getPayload().getReducedPayload()

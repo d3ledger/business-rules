@@ -29,6 +29,13 @@ public interface UserQuorumProvider {
       long creationTimeMillis);
 
   /**
+   * Method for getting relevant user Iroha account quorum
+   *
+   * @param targetAccount account id in Iroha
+   */
+  int getUserAccountQuorum(String targetAccount);
+
+  /**
    * Method for setting relevant user Iroha account quorum
    *
    * @param targetAccount account id in Iroha

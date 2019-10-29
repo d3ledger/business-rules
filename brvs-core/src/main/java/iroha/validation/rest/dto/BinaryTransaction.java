@@ -18,5 +18,4 @@ public final class BinaryTransaction {
     Objects.requireNonNull(hexString);
     this.hexString = hexString;
   }
-
 }
