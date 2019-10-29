@@ -169,6 +169,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     logger.info("Successfully set signatories detail: " + targetAccount + " - " + jsonedKeys);
   }
 
+  @Override
+  public int getUserAccountQuorum(String targetAccount) {
+    return queryAPI.getAccount(targetAccount).getAccount().getQuorum();
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -177,7 +182,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     if (quorum < 1) {
       throw new IllegalArgumentException("Quorum must be positive, got: " + quorum);
     }
-    final int currentQuorum = getAccountQuorum(targetAccount);
+    final int currentQuorum = getUserAccountQuorum(targetAccount);
     final Set<String> userSignatoriesDetail = getUserSignatoriesDetail(targetAccount);
     final int userDetailQuorum =
         userSignatoriesDetail.isEmpty() ? INITIAL_KEYS_AMOUNT : userSignatoriesDetail.size();
@@ -317,7 +322,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
 
   private void modifyQuorumOnRegistration(String userAccountId) {
     final int quorum = getValidQuorumForUserAccount(userAccountId, true);
-    if (getAccountQuorum(userAccountId) == quorum) {
+    if (getUserAccountQuorum(userAccountId) == quorum) {
       logger.warn("Account " + userAccountId + " already has valid quorum: " + quorum);
       return;
     }
@@ -333,11 +338,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     if (userQuorum == 0 && onRegistration) {
       userQuorum = INITIAL_USER_QUORUM_VALUE;
     }
-    return (PROPORTION * userQuorum * getAccountQuorum(brvsAccountId));
-  }
-
-  private int getAccountQuorum(String targetAccountId) {
-    return queryAPI.getAccount(targetAccountId).getAccount().getQuorum();
+    return (PROPORTION * userQuorum * getUserAccountQuorum(brvsAccountId));
   }
 
   private List<String> getAccountSignatories(String targetAccountId) {
