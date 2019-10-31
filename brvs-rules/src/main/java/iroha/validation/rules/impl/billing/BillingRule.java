@@ -66,13 +66,14 @@ public class BillingRule implements Rule {
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
   private static final Map<BillingTypeEnum, String> feeTypesAccounts;
+  private static final String GET_BILLING_PATH = "cache/get/billing";
+  private static final String PRECISION_PATH = "iroha/asset/precision/";
   private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
 
   private boolean isRunning;
-  private final URL getBillingURL;
-  private final String getAssetPrecisionURL;
+  private final String getBillingBaseURL;
   private final String rmqHost;
   private final int rmqPort;
   private final String rmqExchange;
@@ -91,8 +92,7 @@ public class BillingRule implements Rule {
     feeTypesAccounts.put(BillingTypeEnum.EXCHANGE, EXCHANGE_BILLING_ACCOUNT_NAME);
   }
 
-  public BillingRule(String getBillingURL,
-      String getAssetPrecisionURL,
+  public BillingRule(String getBillingBaseURL,
       String rmqHost,
       int rmqPort,
       String rmqExchange,
@@ -100,13 +100,10 @@ public class BillingRule implements Rule {
       String userDomains,
       String depositAccounts,
       String ethWithdrawalAccount,
-      String btcWithdrawalAccount) throws IOException {
+      String btcWithdrawalAccount) throws MalformedURLException {
 
-    if (Strings.isNullOrEmpty(getBillingURL)) {
+    if (Strings.isNullOrEmpty(getBillingBaseURL)) {
       throw new IllegalArgumentException("Billing URL must not be neither null nor empty");
-    }
-    if (Strings.isNullOrEmpty(getAssetPrecisionURL)) {
-      throw new IllegalArgumentException("Asset precision URL must not be neither null nor empty");
     }
     if (Strings.isNullOrEmpty(rmqHost)) {
       throw new IllegalArgumentException("RMQ host must not be neither null nor empty");
@@ -135,8 +132,7 @@ public class BillingRule implements Rule {
           "BTC Withdrawal account must not be neither null nor empty");
     }
 
-    this.getBillingURL = new URL(getBillingURL);
-    this.getAssetPrecisionURL = getAssetPrecisionURL;
+    this.getBillingBaseURL = getBillingBaseURL;
     this.rmqHost = rmqHost;
     this.rmqPort = rmqPort;
     this.rmqExchange = rmqExchange;
@@ -148,7 +144,7 @@ public class BillingRule implements Rule {
     runCacheUpdater();
   }
 
-  protected void runCacheUpdater() {
+  protected void runCacheUpdater() throws MalformedURLException {
     if (isRunning) {
       logger.warn("Cache updater is already running");
       return;
@@ -175,9 +171,13 @@ public class BillingRule implements Rule {
     logger.info("Billing cache updater has been started");
   }
 
-  private void readBillingOnStartup() {
+  private void readBillingOnStartup() throws MalformedURLException {
     final JsonObject root = jsonParser
-        .parse(executeGetRequest(getBillingURL, BILLING_ERROR_MESSAGE)).getAsJsonObject();
+        .parse(
+            executeGetRequest(
+                new URL(getBillingBaseURL + GET_BILLING_PATH),
+                BILLING_ERROR_MESSAGE)
+        ).getAsJsonObject();
     logger.info("Got billing data response from HTTP server: " + root);
     for (BillingTypeEnum billingType : BillingTypeEnum.values()) {
       final String label = billingType.label;
@@ -226,7 +226,10 @@ public class BillingRule implements Rule {
       return jsonParser
           .parse(
               executeGetRequest(
-                  new URL(getAssetPrecisionURL + assetId.replace("#", "%23")),
+                  new URL(
+                      getBillingBaseURL + PRECISION_PATH
+                          + assetId.replace("#", "%23")
+                  ),
                   BILLING_PRECISION_ERROR_MESSAGE
               )
           )
