@@ -66,8 +66,8 @@ public class BillingRule implements Rule {
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
   private static final Map<BillingTypeEnum, String> feeTypesAccounts;
-  private static final String GET_BILLING_PATH = "cache/get/billing";
-  private static final String PRECISION_PATH = "iroha/asset/precision/";
+  private static final String GET_BILLING_PATH = "/cache/get/billing";
+  private static final String PRECISION_PATH = "/iroha/asset/precision/";
   private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
