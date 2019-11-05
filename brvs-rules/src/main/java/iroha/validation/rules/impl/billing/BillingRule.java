@@ -175,7 +175,7 @@ public class BillingRule implements Rule {
     final JsonObject root = jsonParser
         .parse(
             executeGetRequest(
-                new URL(getBillingBaseURL + GET_BILLING_PATH),
+                new URL(getBillingBaseURL + "/" + GET_BILLING_PATH),
                 BILLING_ERROR_MESSAGE)
         ).getAsJsonObject();
     logger.info("Got billing data response from HTTP server: " + root);
@@ -227,7 +227,7 @@ public class BillingRule implements Rule {
           .parse(
               executeGetRequest(
                   new URL(
-                      getBillingBaseURL + PRECISION_PATH
+                      getBillingBaseURL + "/" + PRECISION_PATH
                           + assetId.replace("#", "%23")
                   ),
                   BILLING_PRECISION_ERROR_MESSAGE
