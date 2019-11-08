@@ -98,6 +98,7 @@ public class ValidationServiceImpl implements ValidationService {
       }
     } catch (Exception exception) {
       logger.error("Error during " + hex + " transaction validation: ", exception);
+      System.exit(1);
     }
     return transactionBatch;
   }
