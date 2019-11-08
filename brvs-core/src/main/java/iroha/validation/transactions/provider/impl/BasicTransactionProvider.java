@@ -192,8 +192,9 @@ public class BasicTransactionProvider implements TransactionProvider {
               registerCreatedAccountByTransactionScanning(transaction);
               modifyUserQuorumIfNeeded(transaction);
             } catch (Exception e) {
-              logger.error("Couldn't process account changes from the committed block", e);
-              throw e;
+              throw new IllegalStateException(
+                  "Couldn't process account changes from the committed block", e
+              );
             }
           }
       );
