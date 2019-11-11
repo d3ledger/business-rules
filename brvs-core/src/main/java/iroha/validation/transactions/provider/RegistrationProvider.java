@@ -6,7 +6,6 @@
 package iroha.validation.transactions.provider;
 
 import iroha.validation.transactions.provider.impl.util.BrvsData;
-import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
 import java.util.Set;
 
 public interface RegistrationProvider {
@@ -15,10 +14,15 @@ public interface RegistrationProvider {
    * Method for registering user account for the service
    *
    * @param accountId client account id in Iroha
-   * @param registrationAwaiterWrapper {@link RegistrationAwaiterWrapper} to control synchronization
-   * and exceptions in worker threads
    */
-  void register(String accountId, RegistrationAwaiterWrapper registrationAwaiterWrapper);
+  void register(String accountId) throws InterruptedException;
+
+  /**
+   * Method for registering many user accounts as a batch for the service
+   *
+   * @param accountIds {@link Iterable} of client account ids in Iroha
+   */
+  void register(Iterable<String> accountIds) throws InterruptedException;
 
   /**
    * Method for getting all the registered user accounts

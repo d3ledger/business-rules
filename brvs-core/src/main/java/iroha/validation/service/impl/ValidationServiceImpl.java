@@ -18,7 +18,6 @@ import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
-import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
 import iroha.validation.transactions.signatory.TransactionSigner;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
@@ -27,7 +26,6 @@ import iroha.validation.verdict.Verdict;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -118,15 +116,10 @@ public class ValidationServiceImpl implements ValidationService {
       logger.warn("Couldn't query existing accounts. Please add them manually", e);
       return;
     }
-    final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
-        new CountDownLatch(userAccounts.size())
-    );
-    userAccounts.forEach(account -> {
-      try {
-        registrationProvider.register(account, registrationAwaiterWrapper);
-      } catch (Exception e) {
-        logger.error("Couldn't add existing account " + account + " Please add it manually", e);
-      }
-    });
+    try {
+      registrationProvider.register(userAccounts);
+    } catch (Exception e) {
+      logger.error("Couldn't register some of existing accounts", e);
+    }
   }
 }
