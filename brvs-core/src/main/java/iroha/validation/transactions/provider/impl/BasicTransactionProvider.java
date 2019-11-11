@@ -287,7 +287,7 @@ public class BasicTransactionProvider implements TransactionProvider {
             registrationAwaiterWrapper)
     );
 
-    if (!registrationAwaiterWrapper.getCountDownLatch().await(1, TimeUnit.MINUTES)) {
+    if (!registrationAwaiterWrapper.getCountDownLatch().await(5, TimeUnit.MINUTES)) {
       throw new IllegalStateException("Couldn't register accounts within a timeout");
     }
     final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper.getException();
