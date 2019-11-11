@@ -283,7 +283,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
 
     createAccountList.forEach(command -> registrationProvider
-        .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()),
+        .register(command.getAccountName().concat(accountIdDelimiter).concat(command.getDomainId()),
             registrationAwaiterWrapper)
     );
 
