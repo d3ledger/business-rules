@@ -7,6 +7,7 @@ package iroha.validation.transactions.provider.impl;
 
 import static com.d3.commons.util.ThreadUtilKt.createPrettyScheduledThreadPool;
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
+import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
@@ -207,7 +208,10 @@ public class BasicTransactionProvider implements TransactionProvider {
       return;
     }
 
-    // TODO add multithreading compatible registered accounts check (not just contains)
+    if (!isRegisterable(creatorAccountId)) {
+      logger.warn(creatorAccountId + " is not a user account, won't modify its quorum");
+      return;
+    }
 
     final List<Command> commands = blockTransaction
         .getPayload()
@@ -256,6 +260,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
+    final Set<String> userAccounts = registrationProvider.getUserAccounts();
     blockTransaction
         .getPayload()
         .getReducedPayload()
@@ -264,6 +269,9 @@ public class BasicTransactionProvider implements TransactionProvider {
         .filter(Command::hasCreateAccount)
         .map(Command::getCreateAccount)
         .filter(command -> userDomains.contains(command.getDomainId()))
+        .filter(command -> userAccounts.contains(
+            command.getAccountName().concat(accountIdDelimiter).concat(command.getDomainId()))
+        )
         .forEach(command -> registrationProvider
             .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()))
         );
@@ -279,6 +287,16 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private String getDomain(String accountId) {
     return accountId.split("@")[1];
+  }
+
+  /**
+   * Tells if the specified account is in power of brvs
+   *
+   * @param accountId Iroha account id to check
+   * @return true - if the account is in the list
+   */
+  private boolean isRegisterable(String accountId) {
+    return registrationProvider.getUserAccounts().contains(accountId);
   }
 
   @Override

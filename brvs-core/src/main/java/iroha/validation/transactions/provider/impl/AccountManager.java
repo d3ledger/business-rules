@@ -355,11 +355,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public Iterable<String> getRegisteredAccounts() {
+  public Set<String> getRegisteredAccounts() {
     return registeredAccounts;
   }
 
-  private <T> Iterable<T> getAccountsFrom(String accountsHolderAccount,
+  private <T> Set<T> getAccountsFrom(String accountsHolderAccount,
       Function<Entry, T> processor) {
     logger.info("Going to read accounts data from " + accountsHolderAccount);
     Set<T> resultSet = new HashSet<>();
@@ -416,7 +416,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public Iterable<String> getUserAccounts() {
+  public Set<String> getUserAccounts() {
     return getAccountsFrom(userAccountsHolderAccount, this::userAccountProcessor);
   }
 
@@ -424,7 +424,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public Iterable<BrvsData> getBrvsInstances() {
+  public Set<BrvsData> getBrvsInstances() {
     return getAccountsFrom(brvsInstancesHolderAccount, this::brvsAccountProcessor);
   }
 
