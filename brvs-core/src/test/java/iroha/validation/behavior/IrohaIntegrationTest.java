@@ -153,6 +153,10 @@ public class IrohaIntegrationTest {
                 // account holder
                 .createAccount(serviceDomainName, serviceDomainName,
                     crypto.generateKeypair().getPublic())
+                .setAccountDetail(String.format("%s@%s", serviceDomainName, serviceDomainName),
+                    senderName + userDomainName, userDomainName)
+                .setAccountDetail(String.format("%s@%s", serviceDomainName, serviceDomainName),
+                    receiverName + userDomainName, userDomainName)
                 .createAccount("rmq", serviceDomainName, Utils.parseHexPublicKey(
                     "7a4af859a775dd7c7b4024c97c8118f0280455b8135f6f41422101f0397e0fa5"))
                 .createAsset(asset, serviceDomainName, 0)
