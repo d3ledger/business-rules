@@ -274,7 +274,7 @@ public class BasicTransactionProvider implements TransactionProvider {
             .concat(command.getDomainId()))
         .filter(userAccounts::contains)
         .collect(Collectors.toList());
-    registrationProvider.registerMany(createAccountList);
+    registrationProvider.register(createAccountList);
   }
 
   private void tryToRemoveLock(Transaction transaction) {
