@@ -211,7 +211,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       return;
     }
 
-    if (!isRegisterable(creatorAccountId)) {
+    if (!registrationProvider.getRegisteredAccounts().contains(creatorAccountId)) {
       logger.warn(creatorAccountId + " is not a user account, won't modify its quorum");
       return;
     }
@@ -306,16 +306,6 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private String getDomain(String accountId) {
     return accountId.split("@")[1];
-  }
-
-  /**
-   * Tells if the specified account is in power of brvs
-   *
-   * @param accountId Iroha account id to check
-   * @return true - if the account is in the list
-   */
-  private boolean isRegisterable(String accountId) {
-    return registrationProvider.getUserAccounts().contains(accountId);
   }
 
   @Override
