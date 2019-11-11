@@ -7,6 +7,7 @@ package iroha.validation.transactions.provider.impl;
 
 import static com.d3.commons.util.ThreadUtilKt.createPrettyScheduledThreadPool;
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
+import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
@@ -15,6 +16,7 @@ import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.AddSignatory;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.CreateAccount;
 import iroha.protocol.Commands.RemoveSignatory;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.BrvsIrohaChainListener;
@@ -23,6 +25,7 @@ import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
+import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
 import iroha.validation.transactions.storage.BlockStorage;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
@@ -32,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -207,7 +211,10 @@ public class BasicTransactionProvider implements TransactionProvider {
       return;
     }
 
-    // TODO add multithreading compatible registered accounts check (not just contains)
+    if (!registrationProvider.getRegisteredAccounts().contains(creatorAccountId)) {
+      logger.warn(creatorAccountId + " is not a user account, won't modify its quorum");
+      return;
+    }
 
     final List<Command> commands = blockTransaction
         .getPayload()
@@ -255,8 +262,10 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
   }
 
-  private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction) {
-    blockTransaction
+  private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction)
+      throws InterruptedException {
+    final Set<String> userAccounts = registrationProvider.getUserAccounts();
+    final List<CreateAccount> createAccountList = blockTransaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList()
@@ -264,9 +273,27 @@ public class BasicTransactionProvider implements TransactionProvider {
         .filter(Command::hasCreateAccount)
         .map(Command::getCreateAccount)
         .filter(command -> userDomains.contains(command.getDomainId()))
-        .forEach(command -> registrationProvider
-            .register(String.format("%s@%s", command.getAccountName(), command.getDomainId()))
-        );
+        .filter(command -> userAccounts.contains(
+            command.getAccountName().concat(accountIdDelimiter).concat(command.getDomainId()))
+        )
+        .collect(Collectors.toList());
+
+    final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
+        new CountDownLatch(createAccountList.size())
+    );
+
+    createAccountList.forEach(command -> registrationProvider
+        .register(command.getAccountName().concat(accountIdDelimiter).concat(command.getDomainId()),
+            registrationAwaiterWrapper)
+    );
+
+    if (!registrationAwaiterWrapper.getCountDownLatch().await(5, TimeUnit.MINUTES)) {
+      throw new IllegalStateException("Couldn't register accounts within a timeout");
+    }
+    final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper.getException();
+    if (registrationAwaiterWrapperException != null) {
+      throw new IllegalStateException(registrationAwaiterWrapperException);
+    }
   }
 
   private void tryToRemoveLock(Transaction transaction) {

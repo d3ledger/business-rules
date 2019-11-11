@@ -20,11 +20,13 @@ import iroha.protocol.TransactionOuterClass.Transaction.Builder;
 import iroha.validation.rest.dto.BinaryTransaction;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.impl.util.CacheProvider;
+import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.inject.Inject;
@@ -98,7 +100,10 @@ public class RestService {
   @Path("/register/{accountId}")
   public Response register(@PathParam("accountId") String accountId) {
     try {
-      registrationProvider.register(accountId);
+      registrationProvider.register(
+          accountId,
+          new RegistrationAwaiterWrapper(new CountDownLatch(1))
+      );
     } catch (Exception e) {
       return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).entity(e).build();
     }
