@@ -12,15 +12,15 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
-import io.reactivex.Scheduler;
-import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Endpoint;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
+import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
 import iroha.validation.utils.ValidationUtils;
+import java.io.Closeable;
 import java.security.Key;
 import java.security.KeyPair;
 import java.util.Arrays;
@@ -31,6 +31,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -47,7 +48,7 @@ import org.springframework.util.CollectionUtils;
 /**
  * Class responsible for user related Iroha interaction
  */
-public class AccountManager implements UserQuorumProvider, RegistrationProvider {
+public class AccountManager implements UserQuorumProvider, RegistrationProvider, Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(AccountManager.class);
   // Not to let BRVS to take it in processing
@@ -57,7 +58,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
   private static final int INITIAL_KEYS_AMOUNT = 1;
 
-  private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
+  private final ExecutorService executorService = Executors.newCachedThreadPool();
   private final Set<String> registeredAccounts = ConcurrentHashMap.newKeySet();
 
   private final String brvsAccountId;
@@ -161,9 +162,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             .build()
     );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.error("Could not change user " + targetAccount +
-          " signatories detail. Got transaction status: " + txStatus.name()
-      );
       throw new IllegalStateException(
           "Could not change user " + targetAccount +
               " signatories detail. Got transaction status: " + txStatus.name()
@@ -212,9 +210,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             .build()
     );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.error("Could not change user " + targetAccount +
-          " quorum. Got transaction status: " + txStatus.name()
-      );
       throw new IllegalStateException(
           "Could not change user " + targetAccount +
               " quorum. Got transaction status: " + txStatus.name()
@@ -247,27 +242,22 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
    * {@inheritDoc}
    */
   @Override
-  public void register(String accountId) {
-    scheduler.scheduleDirect(new RegistrationRunnable(accountId));
+  public void register(String accountId, RegistrationAwaiterWrapper registrationAwaiterWrapper) {
+    executorService.submit(new RegistrationRunnable(accountId, registrationAwaiterWrapper));
   }
 
   private void doRegister(String accountId) {
     logger.info("Going to register " + accountId);
     if (!hasValidFormat(accountId)) {
-      logger.error("Invalid account format [" + accountId + "]. Use 'username@domain'.");
       throw new IllegalArgumentException(
           "Invalid account format [" + accountId + "]. Use 'username@domain'.");
     }
     if (!userDomains.contains(getDomain(accountId))) {
-      logger.error("The BRVS instance is not permitted to process the domain specified: " +
-          getDomain(accountId) + ".");
       throw new IllegalArgumentException(
           "The BRVS instance is not permitted to process the domain specified: " +
               getDomain(accountId) + ".");
     }
     if (!existsInIroha(accountId)) {
-      logger.error(
-          "Account " + accountId + " does not exist or an error during querying process occurred.");
       throw new IllegalArgumentException(
           "Account " + accountId + " does not exist or an error during querying process occurred.");
     }
@@ -280,8 +270,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
       registeredAccounts.add(accountId);
       logger.info("Successfully registered " + accountId);
     } catch (Exception e) {
-      logger.error("Error during brvs user registration occurred. Account id: " + accountId, e);
-      throw e;
+      throw new IllegalStateException(
+          "Error during brvs user registration occurred. Account id: " + accountId, e);
     }
   }
 
@@ -316,9 +306,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
             .build()
     );
     if (!txStatus.equals(TxStatus.COMMITTED)) {
-      logger.error("Could not set signatories to user " + userAccountId +
-          ". Got transaction status: " + txStatus.name()
-      );
       throw new IllegalStateException(
           "Could not set signatories to user " + userAccountId +
               ". Got transaction status: " + txStatus.name()
@@ -436,20 +423,33 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider 
     ).blockingLast().getTxStatus();
   }
 
+  @Override
+  public void close() {
+    executorService.shutdownNow();
+  }
+
   /**
    * Intermediary runnable-wrapper for brvs registration
    */
   private class RegistrationRunnable implements Runnable {
 
     private final String accountId;
+    private final RegistrationAwaiterWrapper registrationAwaiterWrapper;
 
-    RegistrationRunnable(String accountId) {
+    RegistrationRunnable(String accountId, RegistrationAwaiterWrapper registrationAwaiterWrapper) {
       this.accountId = accountId;
+      this.registrationAwaiterWrapper = registrationAwaiterWrapper;
     }
 
     @Override
     public void run() {
-      doRegister(accountId);
+      try {
+        doRegister(accountId);
+      } catch (Exception e) {
+        registrationAwaiterWrapper.setException(e);
+      } finally {
+        registrationAwaiterWrapper.getCountDownLatch().countDown();
+      }
     }
   }
 }
