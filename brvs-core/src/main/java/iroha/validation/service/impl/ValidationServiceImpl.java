@@ -118,11 +118,12 @@ public class ValidationServiceImpl implements ValidationService {
       logger.warn("Couldn't query existing accounts. Please add them manually", e);
       return;
     }
+    final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
+        new CountDownLatch(userAccounts.size())
+    );
     userAccounts.forEach(account -> {
       try {
-        registrationProvider.register(account,
-            new RegistrationAwaiterWrapper(new CountDownLatch(userAccounts.size()))
-        );
+        registrationProvider.register(account, registrationAwaiterWrapper);
       } catch (Exception e) {
         logger.error("Couldn't add existing account " + account + " Please add it manually", e);
       }
