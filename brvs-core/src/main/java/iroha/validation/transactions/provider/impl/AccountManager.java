@@ -8,6 +8,7 @@ package iroha.validation.transactions.provider.impl;
 import static iroha.validation.utils.ValidationUtils.PROPORTION;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -31,8 +32,10 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -242,8 +245,31 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    * {@inheritDoc}
    */
   @Override
-  public void register(String accountId, RegistrationAwaiterWrapper registrationAwaiterWrapper) {
-    executorService.submit(new RegistrationRunnable(accountId, registrationAwaiterWrapper));
+  public void register(String accountId) throws InterruptedException {
+    register(Collections.singleton(accountId));
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void register(Iterable<String> accounts) throws InterruptedException {
+    final int size = Iterables.size(accounts);
+    final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
+        new CountDownLatch(size)
+    );
+
+    accounts.forEach(account -> executorService
+        .submit(new RegistrationRunnable(account, registrationAwaiterWrapper))
+    );
+
+    if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10, TimeUnit.SECONDS)) {
+      throw new IllegalStateException("Couldn't register accounts within a timeout");
+    }
+    final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper.getException();
+    if (registrationAwaiterWrapperException != null) {
+      throw new IllegalStateException(registrationAwaiterWrapperException);
+    }
   }
 
   private void doRegister(String accountId) {
