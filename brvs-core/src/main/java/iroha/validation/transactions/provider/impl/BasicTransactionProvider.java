@@ -286,7 +286,12 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private String getDomain(String accountId) {
-    return accountId.split("@")[1];
+    try{
+      return accountId.split("@")[1];
+    } catch (Exception e) {
+      logger.warn("Couldn't parse domain of " + accountId, e);
+      return "";
+    }
   }
 
   @Override
