@@ -152,6 +152,9 @@ public class BillingRule implements Rule {
                   || currentBillingInfo.getUpdated() < update.getUpdated()) {
                 cache.remove(update);
                 cache.add(update);
+                logger.info("Updated billing data");
+              } else {
+                logger.info("Billing data is not relevant, won't update");
               }
             }
         );
@@ -306,7 +309,9 @@ public class BillingRule implements Rule {
         final boolean isFeeFound = findAndRemoveFee(transferAsset, feesAsBurns, billingInfo);
         // If operation is billable but there is no corresponding fee attached
         if (!isFeeFound) {
-          logger.error("There is no correct fee for:\n" + transferAsset);
+          logger.error("There is no correct fee for:\n"
+              + transferAsset + "\nFees:\n" + feesAsBurns
+          );
           return ValidationResult.REJECTED("There is no fee for:\n" + transferAsset);
         }
       }
@@ -326,16 +331,22 @@ public class BillingRule implements Rule {
 
     final String assetId = transfer.getAssetId();
     final BigDecimal amount = new BigDecimal(transfer.getAmount());
+    final BigDecimal relevantFeeAmount = calculateRelevantFeeAmount(amount, billingInfo);
 
     for (SubtractAssetQuantity fee : burnableFees) {
       if (fee.getAssetId().equals(assetId)
           && new BigDecimal(fee.getAmount())
-          .compareTo(calculateRelevantFeeAmount(amount, billingInfo)) == 0) {
+          .compareTo(relevantFeeAmount) == 0) {
         // To prevent case when there are two identical operations and only one fee
         burnableFees.remove(fee);
         return true;
       }
     }
+    logger.warn(
+        "Corresponding fee is not found for the transfer. Must be: "
+            + relevantFeeAmount + " "
+            + assetId
+    );
     return false;
   }
 

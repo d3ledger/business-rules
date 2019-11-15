@@ -146,7 +146,7 @@ public class BillingInfo {
 
   @Override
   public int hashCode() {
-    return (domain + feeType.name() + billingType.name() + asset).hashCode();
+    return (domain + billingType.name() + asset).hashCode();
   }
 
   @Override
@@ -159,7 +159,6 @@ public class BillingInfo {
     }
     BillingInfo otherObj = (BillingInfo) other;
     return otherObj.asset.equals(this.asset)
-        && otherObj.feeType.equals(this.feeType)
         && otherObj.billingType.equals(this.billingType)
         && otherObj.domain.equals(this.domain);
   }
