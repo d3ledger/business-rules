@@ -131,20 +131,6 @@ public class TransactionSignerImpl implements TransactionSigner {
     }
   }
 
-  private void checkIrohaStatus(Transaction transaction) {
-    final ToriiResponse statusResponse = ValidationUtils.subscriptionStrategy
-        .subscribe(irohaAPI, Utils.hash(transaction))
-        .blockingLast();
-    if (!statusResponse.getTxStatus().equals(TxStatus.COMMITTED)) {
-      logger.warn("Transaction " + ValidationUtils.hexHash(transaction) + " failed in Iroha: "
-          + statusResponse.getTxStatus());
-      transactionVerdictStorage.markTransactionFailed(
-          ValidationUtils.hexHash(transaction),
-          statusResponse.getTxStatus() + " : " + statusResponse.getErrOrCmdName()
-      );
-    }
-  }
-
   private void sendRejectedUserTransaction(TransactionBatch transactionBatch) {
     addSignaturesAndSend(transactionBatch, false);
   }
@@ -206,6 +192,23 @@ public class TransactionSignerImpl implements TransactionSigner {
 
     IrohaStatusRunnable(Transaction transaction) {
       this.transaction = transaction;
+    }
+
+    private void checkIrohaStatus(Transaction transaction) {
+      final ToriiResponse statusResponse = ValidationUtils.subscriptionStrategy
+          .subscribe(irohaAPI, Utils.hash(transaction))
+          .blockingLast();
+      if (!statusResponse.getTxStatus().equals(TxStatus.COMMITTED)) {
+        logger.warn(
+            "Transaction {} failed in Iroha: {}",
+            ValidationUtils.hexHash(transaction),
+            statusResponse.getTxStatus()
+        );
+        transactionVerdictStorage.markTransactionFailed(
+            ValidationUtils.hexHash(transaction),
+            statusResponse.getTxStatus() + " : " + statusResponse.getErrOrCmdName()
+        );
+      }
     }
 
     @Override

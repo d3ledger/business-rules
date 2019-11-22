@@ -25,7 +25,6 @@ public class WhitelistUtils {
 
   private static final Logger logger = LoggerFactory.getLogger(WhitelistUtils.class);
 
-
   public static final String ETH_WHITELIST_KEY = "eth_whitelist";
   public static final String BTC_WHITELIST_KEY = "btc_whitelist";
 
@@ -33,13 +32,17 @@ public class WhitelistUtils {
 
   static {
     assetToWhitelistKey = new HashMap<>();
-    assetToWhitelistKey.put("ethereum", "eth_whitelist");
-    assetToWhitelistKey.put("sora", "eth_whitelist");
-    assetToWhitelistKey.put("bitcoin", "btc_whitelist");
+    assetToWhitelistKey.put("ethereum", ETH_WHITELIST_KEY);
+    assetToWhitelistKey.put("sora", ETH_WHITELIST_KEY);
+    assetToWhitelistKey.put("bitcoin", BTC_WHITELIST_KEY);
   }
 
   private static Gson gson = new GsonBuilder().create();
   private static JsonParser parser = new JsonParser();
+
+  private WhitelistUtils() {
+    throw new IllegalStateException("Must not be instantiated");
+  }
 
   /**
    * Get whitelist that was set by BRVS
@@ -84,7 +87,7 @@ public class WhitelistUtils {
    * @return domain of asset
    */
   public static String getAssetDomain(String assetId) {
-    return assetId.substring(assetId.lastIndexOf("#") + 1);
+    return assetId.substring(assetId.lastIndexOf('#') + 1);
   }
 
   /**

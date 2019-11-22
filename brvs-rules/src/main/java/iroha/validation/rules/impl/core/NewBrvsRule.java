@@ -74,10 +74,7 @@ public class NewBrvsRule implements Rule {
             .getValue()
             .getAsJsonObject()
             .entrySet()
-            .forEach(entry -> {
-                  resultSet.add(entry.getKey());
-                }
-            )
+            .forEach(entry -> resultSet.add(entry.getKey()))
     );
     return resultSet;
   }

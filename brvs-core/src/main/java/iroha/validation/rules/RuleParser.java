@@ -13,7 +13,7 @@ import org.springframework.util.StringUtils;
  */
 final class RuleParser {
 
-  private final static GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
+  private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
 
   private RuleParser() {
     throw new IllegalStateException("Rule Parser cannot be instantiated");

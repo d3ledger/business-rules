@@ -62,7 +62,8 @@ public class MongoBlockStorage implements BlockStorage {
         replaceOptions
     );
     logger.info(
-        "Saved new Iroha block in storage " + irohaBlock.getBlockV1().getPayload().getHeight()
+        "Saved new Iroha block in storage {}",
+        irohaBlock.getBlockV1().getPayload().getHeight()
     );
   }
 }

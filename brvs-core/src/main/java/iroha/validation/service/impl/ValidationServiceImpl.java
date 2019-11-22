@@ -92,10 +92,10 @@ public class ValidationServiceImpl implements ValidationService {
         final String reason = validationResult.getReason();
         transactionSigner.rejectAndSend(transactionBatch, reason);
         logger
-            .info("Transactions " + hex + " have been rejected by the service. Reason: " + reason);
+            .info("Transactions {} have been rejected by the service. Reason: {}", hex, reason);
       } else {
         transactionSigner.signAndSend(transactionBatch);
-        logger.info("Transactions " + hex + " have been successfully validated and signed");
+        logger.info("Transactions {} have been successfully validated and signed", hex);
       }
     } catch (Exception exception) {
       logger.error("Error during " + hex + " transaction validation: ", exception);
@@ -108,7 +108,7 @@ public class ValidationServiceImpl implements ValidationService {
    * Reads Iroha details containing a list of accounts that should be checked by BRVS
    */
   private void registerExistentAccounts() {
-    logger.info("Going to register existent user accounts in BRVS: " + brvsData.getHostname());
+    logger.info("Going to register existent user accounts in BRVS: {}", brvsData.getHostname());
     final Set<String> userAccounts;
     try {
       userAccounts = registrationProvider.getUserAccounts();

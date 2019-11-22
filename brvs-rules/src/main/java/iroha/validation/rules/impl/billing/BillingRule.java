@@ -60,10 +60,10 @@ public class BillingRule implements Rule {
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
   private static final String BILLING_PRECISION_ERROR_MESSAGE = "Couldn't request asset precision.";
   private static final String BILLING_PRECISION_JSON_FIELD = "itIs";
-  private static final String GET_BILLING_PATH = "cache/get/billing";
-  private static final String PRECISION_PATH = "iroha/asset/precision/";
+  private static final String GET_BILLING_PATH = "/cache/get/billing";
+  private static final String PRECISION_PATH = "/iroha/asset/precision/";
   private static final BigDecimal INCORRECT_FEE_VALUE = new BigDecimal(Integer.MIN_VALUE);
-  private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
+  private static final Map<String, Integer> assetPrecisionMap = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
 
@@ -290,9 +290,14 @@ public class BillingRule implements Rule {
       }
       return ValidationResult.VALIDATED;
     }
-
     final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
+    return processFeeValidation(transfers, feesAsBurns, isBatch);
+  }
 
+  private ValidationResult processFeeValidation(
+      List<TransferAsset> transfers,
+      List<SubtractAssetQuantity> feesAsBurns,
+      boolean isBatch) {
     for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
       if (originalType != null) {
@@ -369,12 +374,10 @@ public class BillingRule implements Rule {
   }
 
   private int getAssetPrecision(String assetId) {
-    Integer precision = assetPrecision.get(assetId);
-    if (precision == null) {
-      precision = Integer.valueOf(getRawAssetPrecisionResponse(assetId));
-      assetPrecision.put(assetId, precision);
-    }
-    return precision;
+    return assetPrecisionMap.computeIfAbsent(
+        assetId,
+        newPrecision -> Integer.valueOf(getRawAssetPrecisionResponse(assetId))
+    );
   }
 
   private BillingTypeEnum getBillingType(TransferAsset transfer, boolean isBatch) {

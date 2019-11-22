@@ -109,21 +109,21 @@ public class RuleMonitor {
     final Set<String> rules = validator.getRuleNames();
     if (rules.contains(ruleName)) {
       if (ruleValue) {
-        logger.warn("Rule [" + ruleName + "] has already been enabled");
+        logger.warn("Rule [{}] has already been enabled", ruleName);
       } else {
         validator.removeRule(ruleName);
-        logger.info("Disabled rule [" + ruleName + "]");
+        logger.info("Disabled rule [{}]", ruleName);
       }
     } else {
       if (ruleValue) {
         try {
           validator.putRule(ruleName, parseRepositoryRule(ruleName));
-          logger.info("Enabled rule [" + ruleName + "]");
+          logger.info("Enabled rule [{}]", ruleName);
         } catch (Exception e) {
           logger.error("Error during rule processing", e);
         }
       } else {
-        logger.warn("Rule [" + ruleName + "] has already been disabled");
+        logger.warn("Rule [{}] has already been disabled", ruleName);
       }
     }
   }
