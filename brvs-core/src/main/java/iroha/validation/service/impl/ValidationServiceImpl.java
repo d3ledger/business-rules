@@ -86,7 +86,7 @@ public class ValidationServiceImpl implements ValidationService {
   private TransactionBatch processTransactionBatch(TransactionBatch transactionBatch) {
     final List<String> hex = ValidationUtils.hexHash(transactionBatch);
     try {
-      logger.info("Got transactions to validate: " + hex);
+      logger.info("Got transactions to validate: {}", hex);
       final ValidationResult validationResult = validator.validate(transactionBatch);
       if (Verdict.VALIDATED != validationResult.getStatus()) {
         final String reason = validationResult.getReason();

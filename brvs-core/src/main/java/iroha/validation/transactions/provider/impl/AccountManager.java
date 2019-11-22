@@ -231,18 +231,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     return getValidQuorumForUserAccount(accountId, false);
   }
 
-  private boolean existsInIroha(String userAccountId) {
-    return queryAPI.getAccount(userAccountId).hasAccount();
-  }
-
-  private boolean hasValidFormat(String accountId) {
-    return ACCOUN_ID_PATTERN.matcher(accountId).matches();
-  }
-
-  private String getDomain(String accountId) {
-    return accountId.split("@")[1];
-  }
-
   /**
    * {@inheritDoc}
    */
@@ -313,19 +301,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
               ". Got transaction status: " + txStatus.name()
       );
     }
-  }
-
-  private void modifyQuorumOnRegistration(String userAccountId) {
-    final int quorum = getValidQuorumForUserAccount(userAccountId, true);
-    if (getUserAccountQuorum(userAccountId) == quorum) {
-      logger.warn("Account {} already has valid quorum: {}", userAccountId, quorum);
-      return;
-    }
-    setUserAccountQuorum(
-        userAccountId,
-        quorum,
-        System.currentTimeMillis()
-    );
   }
 
   private int getValidQuorumForUserAccount(String accountId, boolean onRegistration) {
@@ -471,6 +446,31 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         throw new IllegalStateException(
             "Error during brvs user registration occurred. Account id: " + accountId, e);
       }
+    }
+
+    private void modifyQuorumOnRegistration(String userAccountId) {
+      final int quorum = getValidQuorumForUserAccount(userAccountId, true);
+      if (getUserAccountQuorum(userAccountId) == quorum) {
+        logger.warn("Account {} already has valid quorum: {}", userAccountId, quorum);
+        return;
+      }
+      setUserAccountQuorum(
+          userAccountId,
+          quorum,
+          System.currentTimeMillis()
+      );
+    }
+
+    private boolean existsInIroha(String userAccountId) {
+      return queryAPI.getAccount(userAccountId).hasAccount();
+    }
+
+    private boolean hasValidFormat(String accountId) {
+      return ACCOUN_ID_PATTERN.matcher(accountId).matches();
+    }
+
+    private String getDomain(String accountId) {
+      return accountId.split("@")[1];
     }
 
     @Override
