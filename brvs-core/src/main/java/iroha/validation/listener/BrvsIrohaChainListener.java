@@ -34,7 +34,6 @@ public class BrvsIrohaChainListener implements Closeable {
 
   private static final String BRVS_QUEUE_RMQ_NAME = "brvs";
   private static final Logger logger = LoggerFactory.getLogger(BrvsIrohaChainListener.class);
-  private static final int DEFAULT_PENDING_TRANSACTION_PAGESIZE = 5;
 
   private final IrohaAPI irohaAPI;
   // BRVS keypair to query Iroha
@@ -86,7 +85,7 @@ public class BrvsIrohaChainListener implements Closeable {
   private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
     return constructBatches(
         getQueryApiFor(accountId, keyPair)
-            .getPendingTransactions(DEFAULT_PENDING_TRANSACTION_PAGESIZE)
+            .getPendingTransactions()
             .getTransactionsList()
     );
   }
