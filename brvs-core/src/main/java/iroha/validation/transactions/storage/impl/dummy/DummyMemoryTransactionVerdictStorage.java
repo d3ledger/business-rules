@@ -74,6 +74,6 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
 
   @Override
   public void close() {
-
+    // nothing to close
   }
 }

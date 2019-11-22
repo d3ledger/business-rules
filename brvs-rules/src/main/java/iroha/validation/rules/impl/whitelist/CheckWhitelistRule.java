@@ -77,11 +77,8 @@ public class CheckWhitelistRule implements Rule {
     for (TransferAsset transfer : transfers) {
       try {
         String asset = transfer.getAssetId();
-        if (exceptionAssets.contains(asset)) {
-          continue;
-        }
         String address = transfer.getDescription();
-        if (address.equals(WITHDRAWAL_FEE_DESCRIPTION)) {
+        if (exceptionAssets.contains(asset) || address.equals(WITHDRAWAL_FEE_DESCRIPTION)) {
           continue;
         }
         String clientId = transfer.getSrcAccountId();

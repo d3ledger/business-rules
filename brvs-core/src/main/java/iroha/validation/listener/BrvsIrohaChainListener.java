@@ -34,6 +34,7 @@ public class BrvsIrohaChainListener implements Closeable {
 
   private static final String BRVS_QUEUE_RMQ_NAME = "brvs";
   private static final Logger logger = LoggerFactory.getLogger(BrvsIrohaChainListener.class);
+  private static final int DEFAULT_PENDING_TRANSACTION_PAGESIZE = 5;
 
   private final IrohaAPI irohaAPI;
   // BRVS keypair to query Iroha
@@ -71,7 +72,7 @@ public class BrvsIrohaChainListener implements Closeable {
     accountsToMonitor.forEach(account ->
         pendingTransactions.addAll(getPendingTransactions(account, userKeyPair))
     );
-    logger.info("Got " + pendingTransactions.size() + " pending batches from Iroha");
+    logger.info("Got {} pending batches from Iroha", pendingTransactions.size());
     return pendingTransactions;
   }
 
@@ -85,7 +86,7 @@ public class BrvsIrohaChainListener implements Closeable {
   private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
     return constructBatches(
         getQueryApiFor(accountId, keyPair)
-            .getPendingTransactions()
+            .getPendingTransactions(DEFAULT_PENDING_TRANSACTION_PAGESIZE)
             .getTransactionsList()
     );
   }
@@ -111,20 +112,22 @@ public class BrvsIrohaChainListener implements Closeable {
    * @return {@link List} of {@link TransactionBatch} of input
    */
   private List<TransactionBatch> constructBatches(List<Transaction> transactions) {
-    List<TransactionBatch> transactionBatches = new ArrayList<>();
-    for (int i = 0; i < transactions.size(); ) {
+    final List<TransactionBatch> transactionBatches = new ArrayList<>();
+    // batch size for every transaction in the list
+    // used to shift through processed batch sublist
+    int batchSize;
+    for (int i = 0; i < transactions.size(); i += batchSize) {
       final List<Transaction> transactionListForBatch = new ArrayList<>();
       final int hashesCount = transactions
           .get(i)
           .getPayload()
           .getBatch()
           .getReducedHashesCount();
-      final int toInclude = hashesCount == 0 ? 1 : hashesCount;
+      batchSize = hashesCount == 0 ? 1 : hashesCount;
 
-      for (int j = 0; j < toInclude; j++) {
+      for (int j = 0; j < batchSize; j++) {
         transactionListForBatch.add(transactions.get(i + j));
       }
-      i += toInclude;
       transactionBatches.add(new TransactionBatch(transactionListForBatch));
     }
     return transactionBatches;

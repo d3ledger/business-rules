@@ -61,12 +61,12 @@ public class RestService {
     R apply(T t) throws Exception;
   }
 
-  private final static Logger logger = LoggerFactory.getLogger(RestService.class);
-  private final static Printer printer = JsonFormat.printer()
+  private static final Logger logger = LoggerFactory.getLogger(RestService.class);
+  private static final Printer printer = JsonFormat.printer()
       .omittingInsignificantWhitespace()
       .preservingProtoFieldNames();
-  private final static Parser parser = JsonFormat.parser().ignoringUnknownFields();
-  private final static Gson gson = new Gson();
+  private static final Parser parser = JsonFormat.parser().ignoringUnknownFields();
+  private static final Gson gson = new Gson();
 
   @Inject
   private RegistrationProvider registrationProvider;
@@ -212,7 +212,7 @@ public class RestService {
    */
   private Transaction signTransaction(Transaction builtTx) {
     final String hash = Utils.toHexHash(builtTx);
-    logger.info("Going to sign transaction: " + hash);
+    logger.info("Going to sign transaction: {}", hash);
     return jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
         .sign(brvsAccountKeyPair)
         .build();
@@ -224,10 +224,10 @@ public class RestService {
    * @param transaction - proto transaction
    * @return ToriiResponse with transaction status stream
    */
-  private ToriiResponse sendBuiltTransaction(Transaction transaction) throws Exception {
+  private ToriiResponse sendBuiltTransaction(Transaction transaction) {
     final String hash = Utils.toHexHash(transaction);
     checkTransactionSignaturesCount(transaction);
-    logger.info("Going to send transaction: " + hash);
+    logger.info("Going to send transaction: {}", hash);
     return irohaAPI.transaction(transaction, subscriptionStrategy)
         .blockingLast();
   }
@@ -397,7 +397,7 @@ public class RestService {
   private List<Transaction> signBatch(List<Transaction> txList) {
     final String batchHashes = txList.stream().map(Utils::toHexHash)
         .collect(Collectors.joining(","));
-    logger.info("Going to sign transaction batch: " + batchHashes);
+    logger.info("Going to sign transaction batch: {}", batchHashes);
     return txList.stream()
         .map(transaction -> {
           final int signaturesCount = transaction.getSignaturesCount();
@@ -421,7 +421,7 @@ public class RestService {
     final String batchHashes = txList.stream().map(Utils::toHexHash)
         .collect(Collectors.joining(","));
     txList.forEach(this::checkTransactionSignaturesCount);
-    logger.info("Going to send transaction batch: " + batchHashes);
+    logger.info("Going to send transaction batch: {}", batchHashes);
     irohaAPI.transactionListSync(txList);
     return subscriptionStrategy
         .subscribe(irohaAPI, Utils.hash(txList.get(0)))
@@ -454,7 +454,7 @@ public class RestService {
     try {
       ToriiResponse res = handler.apply(requestedTx);
       String status = printer.print(res);
-      logger.info("Got transaction status " + status);
+      logger.info("Got transaction status {}", status);
       return Response.status(HttpStatus.SC_OK).entity(status).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during transaction processing", e);
