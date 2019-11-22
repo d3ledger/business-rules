@@ -37,6 +37,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -68,7 +69,7 @@ public class BillingRule implements Rule {
   private static final Map<BillingTypeEnum, String> feeTypesAccounts;
   private static final String GET_BILLING_PATH = "/cache/get/billing";
   private static final String PRECISION_PATH = "/iroha/asset/precision/";
-  private static final Map<String, Integer> assetPrecision = new ConcurrentHashMap<>();
+  private static final Map<String, Integer> assetPrecisionMap = new ConcurrentHashMap<>();
   private static final JsonParser jsonParser = new JsonParser();
   private static final Gson gson = new Gson();
 
@@ -85,7 +86,7 @@ public class BillingRule implements Rule {
   private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
 
   static {
-    feeTypesAccounts = new HashMap<>();
+    feeTypesAccounts = new EnumMap<>(BillingTypeEnum.class);
     feeTypesAccounts.put(BillingTypeEnum.TRANSFER, TRANSFER_BILLING_ACCOUNT_NAME);
     feeTypesAccounts.put(BillingTypeEnum.CUSTODY, CUSTODY_BILLING_ACCOUNT_NAME);
     feeTypesAccounts.put(BillingTypeEnum.ACCOUNT_CREATION, ACCOUNT_CREATION_BILLING_ACCOUNT_NAME);
@@ -293,9 +294,8 @@ public class BillingRule implements Rule {
     final List<TransferAsset> feesFromMap = transactionsGroups.get(true);
     final List<TransferAsset> transfersFromMap = transactionsGroups.get(false);
 
-    final List<TransferAsset> fees = feesFromMap == null ? new ArrayList<>() : feesFromMap;
-    final List<TransferAsset> transfers =
-        transfersFromMap == null ? new ArrayList<>() : transfersFromMap;
+    final List<TransferAsset> fees = createListIfEmpty(feesFromMap);
+    final List<TransferAsset> transfers = createListIfEmpty(transfersFromMap);
 
     if (CollectionUtils.isEmpty(transfers)) {
       if (!CollectionUtils.isEmpty(fees)) {
@@ -303,9 +303,18 @@ public class BillingRule implements Rule {
       }
       return ValidationResult.VALIDATED;
     }
-
     final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
+    return processFeeValidation(transfers, fees, isBatch);
+  }
 
+  private List<TransferAsset> createListIfEmpty(List<TransferAsset> transfers) {
+    return transfers == null ? new ArrayList<>() : transfers;
+  }
+
+  private void rebalanceFees(
+      List<TransferAsset> transfers,
+      List<TransferAsset> fees,
+      boolean isBatch) {
     for (int i = 0; i < transfers.size(); i++) {
       final TransferAsset transferAsset = transfers.get(i);
       final BillingTypeEnum currentTransferBilling = getBillingType(transferAsset, isBatch);
@@ -314,10 +323,17 @@ public class BillingRule implements Rule {
           && currentTransferBilling.equals(BillingTypeEnum.WITHDRAWAL)) {
         fees.add(transferAsset);
         transfers.remove(transferAsset);
+        // not to lose an element after deletion from original list
         i--;
       }
     }
+  }
 
+  private ValidationResult processFeeValidation(
+      List<TransferAsset> transfers,
+      List<TransferAsset> fees,
+      boolean isBatch) {
+    rebalanceFees(transfers, fees, isBatch);
     for (TransferAsset transferAsset : transfers) {
       final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
       if (originalType != null) {
@@ -387,12 +403,10 @@ public class BillingRule implements Rule {
   }
 
   private int getAssetPrecision(String assetId) {
-    Integer precision = assetPrecision.get(assetId);
-    if (precision == null) {
-      precision = Integer.valueOf(getRawAssetPrecisionResponse(assetId));
-      assetPrecision.put(assetId, precision);
-    }
-    return precision;
+    return assetPrecisionMap.computeIfAbsent(
+        assetId,
+        newPrecision -> Integer.valueOf(getRawAssetPrecisionResponse(assetId))
+    );
   }
 
   private BillingTypeEnum getBillingType(TransferAsset transfer, boolean isBatch) {

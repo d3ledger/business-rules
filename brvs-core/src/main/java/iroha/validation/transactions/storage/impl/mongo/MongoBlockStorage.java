@@ -40,7 +40,7 @@ public class MongoBlockStorage implements BlockStorage, Closeable {
     if (mongoPort < 1 || mongoPort > 65535) {
       throw new IllegalArgumentException("MongoDB port must be valid");
     }
-     mongoClient = MongoClients
+    mongoClient = MongoClients
         .create(String.format("mongodb://%s:%d", mongoHost, mongoPort));
     CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
         MongoClientSettings.getDefaultCodecRegistry(),
@@ -64,7 +64,8 @@ public class MongoBlockStorage implements BlockStorage, Closeable {
         replaceOptions
     );
     logger.info(
-        "Saved new Iroha block in storage " + irohaBlock.getBlockV1().getPayload().getHeight()
+        "Saved new Iroha block in storage {}",
+        irohaBlock.getBlockV1().getPayload().getHeight()
     );
   }
 

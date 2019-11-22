@@ -130,7 +130,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
 
       if (keyNode == null || keyNode.isJsonNull()
           || keyNode.size() == 0 || keyNode.get(userSignatoriesAttribute).isJsonNull()) {
-        logger.warn("Account detail is not set for account: " + targetAccount);
+        logger.warn("Account detail is not set for account: {}", targetAccount);
         return Collections.emptySet();
       }
 
@@ -143,8 +143,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       );
 
     } catch (Exception e) {
-      logger.warn("Unknown exception occurred retrieving quorum data", e);
-      throw e;
+      throw new IllegalStateException(
+          "Unexpected error during user signatories detail retrieval",
+          e
+      );
     }
   }
 
@@ -170,7 +172,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
               " signatories detail. Got transaction status: " + txStatus.name()
       );
     }
-    logger.info("Successfully set signatories detail: " + targetAccount + " - " + jsonedKeys);
+    logger.info("Successfully set signatories detail: {} - {}", targetAccount, jsonedKeys);
   }
 
   /**
@@ -218,7 +220,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
               " quorum. Got transaction status: " + txStatus.name()
       );
     }
-    logger.info("Successfully set user quorum: " + targetAccount + ", " + quorum);
+    logger.info("Successfully set user quorum: {}, {}", targetAccount, quorum);
   }
 
   /**
@@ -263,41 +265,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         .submit(new RegistrationRunnable(account, registrationAwaiterWrapper))
     );
 
-    if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10, TimeUnit.SECONDS)) {
+    if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10L, TimeUnit.SECONDS)) {
       throw new IllegalStateException("Couldn't register accounts within a timeout");
     }
     final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper.getException();
     if (registrationAwaiterWrapperException != null) {
       throw new IllegalStateException(registrationAwaiterWrapperException);
-    }
-  }
-
-  private void doRegister(String accountId) {
-    logger.info("Going to register " + accountId);
-    if (!hasValidFormat(accountId)) {
-      throw new IllegalArgumentException(
-          "Invalid account format [" + accountId + "]. Use 'username@domain'.");
-    }
-    if (!userDomains.contains(getDomain(accountId))) {
-      throw new IllegalArgumentException(
-          "The BRVS instance is not permitted to process the domain specified: " +
-              getDomain(accountId) + ".");
-    }
-    if (!existsInIroha(accountId)) {
-      throw new IllegalArgumentException(
-          "Account " + accountId + " does not exist or an error during querying process occurred.");
-    }
-    final Set<String> userSignatories = getUserSignatoriesDetail(accountId);
-    try {
-      setBrvsSignatoriesToUser(accountId,
-          CollectionUtils.isEmpty(userSignatories) ? INITIAL_KEYS_AMOUNT : userSignatories.size()
-      );
-      modifyQuorumOnRegistration(accountId);
-      registeredAccounts.add(accountId);
-      logger.info("Successfully registered " + accountId);
-    } catch (Exception e) {
-      throw new IllegalStateException(
-          "Error during brvs user registration occurred. Account id: " + accountId, e);
     }
   }
 
@@ -313,7 +286,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         .count();
     if (containedCount == count) {
       logger.warn(
-          "User account " + userAccountId + " has already got " + count + " brvs instance keys.");
+          "User account {} has already got {} brvs instance keys.",
+          userAccountId,
+          count
+      );
       return;
     }
     final TransactionBuilder transactionBuilder = Transaction.builder(brvsAccountId);
@@ -342,7 +318,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   private void modifyQuorumOnRegistration(String userAccountId) {
     final int quorum = getValidQuorumForUserAccount(userAccountId, true);
     if (getUserAccountQuorum(userAccountId) == quorum) {
-      logger.warn("Account " + userAccountId + " already has valid quorum: " + quorum);
+      logger.warn("Account {} already has valid quorum: {}", userAccountId, quorum);
       return;
     }
     setUserAccountQuorum(
@@ -374,7 +350,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
 
   private <T> Set<T> getAccountsFrom(String accountsHolderAccount,
       Function<Entry, T> processor) {
-    logger.info("Going to read accounts data from " + accountsHolderAccount);
+    logger.info("Going to read accounts data from {}", accountsHolderAccount);
     Set<T> resultSet = new HashSet<>();
     try {
       JsonElement rootNode = ValidationUtils.parser
@@ -419,7 +395,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     String pubkey = entry.getKey();
     String hostname = entry.getValue().getAsString();
     if (pubkey.length() != PUBKEY_LENGTH) {
-      logger.warn("Expected hostname-pubkey pair. Got " + hostname + " : " + pubkey);
+      logger.warn("Expected hostname-pubkey pair. Got {} : {}", hostname, pubkey);
       return null;
     }
     return new BrvsData(hostname, pubkey);
@@ -465,6 +441,36 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     RegistrationRunnable(String accountId, RegistrationAwaiterWrapper registrationAwaiterWrapper) {
       this.accountId = accountId;
       this.registrationAwaiterWrapper = registrationAwaiterWrapper;
+    }
+
+    private void doRegister(String accountId) {
+      logger.info("Going to register {}", accountId);
+      if (!hasValidFormat(accountId)) {
+        throw new IllegalArgumentException(
+            "Invalid account format [" + accountId + "]. Use 'username@domain'.");
+      }
+      if (!userDomains.contains(getDomain(accountId))) {
+        throw new IllegalArgumentException(
+            "The BRVS instance is not permitted to process the domain specified: " +
+                getDomain(accountId) + ".");
+      }
+      if (!existsInIroha(accountId)) {
+        throw new IllegalArgumentException(
+            "Account " + accountId
+                + " does not exist or an error during querying process occurred.");
+      }
+      final Set<String> userSignatories = getUserSignatoriesDetail(accountId);
+      try {
+        setBrvsSignatoriesToUser(accountId,
+            CollectionUtils.isEmpty(userSignatories) ? INITIAL_KEYS_AMOUNT : userSignatories.size()
+        );
+        modifyQuorumOnRegistration(accountId);
+        registeredAccounts.add(accountId);
+        logger.info("Successfully registered {}", accountId);
+      } catch (Exception e) {
+        throw new IllegalStateException(
+            "Error during brvs user registration occurred. Account id: " + accountId, e);
+      }
     }
 
     @Override

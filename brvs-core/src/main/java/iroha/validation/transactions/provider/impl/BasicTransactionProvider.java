@@ -118,8 +118,8 @@ public class BasicTransactionProvider implements TransactionProvider {
                 }
               }
           );
-    } catch (Throwable t) {
-      logger.error("Pending transactions monitor encountered an error", t);
+    } catch (Exception e) {
+      logger.error("Pending transactions monitor encountered an error", e);
       System.exit(1);
     }
   }
@@ -176,8 +176,8 @@ public class BasicTransactionProvider implements TransactionProvider {
                         .getTransactionsList()
                 );
                 blockSubscription.getAcknowledgment().ack();
-              } catch (Throwable t) {
-                logger.error("Block processor encountered an error", t);
+              } catch (Exception e) {
+                logger.error("Block processor encountered an error", e);
                 System.exit(1);
               }
             }
@@ -209,7 +209,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
 
     if (!registrationProvider.getRegisteredAccounts().contains(creatorAccountId)) {
-      logger.warn(creatorAccountId + " is not a user account, won't modify its quorum");
+      logger.warn("{} is not a user account, won't modify its quorum", creatorAccountId);
       return;
     }
 
@@ -245,7 +245,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     userSignatories.removeAll(removedSignatories);
     userSignatories.addAll(addedSignatories);
     if (userSignatories.isEmpty()) {
-      logger.warn("User " + creatorAccountId + " tried to delete all their keys");
+      logger.warn("User {} tried to delete all their keys", creatorAccountId);
       return;
     }
     final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
