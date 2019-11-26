@@ -320,7 +320,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    */
   @Override
   public Set<String> getRegisteredAccounts() {
-    return registeredAccounts;
+    return Collections.unmodifiableSet(registeredAccounts);
   }
 
   private <T> Set<T> getAccountsFrom(String accountsHolderAccount,
@@ -423,6 +423,10 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       if (!hasValidFormat(accountId)) {
         throw new IllegalArgumentException(
             "Invalid account format [" + accountId + "]. Use 'username@domain'.");
+      }
+      if(registeredAccounts.contains(accountId)) {
+        logger.warn("Account {} has already been registered, omitting", accountId);
+        return;
       }
       if (!userDomains.contains(getDomain(accountId))) {
         throw new IllegalArgumentException(
