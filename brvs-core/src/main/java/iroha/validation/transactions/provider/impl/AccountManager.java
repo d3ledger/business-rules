@@ -363,7 +363,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     // since accounts stored as key-value pairs of
     // usernamedomain -> domain
     // we need to extract username from the key and add the domain to it separated with @
-    return key.substring(0, key.lastIndexOf(suffix)).concat("@").concat(suffix);
+    final String recoveredSuffix = suffix.replace('_', '.');
+    return key.substring(0, key.lastIndexOf(suffix)).concat("@").concat(recoveredSuffix);
   }
 
   private BrvsData brvsAccountProcessor(Entry<String, JsonPrimitive> entry) {
