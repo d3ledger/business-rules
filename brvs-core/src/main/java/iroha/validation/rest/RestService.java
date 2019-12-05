@@ -84,6 +84,13 @@ public class RestService {
   private KeyPair brvsAccountKeyPair;
 
   @GET
+  @Path("/actuator/health")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response isHealthy() {
+    return Response.ok("{\"status\":\"UP\"}").build();
+  }
+
+  @GET
   @Path("/status/{txHash}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getStatus(@PathParam("txHash") String hash) {
