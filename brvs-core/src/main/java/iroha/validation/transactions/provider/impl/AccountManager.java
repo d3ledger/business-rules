@@ -37,9 +37,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.ErrorResponseException;
+import jp.co.soramitsu.iroha.java.FieldValidator;
 import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Transaction;
 import jp.co.soramitsu.iroha.java.TransactionBuilder;
@@ -54,9 +54,7 @@ import org.springframework.util.CollectionUtils;
 public class AccountManager implements UserQuorumProvider, RegistrationProvider, Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(AccountManager.class);
-  // Not to let BRVS to take it in processing
-  // Max quorum is 128
-  private static final Pattern ACCOUN_ID_PATTERN = Pattern.compile("[a-z0-9_]{1,32}@[a-z0-9]+");
+  private static final FieldValidator FIELD_VALIDATOR = new FieldValidator();
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
   private static final int INITIAL_KEYS_AMOUNT = 1;
@@ -421,11 +419,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
 
     private void doRegister(String accountId) {
       logger.info("Going to register {}", accountId);
-      if (!hasValidFormat(accountId)) {
-        throw new IllegalArgumentException(
-            "Invalid account format [" + accountId + "]. Use 'username@domain'.");
-      }
-      if(registeredAccounts.contains(accountId)) {
+      FIELD_VALIDATOR.checkAccountId(accountId);
+      if (registeredAccounts.contains(accountId)) {
         logger.warn("Account {} has already been registered, omitting", accountId);
         return;
       }
@@ -468,10 +463,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
 
     private boolean existsInIroha(String userAccountId) {
       return queryAPI.getAccount(userAccountId).hasAccount();
-    }
-
-    private boolean hasValidFormat(String accountId) {
-      return ACCOUN_ID_PATTERN.matcher(accountId).matches();
     }
 
     private String getDomain(String accountId) {
