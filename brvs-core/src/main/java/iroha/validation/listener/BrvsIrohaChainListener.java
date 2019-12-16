@@ -94,7 +94,7 @@ public class BrvsIrohaChainListener implements Closeable {
    *
    * @param accountId user that transactions should be queried for
    * @param keyPair user keypair
-   * @return user {@link QueryAPI} instance
+   * @return user pending transactions list
    */
   private List<Transaction> executeQueryFor(String accountId, KeyPair keyPair) {
     final QueryResponse queryResponse = irohaAPI.query(
