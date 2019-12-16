@@ -9,6 +9,8 @@ import com.d3.chainadapter.client.BlockSubscription;
 import com.d3.chainadapter.client.RMQConfig;
 import com.d3.chainadapter.client.ReliableIrohaChainListener4J;
 import io.reactivex.Observable;
+import iroha.protocol.QryResponses.ErrorResponse;
+import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import java.io.Closeable;
@@ -19,9 +21,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
+import jp.co.soramitsu.iroha.java.ErrorResponseException;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
+import jp.co.soramitsu.iroha.java.Query;
 import jp.co.soramitsu.iroha.java.QueryAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +37,7 @@ public class BrvsIrohaChainListener implements Closeable {
 
   private static final String BRVS_QUEUE_RMQ_NAME = "brvs";
   private static final Logger logger = LoggerFactory.getLogger(BrvsIrohaChainListener.class);
+  private static AtomicLong counter = new AtomicLong(1);
 
   private final IrohaAPI irohaAPI;
   // BRVS keypair to query Iroha
@@ -41,7 +45,6 @@ public class BrvsIrohaChainListener implements Closeable {
   private final String brvsAccountId;
   private final KeyPair userKeyPair;
   private final ReliableIrohaChainListener4J irohaChainListener;
-  private final ConcurrentMap<String, QueryAPI> queryAPIMap = new ConcurrentHashMap<>();
 
   public BrvsIrohaChainListener(
       RMQConfig rmqConfig,
@@ -83,11 +86,7 @@ public class BrvsIrohaChainListener implements Closeable {
    * @return list of user transactions that are in pending state
    */
   private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
-    return constructBatches(
-        getQueryApiFor(accountId, keyPair)
-            .getPendingTransactions()
-            .getTransactionsList()
-    );
+    return constructBatches(executeQueryFor(accountId, keyPair));
   }
 
   /**
@@ -95,13 +94,23 @@ public class BrvsIrohaChainListener implements Closeable {
    *
    * @param accountId user that transactions should be queried for
    * @param keyPair user keypair
-   * @return user {@link QueryAPI} instance
+   * @return user pending transactions list
    */
-  private synchronized QueryAPI getQueryApiFor(String accountId, KeyPair keyPair) {
-    if (!queryAPIMap.containsKey(accountId)) {
-      queryAPIMap.put(accountId, new QueryAPI(irohaAPI, accountId, keyPair));
+  private List<Transaction> executeQueryFor(String accountId, KeyPair keyPair) {
+    final QueryResponse queryResponse = irohaAPI.query(
+        Query.builder(accountId, counter.getAndIncrement())
+            .getPendingTransactions()
+            .buildSigned(keyPair)
+    );
+
+    if (queryResponse.hasErrorResponse()) {
+      ErrorResponse errorResponse = queryResponse.getErrorResponse();
+      throw new ErrorResponseException(errorResponse);
     }
-    return queryAPIMap.get(accountId);
+
+    return queryResponse
+        .getTransactionsResponse()
+        .getTransactionsList();
   }
 
   /**
