@@ -244,7 +244,8 @@ public class IrohaIntegrationTest {
             Collections.singletonList(validatorKeypair),
             validatorId,
             validatorKeypair,
-            transactionVerdictStorage
+            transactionVerdictStorage,
+            accountManager
         ),
         accountManager,
         new BrvsData(Utils.toHex(receiverKeypair.getPublic().getEncoded()), "localhost"),
