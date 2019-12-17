@@ -109,6 +109,7 @@
     <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
     <constructor-arg name="keyPairs" ref="keysList"/>
     <constructor-arg name="transactionVerdictStorage" ref="mongoVerdictStorage"/>
+    <constructor-arg name="registrationProvider" ref="accountManager"/>
   </bean>
 
   <!-- CACHE CONFIG -->
