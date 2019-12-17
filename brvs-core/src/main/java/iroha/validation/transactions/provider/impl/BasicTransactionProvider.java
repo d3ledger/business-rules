@@ -7,6 +7,7 @@ package iroha.validation.transactions.provider.impl;
 
 import static com.d3.commons.util.ThreadUtilKt.createPrettyScheduledThreadPool;
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
+import static iroha.validation.utils.ValidationUtils.getTxAccountId;
 import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.google.common.base.Strings;
@@ -109,11 +110,13 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void monitorIrohaPending() {
     try {
+      final Set<String> accounts = registrationProvider.getRegisteredAccounts();
       irohaReliableChainListener
-          .getAllPendingTransactions(registrationProvider.getRegisteredAccounts())
+          .getAllPendingTransactions(accounts)
           .forEach(transactionBatch -> {
                 // if only BRVS signatory remains
-                if (isBatchSignedByUsers(transactionBatch) && savedMissingInStorage(transactionBatch)) {
+                if (isBatchSignedByUsers(transactionBatch, accounts) &&
+                    savedMissingInStorage(transactionBatch)) {
                   cacheProvider.put(transactionBatch);
                 }
               }
@@ -124,16 +127,18 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
   }
 
-  private boolean isBatchSignedByUsers(TransactionBatch transactionBatch) {
+  private boolean isBatchSignedByUsers(TransactionBatch transactionBatch,
+      Set<String> userAccounts) {
     return transactionBatch
         .stream()
+        .filter(transaction -> userAccounts.contains(getTxAccountId(transaction)))
         .allMatch(transaction ->
             transaction.getSignaturesCount() >= getSignatoriesToPresentNum(transaction)
         );
   }
 
   private int getSignatoriesToPresentNum(Transaction transaction) {
-    final String creatorAccountId = ValidationUtils.getTxAccountId(transaction);
+    final String creatorAccountId = getTxAccountId(transaction);
     int signatoriesToPresent = userQuorumProvider
         .getUserSignatoriesDetail(creatorAccountId).size();
     if (signatoriesToPresent == 0) {
@@ -203,7 +208,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void modifyUserQuorumIfNeeded(Transaction blockTransaction) {
-    final String creatorAccountId = ValidationUtils.getTxAccountId(blockTransaction);
+    final String creatorAccountId = getTxAccountId(blockTransaction);
     if (!userDomains.contains(getDomain(creatorAccountId))) {
       return;
     }
@@ -286,7 +291,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private String getDomain(String accountId) {
-    try{
+    try {
       return accountId.split("@")[1];
     } catch (Exception e) {
       logger.warn("Couldn't parse domain of " + accountId, e);
