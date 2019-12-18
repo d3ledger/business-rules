@@ -5,6 +5,8 @@
 
 package iroha.validation.transactions.provider.impl.util;
 
+import static iroha.validation.utils.ValidationUtils.hexHash;
+
 import com.google.common.collect.Iterables;
 import io.reactivex.Observable;
 import io.reactivex.subjects.PublishSubject;
@@ -52,7 +54,7 @@ public class CacheProvider {
       cache.put(accountId, new HashSet<>());
     }
     cache.get(accountId).add(transactionBatch);
-    logger.info("Put transactions {} in cache queue", transactionBatch);
+    logger.info("Put transactions {} in cache queue", hexHash(transactionBatch));
   }
 
   // Initiates consuming of a user queue
@@ -87,14 +89,18 @@ public class CacheProvider {
               .map(Command::getTransferAsset)
               .forEach(transferAsset -> {
                 final String srcAccountId = transferAsset.getSrcAccountId();
-                final String hash = ValidationUtils.hexHash(transaction);
+                final String hash = hexHash(transaction);
                 logger.info("Locked {} account by transfer hash {}", srcAccountId, hash);
                 pendingAccounts.put(srcAccountId, hash);
               })
       );
-      logger.info("Publishing {} transactions for validation", transactionBatch);
+      logger.info("Publishing {} transactions for validation", hexHash(transactionBatch));
       subject.onNext(transactionBatch);
     }
+  }
+
+  public synchronized void unlockPendingAccountsByHash(String txHash) {
+    unlockPendingAccounts(getAccountsBlockedBy(txHash));
   }
 
   // Returns accounts locked by a transaction hash provided

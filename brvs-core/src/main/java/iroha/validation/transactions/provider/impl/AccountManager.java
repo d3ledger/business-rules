@@ -22,6 +22,7 @@ import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
 import iroha.validation.utils.ValidationUtils;
 import java.io.Closeable;
+import java.lang.reflect.Type;
 import java.security.Key;
 import java.security.KeyPair;
 import java.util.Arrays;
@@ -58,6 +59,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
   private static final int INITIAL_KEYS_AMOUNT = 1;
+  private static final Type USER_SIGNATORIES_TYPE_TOKEN = new TypeToken<Set<String>>() {
+  }.getType();
 
   private final ExecutorService executorService = Executors.newCachedThreadPool();
   private final Set<String> registeredAccounts = ConcurrentHashMap.newKeySet();
@@ -136,8 +139,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
           ValidationUtils.irohaUnEscape(
               keyNode.getAsJsonPrimitive(userSignatoriesAttribute).getAsString()
           ),
-          new TypeToken<Set<String>>() {
-          }.getType()
+          USER_SIGNATORIES_TYPE_TOKEN
       );
 
     } catch (Exception e) {
@@ -318,7 +320,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    */
   @Override
   public Set<String> getRegisteredAccounts() {
-    return Collections.unmodifiableSet(registeredAccounts);
+    return registeredAccounts;
   }
 
   private <T> Set<T> getAccountsFrom(String accountsHolderAccount,
