@@ -112,9 +112,11 @@ public class CacheProvider {
 
   // Unlocks accounts and continues consuming
   public synchronized void unlockPendingAccounts(Iterable<String> accounts) {
-    accounts.forEach(pendingAccounts::remove);
-    accounts.forEach(this::consumeUnlockedTransactionBatches);
-    logger.info("Unlocked {} accounts", accounts);
+    if (!Iterables.isEmpty(accounts)) {
+      accounts.forEach(pendingAccounts::remove);
+      accounts.forEach(this::consumeUnlockedTransactionBatches);
+      logger.info("Unlocked {} accounts", accounts);
+    }
   }
 
   public synchronized Observable<TransactionBatch> getObservable() {
