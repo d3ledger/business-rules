@@ -21,12 +21,16 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
 
 /**
  * Service in-memory queue of transactions. Implements isolated queue processing for each user.
  */
 public class CacheProvider {
+
+  private static final Logger logger = LoggerFactory.getLogger(CacheProvider.class);
 
   // Local BRVS cache
   private final Map<String, Set<TransactionBatch>> cache = new HashMap<>();
@@ -48,6 +52,7 @@ public class CacheProvider {
       cache.put(accountId, new HashSet<>());
     }
     cache.get(accountId).add(transactionBatch);
+    logger.info("Put transactions {} in cache queue", transactionBatch);
   }
 
   // Initiates consuming of a user queue
@@ -80,11 +85,14 @@ public class CacheProvider {
               .stream()
               .filter(Command::hasTransferAsset)
               .map(Command::getTransferAsset)
-              .forEach(transferAsset -> pendingAccounts.put(
-                  transferAsset.getSrcAccountId(),
-                  ValidationUtils.hexHash(transaction)
-              ))
+              .forEach(transferAsset -> {
+                final String srcAccountId = transferAsset.getSrcAccountId();
+                final String hash = ValidationUtils.hexHash(transaction);
+                logger.info("Locked {} account by transfer hash {}", srcAccountId, hash);
+                pendingAccounts.put(srcAccountId, hash);
+              })
       );
+      logger.info("Publishing {} transactions for validation", transactionBatch);
       subject.onNext(transactionBatch);
     }
   }
@@ -106,6 +114,7 @@ public class CacheProvider {
   public synchronized void unlockPendingAccounts(Iterable<String> accounts) {
     accounts.forEach(pendingAccounts::remove);
     accounts.forEach(this::consumeUnlockedTransactionBatches);
+    logger.info("Unlocked {} accounts", accounts);
   }
 
   public synchronized Observable<TransactionBatch> getObservable() {
