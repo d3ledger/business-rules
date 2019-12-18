@@ -124,8 +124,8 @@ public class RestService {
       if (StringUtils.isEmpty(accountId)) {
         throw new IllegalArgumentException("Invalid input");
       }
-      final boolean isRegistered = StreamSupport
-          .stream(registrationProvider.getRegisteredAccounts().spliterator(), false)
+      final boolean isRegistered = registrationProvider.getRegisteredAccounts()
+          .stream()
           .anyMatch(registeredAccount -> registeredAccount.equals(accountId));
       return Response.status(HttpStatus.SC_OK)
           .entity(ValidationUtils.gson.toJson(new AccountRegisteredBooleanWrapper(isRegistered)))
