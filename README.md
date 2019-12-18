@@ -14,6 +14,35 @@ So think about the quorum modification beforehand.
 
 The following instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
 
+### Configuration
+
+All the application configuration variables are defined in the [application.properties](brvs-core/src/main/resources/application.properties) file. Here is a brief description of each general parameter:
+```
+CREDENTIAL_ACCOUNTID - Iroha credential account id
+CREDENTIAL_PUBKEY - Iroha credential public key
+CREDENTIAL_PRIVKEY - Iroha credential private key
+BRVS_USERKEYSPATH - Filesystem path of the directory to save the generated keys. They are used by BRVS to be a subset of a user quorum.
+BRVS_USERKEYSCOUNT - Amount of keys supported
+BRVS_LOCALHOSTNAME - Name of the BRVS instance (used to identify BRVS hosts in a multi-instance environment)
+BRVS_USERDOMAINS - User domains to be checked by the BRVS instance
+BRVS_PORT - Port to expose endpoints to
+USER_SIGNATORIES_KEY - Iroha account detail key to store user signatories in Json
+ACCOUNTS_HOLDER - Iroha account id to store a list of users accounts
+IROHA_HOST - Iroha host
+IROHA_PORT - Iroha port
+MONGO_HOST - MongoDB host (if you use it in your context file)
+MONGO_PORT - MongoDB port (if you use it in your context file)
+REPOSITORY_ACCOUNTID - Iroha account id of dynamic rules storage
+SETTER_ACCOUNTID - Iroha account id of dynamic rules and settings setter
+SETTINGS_ACCOUNTID - Iroha account id of dynamic rules tweaks
+```
+
+### Dynamic rules (new)
+
+BRVS now supports dynamic on-chain rules.
+In order to use it just upload correct groovy class implementing ['Rule'](./brvs-rules/src/main/java/iroha/validation/rules/Rule.java) interface to an Iroha detail of `REPOSITORY_ACCOUNTID` with key you want to represent the rule's name. Don't forget that such transaction must be created by `SETTER_ACCOUNTID` account.
+Then commit an account detail transaction to the `SETTINGS_ACCOUNTID` using the same setter and the following format: `<name you created> -> "true"/"false"`. True for enabling the rule, false for disabling. It can be done dynamically on any time.
+
 ### Installing
 
 A step by step series of examples that tell you how to get a development env running
@@ -34,7 +63,7 @@ Perform ['Add Signatory'](https://iroha.readthedocs.io/en/latest/api/commands.ht
 
 Modify **BRVS** [configuration](./config/context/spring-context.xml) in a way you need. You can extend it by introducing new Rules and Validators implementations
 
-Submit correct data using environment variables [application.properties](brvs-core/src/main/resources/application.properties)
+Submit correct data using environment variables [application.properties](brvs-core/src/main/resources/application.properties) described previously
 
 Run `clean shadowJar` gradle tasks
 
