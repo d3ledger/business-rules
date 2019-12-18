@@ -114,8 +114,8 @@ public class CacheProvider {
   public synchronized void unlockPendingAccounts(Iterable<String> accounts) {
     if (!Iterables.isEmpty(accounts)) {
       accounts.forEach(pendingAccounts::remove);
-      accounts.forEach(this::consumeUnlockedTransactionBatches);
       logger.info("Unlocked {} accounts", accounts);
+      accounts.forEach(this::consumeUnlockedTransactionBatches);
     }
   }
 
