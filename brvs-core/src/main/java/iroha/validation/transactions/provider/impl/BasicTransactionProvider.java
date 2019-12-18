@@ -214,7 +214,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
 
     if (!registrationProvider.getRegisteredAccounts().contains(creatorAccountId)) {
-      logger.warn("{} is not a user account, won't modify its quorum", creatorAccountId);
       return;
     }
 
@@ -253,6 +252,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       logger.warn("User {} tried to delete all their keys", creatorAccountId);
       return;
     }
+    logger.info("Going to modify account {} quorum", creatorAccountId);
     final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
     userQuorumProvider.setUserQuorumDetail(creatorAccountId,
         userSignatories,
@@ -266,8 +266,7 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction)
       throws InterruptedException {
-    final Set<String> userAccounts = registrationProvider.getUserAccounts();
-    final List<String> createAccountList = blockTransaction
+    List<String> createAccountList = blockTransaction
         .getPayload()
         .getReducedPayload()
         .getCommandsList()
@@ -277,9 +276,15 @@ public class BasicTransactionProvider implements TransactionProvider {
         .filter(command -> userDomains.contains(command.getDomainId()))
         .map(command -> command.getAccountName().concat(accountIdDelimiter)
             .concat(command.getDomainId()))
-        .filter(userAccounts::contains)
         .collect(Collectors.toList());
-    registrationProvider.register(createAccountList);
+    if (!createAccountList.isEmpty()) {
+      final Set<String> userAccounts = registrationProvider.getUserAccounts();
+      createAccountList = createAccountList
+          .stream()
+          .filter(userAccounts::contains)
+          .collect(Collectors.toList());
+      registrationProvider.register(createAccountList);
+    }
   }
 
   private void tryToRemoveLock(Transaction transaction) {
@@ -287,7 +292,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   }
 
   private void tryToRemoveLock(String hash) {
-    cacheProvider.unlockPendingAccounts(cacheProvider.getAccountsBlockedBy(hash));
+    cacheProvider.unlockPendingAccountsByHash(hash);
   }
 
   private String getDomain(String accountId) {
