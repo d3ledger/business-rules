@@ -155,13 +155,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    */
   @Override
   public void setUserQuorumDetail(String targetAccount,
-      Iterable<String> publicKeys,
-      long creationTimeMillis) {
+      Iterable<String> publicKeys) {
 
     final String jsonedKeys = ValidationUtils.irohaEscape(ValidationUtils.gson.toJson(publicKeys));
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
-            .builder(brvsAccountId, creationTimeMillis)
+            .builder(brvsAccountId)
             .setAccountDetail(targetAccount, userSignatoriesAttribute, jsonedKeys)
             .sign(brvsAccountKeyPair)
             .build()
@@ -187,7 +186,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    * {@inheritDoc}
    */
   @Override
-  public void setUserAccountQuorum(String targetAccount, int quorum, long createdTimeMillis) {
+  public void setUserAccountQuorum(String targetAccount, int quorum) {
     if (quorum < 1) {
       throw new IllegalArgumentException("Quorum must be positive, got: " + quorum);
     }
@@ -199,17 +198,17 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     // Otherwise set quorum first
     if (quorum >= currentQuorum) {
       setBrvsSignatoriesToUser(targetAccount, userDetailQuorum);
-      setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
+      setUserQuorumIroha(targetAccount, quorum);
     } else {
-      setUserQuorumIroha(targetAccount, quorum, createdTimeMillis);
+      setUserQuorumIroha(targetAccount, quorum);
       setBrvsSignatoriesToUser(targetAccount, userDetailQuorum);
     }
   }
 
-  private void setUserQuorumIroha(String targetAccount, int quorum, long createdTimeMillis) {
+  private void setUserQuorumIroha(String targetAccount, int quorum) {
     TxStatus txStatus = sendWithLastStatusWaiting(
         Transaction
-            .builder(brvsAccountId, createdTimeMillis)
+            .builder(brvsAccountId)
             .setAccountQuorum(targetAccount, quorum)
             .sign(brvsAccountKeyPair)
             .build()
@@ -458,8 +457,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       }
       setUserAccountQuorum(
           userAccountId,
-          quorum,
-          System.currentTimeMillis()
+          quorum
       );
     }
 
