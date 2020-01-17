@@ -5,6 +5,7 @@
 
 package iroha.validation.rest;
 
+import static iroha.validation.utils.ValidationUtils.derivePublicKey;
 import static iroha.validation.utils.ValidationUtils.subscriptionStrategy;
 
 import com.google.gson.Gson;
@@ -24,6 +25,7 @@ import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
+import java.security.PrivateKey;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -36,6 +38,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import jp.co.soramitsu.crypto.ed25519.EdDSAPrivateKey;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.detail.BuildableAndSignable;
@@ -246,21 +249,22 @@ public class RestService {
    * Sign transaction with custom key pairs
    *
    * @param builtTx - protoobuf transaction
-   * @param keyPairs - custom hex key pairs list
+   * @param privateKeys - custom hex keys list
    * @return signed protobuf Transaction
    */
   private Transaction signTransactionWithCustomKeys(Transaction builtTx,
-      List<KeyPairStringWrapper> keyPairs) {
+      List<String> privateKeys) {
     final String hash = Utils.toHexHash(builtTx);
     logger.info("Going to sign transaction: {} with custom key pairs", hash);
     final BuildableAndSignable<Transaction> transaction = jp.co.soramitsu.iroha.java.Transaction
         .parseFrom(builtTx);
-    keyPairs.forEach(keyPair -> {
-      final KeyPair parseHexKeypair = Utils.parseHexKeypair(
-          keyPair.getPublicKey(),
-          keyPair.getPrivateKey()
+    privateKeys.forEach(key -> {
+      final PrivateKey privateKey = Utils.parseHexPrivateKey(key);
+      final KeyPair keyPair = new KeyPair(
+          derivePublicKey((EdDSAPrivateKey) privateKey),
+          privateKey
       );
-      transaction.sign(parseHexKeypair);
+      transaction.sign(keyPair);
     });
     return transaction.build();
   }
@@ -544,32 +548,14 @@ public class RestService {
 
     private String transaction;
 
-    private List<KeyPairStringWrapper> keys;
+    private List<String> keys;
 
     String getTransaction() {
       return transaction;
     }
 
-    public List<KeyPairStringWrapper> getKeys() {
+    List<String> getKeys() {
       return keys;
-    }
-  }
-
-  /**
-   * A simple wrapper class for (de)serializing key pairs
-   */
-  private class KeyPairStringWrapper {
-
-    private String publicKey;
-
-    private String privateKey;
-
-    public String getPublicKey() {
-      return publicKey;
-    }
-
-    public String getPrivateKey() {
-      return privateKey;
     }
   }
 }
