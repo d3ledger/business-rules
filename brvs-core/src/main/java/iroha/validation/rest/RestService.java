@@ -26,7 +26,6 @@ import iroha.validation.verdict.ValidationResult;
 import java.security.KeyPair;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.ws.rs.Consumes;
@@ -39,6 +38,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Utils;
+import jp.co.soramitsu.iroha.java.detail.BuildableAndSignable;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -159,6 +159,23 @@ public class RestService {
   }
 
   @POST
+  @Path("/transaction/send/signCustom")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response sendTransactionSignCustom(String jsonBody) {
+    final TransactionWithSignatoriesJsonWrapper transactionWrapper = ValidationUtils.gson
+        .fromJson(jsonBody, TransactionWithSignatoriesJsonWrapper.class);
+    return buildResponse(transactionWrapper, tx -> {
+      final Transaction builtTx = buildTransaction(tx.getTransaction());
+      final Transaction signedTx = signTransactionWithCustomKeys(
+          builtTx,
+          transactionWrapper.getKeys()
+      );
+      return sendBuiltTransaction(signedTx);
+    });
+  }
+
+  @POST
   @Path("/transaction/sendBinary")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
@@ -223,6 +240,29 @@ public class RestService {
     return jp.co.soramitsu.iroha.java.Transaction.parseFrom(builtTx)
         .sign(brvsAccountKeyPair)
         .build();
+  }
+
+  /**
+   * Sign transaction with custom key pairs
+   *
+   * @param builtTx - protoobuf transaction
+   * @param keyPairs - custom hex key pairs list
+   * @return signed protobuf Transaction
+   */
+  private Transaction signTransactionWithCustomKeys(Transaction builtTx,
+      List<KeyPairStringWrapper> keyPairs) {
+    final String hash = Utils.toHexHash(builtTx);
+    logger.info("Going to sign transaction: {} with custom key pairs", hash);
+    final BuildableAndSignable<Transaction> transaction = jp.co.soramitsu.iroha.java.Transaction
+        .parseFrom(builtTx);
+    keyPairs.forEach(keyPair -> {
+      final KeyPair parseHexKeypair = Utils.parseHexKeypair(
+          keyPair.getPublicKey(),
+          keyPair.getPrivateKey()
+      );
+      transaction.sign(parseHexKeypair);
+    });
+    return transaction.build();
   }
 
   /**
@@ -493,6 +533,43 @@ public class RestService {
 
     AccountRegisteredBooleanWrapper(boolean registered) {
       this.registered = registered;
+    }
+  }
+
+  /**
+   * A simple wrapper class for (de)serializing JSONed transaction with custom keys to be signed
+   * with
+   */
+  private class TransactionWithSignatoriesJsonWrapper {
+
+    private String transaction;
+
+    private List<KeyPairStringWrapper> keys;
+
+    String getTransaction() {
+      return transaction;
+    }
+
+    public List<KeyPairStringWrapper> getKeys() {
+      return keys;
+    }
+  }
+
+  /**
+   * A simple wrapper class for (de)serializing key pairs
+   */
+  private class KeyPairStringWrapper {
+
+    private String publicKey;
+
+    private String privateKey;
+
+    public String getPublicKey() {
+      return publicKey;
+    }
+
+    public String getPrivateKey() {
+      return privateKey;
     }
   }
 }
