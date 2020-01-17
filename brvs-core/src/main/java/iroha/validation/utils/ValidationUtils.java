@@ -5,6 +5,7 @@
 
 package iroha.validation.utils;
 
+import static jp.co.soramitsu.crypto.ed25519.spec.EdDSANamedCurveTable.ED_25519;
 import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_NEW_LINE;
 import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_QUOTE;
 
@@ -29,12 +30,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.xml.bind.DatatypeConverter;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
+import jp.co.soramitsu.crypto.ed25519.EdDSAPrivateKey;
+import jp.co.soramitsu.crypto.ed25519.EdDSAPublicKey;
+import jp.co.soramitsu.crypto.ed25519.spec.EdDSANamedCurveTable;
+import jp.co.soramitsu.crypto.ed25519.spec.EdDSAParameterSpec;
+import jp.co.soramitsu.crypto.ed25519.spec.EdDSAPublicKeySpec;
 import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 
 public interface ValidationUtils {
 
+  EdDSAParameterSpec EdDSASpec = EdDSANamedCurveTable.getByName(ED_25519);
   Gson gson = new GsonBuilder().create();
   JsonParser parser = new JsonParser();
 
@@ -133,5 +140,9 @@ public interface ValidationUtils {
   static String irohaUnEscape(String str) {
     return str.replace(IROHA_FRIENDLY_QUOTE, "\"")
         .replace(IROHA_FRIENDLY_NEW_LINE, "\n");
+  }
+
+  static EdDSAPublicKey derivePublicKey(EdDSAPrivateKey privateKey) {
+    return new EdDSAPublicKey(new EdDSAPublicKeySpec(privateKey.getA(), EdDSASpec));
   }
 }
