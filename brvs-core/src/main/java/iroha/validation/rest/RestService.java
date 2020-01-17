@@ -159,14 +159,14 @@ public class RestService {
   }
 
   @POST
-  @Path("/transaction/send/signMany")
+  @Path("/transaction/send/signCustom")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response sendTransactionSignMany(String jsonBody) {
+  public Response sendTransactionSignCustom(String jsonBody) {
     final TransactionWithSignatoriesJsonWrapper transactionWrapper = ValidationUtils.gson
         .fromJson(jsonBody, TransactionWithSignatoriesJsonWrapper.class);
     return buildResponse(transactionWrapper, tx -> {
-      final Transaction builtTx = buildTransaction(tx.getRransaction());
+      final Transaction builtTx = buildTransaction(tx.getTransaction());
       final Transaction signedTx = signTransactionWithCustomKeys(
           builtTx,
           transactionWrapper.getKeys()
@@ -546,7 +546,7 @@ public class RestService {
 
     private List<KeyPairStringWrapper> keys;
 
-    String getRransaction() {
+    String getTransaction() {
       return transaction;
     }
 
