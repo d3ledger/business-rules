@@ -22,8 +22,9 @@ public interface TransactionVerdictStorage extends Closeable {
    * Method for saving (new) transaction verdict as pending to a storage
    *
    * @param txHash transaction hash
+   * @return true if marked successfully, false otherwise
    */
-  void markTransactionPending(String txHash);
+  boolean markTransactionPending(String txHash);
 
   /**
    * Method for saving transaction verdict as validated successfully to a storage

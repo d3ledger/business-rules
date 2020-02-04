@@ -51,7 +51,6 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final CacheProvider cacheProvider;
   private final UserQuorumProvider userQuorumProvider;
   private final RegistrationProvider registrationProvider;
-  private final BlockStorage blockStorage;
   private final BrvsIrohaChainListener irohaReliableChainListener;
   private final ScheduledExecutorService executor = createPrettyScheduledThreadPool(
       "brvs", "pending-processor"
@@ -70,7 +69,6 @@ public class BasicTransactionProvider implements TransactionProvider {
       CacheProvider cacheProvider,
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
-      BlockStorage blockStorage,
       BrvsIrohaChainListener irohaReliableChainListener,
       String userDomains
   ) {
@@ -88,7 +86,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.cacheProvider = cacheProvider;
     this.userQuorumProvider = userQuorumProvider;
     this.registrationProvider = registrationProvider;
-    this.blockStorage = blockStorage;
     this.irohaReliableChainListener = irohaReliableChainListener;
     this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
   }
@@ -115,8 +112,8 @@ public class BasicTransactionProvider implements TransactionProvider {
           .getAllPendingTransactions(accounts)
           .forEach(transactionBatch -> {
                 // if only BRVS signatory remains
-                if (isBatchSignedByUsers(transactionBatch, accounts) &&
-                    savedMissingInStorage(transactionBatch)) {
+                if (isBatchSignedByUsers(transactionBatch, accounts)) {
+                  saveMissingInStorage(transactionBatch);
                   cacheProvider.put(transactionBatch);
                 }
               }
@@ -148,16 +145,14 @@ public class BasicTransactionProvider implements TransactionProvider {
     return signatoriesToPresent;
   }
 
-  private boolean savedMissingInStorage(TransactionBatch transactionBatch) {
-    boolean result = false;
-    for (Transaction transaction : transactionBatch) {
-      final String hex = ValidationUtils.hexHash(transaction);
-      if (!transactionVerdictStorage.isHashPresentInStorage(hex)) {
-        transactionVerdictStorage.markTransactionPending(hex);
-        result = true;
-      }
-    }
-    return result;
+  private boolean saveMissingInStorage(TransactionBatch transactionBatch) {
+    return transactionBatch
+        .stream()
+        .map(ValidationUtils::hexHash)
+        .filter(hash -> !transactionVerdictStorage.isHashPresentInStorage(hash))
+        .map(transactionVerdictStorage::markTransactionPending)
+        .findAny()
+        .orElse(false);
   }
 
   private void processRejectedTransactions(Scheduler scheduler) {
@@ -173,7 +168,6 @@ public class BasicTransactionProvider implements TransactionProvider {
               try {
                 // Store new block first
                 final Block block = blockSubscription.getBlock();
-                blockStorage.store(block);
                 processCommitted(
                     block
                         .getBlockV1()

@@ -29,8 +29,9 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    * {@inheritDoc}
    */
   @Override
-  public void markTransactionPending(String txHash) {
+  public boolean markTransactionPending(String txHash) {
     validationResultMap.put(txHash.toUpperCase(), ValidationResult.PENDING);
+    return true;
   }
 
   /**
