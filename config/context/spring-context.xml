@@ -149,19 +149,6 @@
   </bean>
 
   <!-- RULES DEFINITIONS -->
-  <bean id="updateWhitelistRule" class="iroha.validation.rules.impl.whitelist.UpdateWhitelistRule">
-    <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="validationPeriod" value="${WHITELIST_VALIDATION}"/>
-  </bean>
-  <bean id="checkEthWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
-    <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="withdrawalAccount" value="${ETHCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
-    <constructor-arg name="exceptionAssets" value="${WHITELIST_EXCEPTION_ASSETS}"/>
-  </bean>
-  <bean id="checkBtcWhitelistRule" class="iroha.validation.rules.impl.whitelist.CheckWhitelistRule">
-    <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="withdrawalAccount" value="${BTCCHECKWHITELIST_WITHDRAWALACCOUNT}"/>
-  </bean>
   <bean id="restrictedKeysRule" class="iroha.validation.rules.impl.core.RestrictedKeysRule">
     <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
     <constructor-arg name="restrictedKeys" ref="keysList"/>
@@ -182,14 +169,16 @@
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
   </bean>
   <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
+  <bean id="byaccoDomainInternalJpyRule" class="iroha.validation.rules.impl.byacco.ByaccoDomainInternalAssetRule">
+    <constructor-arg name="assetId" value="${BYACCO_DOMAIN_INTERNAL_ASSET_ID}"/>
+    <constructor-arg name="domains" value="${BYACCO_DOMAIN_INTERNAL_DOMAINS}"/>
+  </bean>
   <util:map id="rules" map-class="java.util.HashMap">
-    <entry key="updateWhitelistRule" value-ref="updateWhitelistRule"/>
-    <entry key="checkEthWhitelistRule" value-ref="checkEthWhitelistRule"/>
-    <entry key="checkBtcWhitelistRule" value-ref="checkBtcWhitelistRule"/>
     <entry key="restrictedKeysRule" value-ref="restrictedKeysRule"/>
     <entry key="minKeysRule" value-ref="minKeysRule"/>
     <entry key="billingRule" value-ref="billingRule"/>
     <entry key="quorumBanRule" value-ref="quorumBanRule"/>
+    <entry key="byaccoDomainInternalJpyRule" value-ref="byaccoDomainInternalJpyRule"/>
     <!-- More can be added -->
   </util:map>
 

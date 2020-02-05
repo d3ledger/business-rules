@@ -253,14 +253,9 @@ public class BasicTransactionProvider implements TransactionProvider {
       return;
     }
     logger.info("Going to modify account {} quorum", creatorAccountId);
-    final long syncTime = blockTransaction.getPayload().getReducedPayload().getCreatedTime();
-    userQuorumProvider.setUserQuorumDetail(creatorAccountId,
-        userSignatories,
-        syncTime
-    );
+    userQuorumProvider.setUserQuorumDetail(creatorAccountId, userSignatories);
     userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-        userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId),
-        syncTime
+        userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId)
     );
   }
 

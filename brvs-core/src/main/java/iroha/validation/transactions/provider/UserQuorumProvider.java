@@ -22,11 +22,9 @@ public interface UserQuorumProvider {
    *
    * @param targetAccount account id in Iroha
    * @param publicKeys user public keys to be set
-   * @param creationTimeMillis time to synchronize operation
    */
   void setUserQuorumDetail(String targetAccount,
-      Iterable<String> publicKeys,
-      long creationTimeMillis);
+      Iterable<String> publicKeys);
 
   /**
    * Method for getting relevant user Iroha account quorum
@@ -37,12 +35,10 @@ public interface UserQuorumProvider {
 
   /**
    * Method for setting relevant user Iroha account quorum
-   *
-   * @param targetAccount account id in Iroha
+   *  @param targetAccount account id in Iroha
    * @param quorum account quorum to be set
-   * @param creationTimeMillis time to synchronize operation
    */
-  void setUserAccountQuorum(String targetAccount, int quorum, long creationTimeMillis);
+  void setUserAccountQuorum(String targetAccount, int quorum);
 
   /**
    * Method for getting relevant account quorum with respect to brvs instaces count

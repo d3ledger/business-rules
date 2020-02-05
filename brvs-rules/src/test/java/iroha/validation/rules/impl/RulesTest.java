@@ -12,11 +12,13 @@ import static org.mockito.Mockito.when;
 
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.RemoveSignatory;
+import iroha.protocol.Commands.SubtractAssetQuantity;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.assets.TransferTxVolumeRule;
 import iroha.validation.rules.impl.billing.BillingRule;
+import iroha.validation.rules.impl.byacco.ByaccoDomainInternalAssetRule;
 import iroha.validation.rules.impl.core.MinimumSignatoriesAmountRule;
 import iroha.validation.rules.impl.core.RestrictedKeysRule;
 import iroha.validation.rules.impl.core.SampleRule;
@@ -36,6 +38,7 @@ class RulesTest {
   private String asset;
   private Transaction transaction;
   private TransferAsset transferAsset;
+  private SubtractAssetQuantity subtractAssetQuantity;
   private List<Command> commands;
   private Rule rule;
 
@@ -50,6 +53,7 @@ class RulesTest {
     when(transferAsset.getSrcAccountId()).thenReturn("user@users");
     when(transferAsset.getDestAccountId()).thenReturn("destination@users");
     when(transferAsset.getDescription()).thenReturn("description");
+    when(transferAsset.getAssetId()).thenReturn(asset);
 
     final Command command = mock(Command.class);
 
@@ -114,6 +118,11 @@ class RulesTest {
     final int value = bad ? 3 : 5;
     when(queryAPI.getSignatories(fakeAccountId).getKeysCount()).thenReturn(value);
     when(commands.get(0).getRemoveSignatory()).thenReturn(removeSignatory);
+  }
+
+  private void initInternalTransferTest(boolean bad) {
+    init();
+    rule = new ByaccoDomainInternalAssetRule(asset, bad ? "fakedomain" : "users");
   }
 
   /**
@@ -204,9 +213,21 @@ class RulesTest {
   void emptyBillingRuleBadTest() throws IOException {
     initBillingTest();
 
-    when(transferAsset.getAssetId()).thenReturn(asset);
-    when(transferAsset.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
-    when(transferAsset.getDestAccountId()).thenReturn("transfer_billing@users");
+    subtractAssetQuantity = mock(SubtractAssetQuantity.class);
+    when(subtractAssetQuantity.getAmount()).thenReturn(BigDecimal.valueOf(100).toPlainString());
+    when(subtractAssetQuantity.getAssetId()).thenReturn(asset);
+    final Command command = mock(Command.class);
+
+    when(command.hasSubtractAssetQuantity()).thenReturn(true);
+    when(command.getSubtractAssetQuantity()).thenReturn(subtractAssetQuantity);
+
+    commands = Collections.singletonList(command);
+
+    when(transaction
+        .getPayload()
+        .getReducedPayload()
+        .getCommandsList())
+        .thenReturn(commands);
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
@@ -259,5 +280,31 @@ class RulesTest {
     initSignatoriesAmountTest(false);
 
     assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link ByaccoDomainInternalAssetRule} instance with configured domain and asset id
+   * @when {@link Transaction} with {@link Command TransferAsset} command with the asset and a valid
+   * domain appears
+   * @then {@link ByaccoDomainInternalAssetRule} is satisfied by such {@link Transaction}
+   */
+  @Test
+  void interDomainAssetGoodRuleTest() {
+    initSignatoriesAmountTest(false);
+
+    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link ByaccoDomainInternalAssetRule} instance with configured domain and asset id
+   * @when {@link Transaction} with {@link Command TransferAsset} command with the asset and an
+   * invalid domain appears
+   * @then {@link ByaccoDomainInternalAssetRule} is not satisfied by such {@link Transaction}
+   */
+  @Test
+  void interDomainAssetGoodBadTest() {
+    initSignatoriesAmountTest(true);
+
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
 }
