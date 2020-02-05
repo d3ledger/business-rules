@@ -29,7 +29,7 @@ shadowJar.archiveName = 'app.jar'
 
 // sora-plugin configs
 soramitsu {
-    projectGroup = 'brvs-deploy'
+    projectGroup = 'soranet'
     docker {
         // docker tag
         tag = System.getenv("TAG")

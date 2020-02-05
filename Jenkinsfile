@@ -1,4 +1,4 @@
-def dockerTags = ['master': 'latest', 'develop': 'develop', 'trunk/soranet': 'SORANET']
+def dockerTags = ['master': 'latest', 'develop': 'develop']
 pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
