@@ -290,7 +290,7 @@ class RulesTest {
    */
   @Test
   void interDomainAssetGoodRuleTest() {
-    initSignatoriesAmountTest(false);
+    initInternalTransferTest(false);
 
     assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
@@ -303,7 +303,7 @@ class RulesTest {
    */
   @Test
   void interDomainAssetGoodBadTest() {
-    initSignatoriesAmountTest(true);
+    initInternalTransferTest(true);
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
