@@ -237,7 +237,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       return;
     }
 
-    final Set<String> accountsKeysSet = accountAddedSignatories.keySet();
+    final Set<String> accountsKeysSet = new HashSet<>(accountAddedSignatories.keySet());
     accountsKeysSet.addAll(accountRemovedSignatories.keySet());
 
     for (final String accountId : accountsKeysSet) {
