@@ -15,9 +15,7 @@ import io.reactivex.Observable;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.BlockOuterClass.Block;
-import iroha.protocol.Commands.AddSignatory;
 import iroha.protocol.Commands.Command;
-import iroha.protocol.Commands.RemoveSignatory;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.BrvsIrohaChainListener;
 import iroha.validation.transactions.TransactionBatch;
@@ -30,8 +28,11 @@ import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -213,7 +214,8 @@ public class BasicTransactionProvider implements TransactionProvider {
       return;
     }
 
-    if (!registrationProvider.getRegisteredAccounts().contains(creatorAccountId)) {
+    final Set<String> registeredAccounts = registrationProvider.getRegisteredAccounts();
+    if (!registeredAccounts.contains(creatorAccountId)) {
       return;
     }
 
@@ -222,41 +224,92 @@ public class BasicTransactionProvider implements TransactionProvider {
         .getReducedPayload()
         .getCommandsList();
 
-    final Set<String> addedSignatories = commands
-        .stream()
-        .filter(Command::hasAddSignatory)
-        .map(Command::getAddSignatory)
-        .filter(command -> command.getAccountId().equals(creatorAccountId))
-        .map(AddSignatory::getPublicKey)
-        .map(String::toUpperCase)
-        .collect(Collectors.toSet());
-    final Set<String> removedSignatories = commands
+    modifyUserQuorum(commands, registeredAccounts);
+  }
+
+  private void modifyUserQuorum(Collection<Command> commands, Set<String> registeredAccounts) {
+
+    final Map<String, Set<String>> accountRemovedSignatories = constructRemovedSignatoriesByAccountId(
+        commands,
+        registeredAccounts
+    );
+
+    final Map<String, Set<String>> accountAddedSignatories = constructAddedSignatoriesByAccountId(
+        commands,
+        registeredAccounts
+    );
+
+    if (accountAddedSignatories.isEmpty() && accountRemovedSignatories.isEmpty()) {
+      return;
+    }
+
+    final Set<String> accountsKeysSet = accountAddedSignatories.keySet();
+    accountsKeysSet.addAll(accountRemovedSignatories.keySet());
+
+    for (final String accountId : accountsKeysSet) {
+      final Set<String> userSignatories = new HashSet<>(
+          userQuorumProvider.getUserSignatoriesDetail(accountId)
+      );
+      final Set<String> removedSignatories = accountRemovedSignatories.get(accountId);
+      final Set<String> addedSignatories = accountAddedSignatories.get(accountId);
+      if (removedSignatories != null) {
+        userSignatories.removeAll(removedSignatories);
+      }
+      if (addedSignatories != null) {
+        userSignatories.addAll(addedSignatories);
+      }
+      if (userSignatories.isEmpty()) {
+        logger.warn("There was an attempt to delete all keys of {}", accountId);
+        return;
+      }
+      logger.info("Going to modify account {} quorum", accountId);
+      userQuorumProvider.setUserQuorumDetail(accountId, userSignatories);
+      userQuorumProvider.setUserAccountQuorum(accountId,
+          userQuorumProvider.getValidQuorumForUserAccount(accountId)
+      );
+    }
+  }
+
+  private Map<String, Set<String>> constructRemovedSignatoriesByAccountId(
+      Collection<Command> commands,
+      Set<String> registeredAccounts) {
+    final Map<String, Set<String>> accountRemovedSignatories = new HashMap<>();
+
+    commands
         .stream()
         .filter(Command::hasRemoveSignatory)
         .map(Command::getRemoveSignatory)
-        .filter(command -> command.getAccountId().equals(creatorAccountId))
-        .map(RemoveSignatory::getPublicKey)
-        .map(String::toUpperCase)
-        .collect(Collectors.toSet());
+        .filter(command -> registeredAccounts.contains(command.getAccountId()))
+        .forEach(removeSignatory -> {
+          final String signatoryAccountId = removeSignatory.getAccountId();
+          if (!accountRemovedSignatories.containsKey(signatoryAccountId)) {
+            accountRemovedSignatories.put(signatoryAccountId, new HashSet<>());
+          }
+          accountRemovedSignatories.get(signatoryAccountId)
+              .add(removeSignatory.getPublicKey().toUpperCase());
+        });
+    return accountRemovedSignatories;
+  }
 
-    if (addedSignatories.isEmpty() && removedSignatories.isEmpty()) {
-      return;
-    }
+  private Map<String, Set<String>> constructAddedSignatoriesByAccountId(
+      Collection<Command> commands,
+      Set<String> registeredAccounts) {
+    final Map<String, Set<String>> accountAddedSignatories = new HashMap<>();
 
-    final Set<String> userSignatories = new HashSet<>(
-        userQuorumProvider.getUserSignatoriesDetail(creatorAccountId)
-    );
-    userSignatories.removeAll(removedSignatories);
-    userSignatories.addAll(addedSignatories);
-    if (userSignatories.isEmpty()) {
-      logger.warn("User {} tried to delete all their keys", creatorAccountId);
-      return;
-    }
-    logger.info("Going to modify account {} quorum", creatorAccountId);
-    userQuorumProvider.setUserQuorumDetail(creatorAccountId, userSignatories);
-    userQuorumProvider.setUserAccountQuorum(creatorAccountId,
-        userQuorumProvider.getValidQuorumForUserAccount(creatorAccountId)
-    );
+    commands
+        .stream()
+        .filter(Command::hasAddSignatory)
+        .map(Command::getAddSignatory)
+        .filter(command -> registeredAccounts.contains(command.getAccountId()))
+        .forEach(addSignatory -> {
+          final String signatoryAccountId = addSignatory.getAccountId();
+          if (!accountAddedSignatories.containsKey(signatoryAccountId)) {
+            accountAddedSignatories.put(signatoryAccountId, new HashSet<>());
+          }
+          accountAddedSignatories.get(signatoryAccountId)
+              .add(addSignatory.getPublicKey().toUpperCase());
+        });
+    return accountAddedSignatories;
   }
 
   private void registerCreatedAccountByTransactionScanning(Transaction blockTransaction)
