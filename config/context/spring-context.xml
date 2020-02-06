@@ -62,11 +62,6 @@
     <constructor-arg name="mongoHost" value="${MONGO_HOST}"/>
     <constructor-arg name="mongoPort" value="${MONGO_PORT}"/>
   </bean>
-  <bean id="mongoBlockStorage"
-    class="iroha.validation.transactions.storage.impl.mongo.MongoBlockStorage">
-    <constructor-arg name="mongoHost" value="${MONGO_HOST}"/>
-    <constructor-arg name="mongoPort" value="${MONGO_PORT}"/>
-  </bean>
 
   <!-- USER ACCOUNTS MANAGER CONFIG -->
   <bean id="accountManager"
@@ -86,7 +81,6 @@
     <constructor-arg name="cacheProvider" ref="cacheProvider"/>
     <constructor-arg name="userQuorumProvider" ref="accountManager"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
-    <constructor-arg name="blockStorage" ref="mongoBlockStorage"/>
     <constructor-arg name="irohaReliableChainListener" ref="irohaReliableChainListener"/>
     <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
   </bean>
