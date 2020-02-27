@@ -9,12 +9,12 @@ import io.reactivex.Observable;
 import io.reactivex.subjects.PublishSubject;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictStorage {
 
-  private final Map<String, ValidationResult> validationResultMap = new HashMap<>();
+  private final Map<String, ValidationResult> validationResultMap = new ConcurrentHashMap<>();
   private final PublishSubject<String> subject = PublishSubject.create();
 
   /**
@@ -30,7 +30,7 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
    */
   @Override
   public boolean markTransactionPending(String txHash) {
-    validationResultMap.put(txHash.toUpperCase(), ValidationResult.PENDING);
+    validationResultMap.putIfAbsent(txHash.toUpperCase(), ValidationResult.PENDING);
     return true;
   }
 

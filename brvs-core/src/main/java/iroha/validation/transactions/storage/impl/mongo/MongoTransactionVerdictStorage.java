@@ -24,7 +24,8 @@ import org.bson.codecs.pojo.PojoCodecProvider;
 
 public class MongoTransactionVerdictStorage implements TransactionVerdictStorage {
 
-  private static final ReplaceOptions replaceOptions = new ReplaceOptions().upsert(true);
+  private static final ReplaceOptions optionsToReplace = new ReplaceOptions().upsert(true);
+  private static final ReplaceOptions optionsToKeep = new ReplaceOptions().upsert(false);
   private static final String TX_HASH_ATTRIBUTE = "txHash";
 
   private final MongoClient mongoClient;
@@ -61,7 +62,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public boolean markTransactionPending(String txHash) {
-    store(txHash.toUpperCase(), ValidationResult.PENDING);
+    store(txHash.toUpperCase(), ValidationResult.PENDING, optionsToKeep);
     return true;
   }
 
@@ -70,7 +71,7 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public void markTransactionValidated(String txHash) {
-    store(txHash.toUpperCase(), ValidationResult.VALIDATED);
+    store(txHash.toUpperCase(), ValidationResult.VALIDATED, optionsToReplace);
   }
 
   /**
@@ -79,14 +80,14 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   @Override
   public void markTransactionRejected(String txHash, String reason) {
     final String upperCaseHash = txHash.toUpperCase();
-    store(upperCaseHash, ValidationResult.REJECTED(reason));
+    store(upperCaseHash, ValidationResult.REJECTED(reason), optionsToReplace);
     subject.onNext(upperCaseHash);
   }
 
   @Override
   public void markTransactionFailed(String txHash, String reason) {
     final String upperCaseHash = txHash.toUpperCase();
-    store(upperCaseHash, ValidationResult.FAILED(reason));
+    store(upperCaseHash, ValidationResult.FAILED(reason), optionsToReplace);
     subject.onNext(upperCaseHash);
   }
 
@@ -107,11 +108,11 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
     return subject;
   }
 
-  private void store(String txHash, ValidationResult result) {
+  private void store(String txHash, ValidationResult result, ReplaceOptions options) {
     final String upperCaseHash = txHash.toUpperCase();
     collection.replaceOne(eq(TX_HASH_ATTRIBUTE, upperCaseHash),
         new MongoVerdict(upperCaseHash, result),
-        replaceOptions
+        options
     );
   }
 

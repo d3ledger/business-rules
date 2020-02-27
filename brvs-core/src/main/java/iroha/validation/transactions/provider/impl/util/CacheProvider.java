@@ -14,7 +14,6 @@ import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
-import iroha.validation.utils.ValidationUtils;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -90,8 +89,10 @@ public class CacheProvider {
               .forEach(transferAsset -> {
                 final String srcAccountId = transferAsset.getSrcAccountId();
                 final String hash = hexHash(transaction);
-                logger.info("Locked {} account by transfer hash {}", srcAccountId, hash);
-                pendingAccounts.put(srcAccountId, hash);
+                if (!pendingAccounts.containsKey(srcAccountId)) {
+                  logger.info("Locked {} account by transfer hash {}", srcAccountId, hash);
+                  pendingAccounts.put(srcAccountId, hash);
+                }
               })
       );
       logger.info("Publishing {} transactions for validation", hexHash(transactionBatch));
