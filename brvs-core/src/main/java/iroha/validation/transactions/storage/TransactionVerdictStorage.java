@@ -5,7 +5,6 @@
 
 package iroha.validation.transactions.storage;
 
-import io.reactivex.Observable;
 import iroha.validation.verdict.ValidationResult;
 import java.io.Closeable;
 
@@ -55,11 +54,4 @@ public interface TransactionVerdictStorage extends Closeable {
    * @param txHash transaction hash
    */
   ValidationResult getTransactionVerdict(String txHash);
-
-  /**
-   * Method providing arriving rejected verdicts transactions
-   *
-   * @return {@link Observable} of transactions hashes
-   */
-  Observable<String> getRejectedOrFailedTransactionsHashesStreaming();
 }

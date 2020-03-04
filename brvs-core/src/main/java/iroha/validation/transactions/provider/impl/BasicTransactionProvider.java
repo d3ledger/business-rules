@@ -8,12 +8,14 @@ package iroha.validation.transactions.provider.impl;
 import static com.d3.commons.util.ThreadUtilKt.createPrettyScheduledThreadPool;
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
 import static iroha.validation.utils.ValidationUtils.getTxAccountId;
+import static iroha.validation.utils.ValidationUtils.hexHash;
 import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.google.common.base.Strings;
 import io.reactivex.Observable;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
+import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -22,7 +24,6 @@ import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
-import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
@@ -50,7 +51,6 @@ public class BasicTransactionProvider implements TransactionProvider {
   private static final Logger logger = LoggerFactory.getLogger(BasicTransactionProvider.class);
 
   private final TransactionVerdictStorage transactionVerdictStorage;
-  private final CacheProvider cacheProvider;
   private final UserQuorumProvider userQuorumProvider;
   private final RegistrationProvider registrationProvider;
   private final BrvsIrohaChainListener irohaReliableChainListener;
@@ -60,22 +60,19 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final Scheduler blockScheduler = Schedulers.from(createPrettySingleThreadPool(
       "brvs", "block-processor"
   ));
-  private final Scheduler rejectScheduler = Schedulers.from(createPrettySingleThreadPool(
-      "brvs", "rejects-processor"
-  ));
+  // Observable
+  private final PublishSubject<TransactionBatch> subject = PublishSubject.create();
   private final Set<String> userDomains;
   private boolean isStarted;
 
   public BasicTransactionProvider(
       TransactionVerdictStorage transactionVerdictStorage,
-      CacheProvider cacheProvider,
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
       BrvsIrohaChainListener irohaReliableChainListener,
       String userDomains
   ) {
     Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
-    Objects.requireNonNull(cacheProvider, "CacheProvider must not be null");
     Objects.requireNonNull(userQuorumProvider, "UserQuorumProvider must not be null");
     Objects.requireNonNull(registrationProvider, "RegistrationProvider must not be null");
     Objects
@@ -85,7 +82,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
 
     this.transactionVerdictStorage = transactionVerdictStorage;
-    this.cacheProvider = cacheProvider;
     this.userQuorumProvider = userQuorumProvider;
     this.registrationProvider = registrationProvider;
     this.irohaReliableChainListener = irohaReliableChainListener;
@@ -99,12 +95,11 @@ public class BasicTransactionProvider implements TransactionProvider {
   public synchronized Observable<TransactionBatch> getPendingTransactionsStreaming() {
     if (!isStarted) {
       logger.info("Starting pending transactions streaming");
-      executor.scheduleAtFixedRate(this::monitorIrohaPending, 0, 2, TimeUnit.SECONDS);
+      executor.scheduleAtFixedRate(this::monitorIrohaPending, 4, 2, TimeUnit.SECONDS);
       processBlockTransactions(blockScheduler);
-      processRejectedTransactions(rejectScheduler);
       isStarted = true;
     }
-    return cacheProvider.getObservable();
+    return subject;
   }
 
   private void monitorIrohaPending() {
@@ -116,7 +111,8 @@ public class BasicTransactionProvider implements TransactionProvider {
                 // if only BRVS signatory remains
                 if (isBatchSignedByUsers(transactionBatch, accounts)) {
                   if (savedMissingInStorage(transactionBatch)) {
-                    cacheProvider.put(transactionBatch);
+                    logger.info("Publishing {} transactions for validation", hexHash(transactionBatch));
+                    subject.onNext(transactionBatch);
                   }
                 }
               }
@@ -167,12 +163,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     return Verdict.checkIfVerdictIsTerminate(transactionVerdict.getStatus());
   }
 
-  private void processRejectedTransactions(Scheduler scheduler) {
-    transactionVerdictStorage.getRejectedOrFailedTransactionsHashesStreaming()
-        .observeOn(scheduler)
-        .subscribe(this::tryToRemoveLock);
-  }
-
   private void processBlockTransactions(Scheduler scheduler) {
     irohaReliableChainListener.getBlockStreaming()
         .observeOn(scheduler)
@@ -199,7 +189,6 @@ public class BasicTransactionProvider implements TransactionProvider {
   private void processCommitted(List<Transaction> blockTransactions) {
     if (blockTransactions != null) {
       blockTransactions.forEach(transaction -> {
-            tryToRemoveLock(transaction);
             try {
               registerCreatedAccountByTransactionScanning(transaction);
               modifyUserQuorumIfNeeded(transaction);
@@ -340,14 +329,6 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
   }
 
-  private void tryToRemoveLock(Transaction transaction) {
-    tryToRemoveLock(ValidationUtils.hexHash(transaction));
-  }
-
-  private void tryToRemoveLock(String hash) {
-    cacheProvider.unlockPendingAccountsByHash(hash);
-  }
-
   private String getDomain(String accountId) {
     try {
       return accountId.split("@")[1];
@@ -361,7 +342,6 @@ public class BasicTransactionProvider implements TransactionProvider {
   public void close() throws IOException {
     executor.shutdownNow();
     blockScheduler.shutdown();
-    rejectScheduler.shutdown();
     irohaReliableChainListener.close();
   }
 }

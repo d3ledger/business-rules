@@ -22,7 +22,6 @@ import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.rest.dto.BinaryTransaction;
 import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import java.io.IOException;
 import java.io.InputStream;
@@ -148,7 +147,6 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
         bind(mock(TransactionVerdictStorage.class)).to(TransactionVerdictStorage.class);
         bind(mock(RegistrationProvider.class)).to(RegistrationProvider.class);
         bind(irohaAPI).to(IrohaAPI.class);
-        bind(mock(CacheProvider.class)).to(CacheProvider.class);
         bind(senderSecondKeypair).to(KeyPair.class);
       }
     });

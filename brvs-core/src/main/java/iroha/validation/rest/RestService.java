@@ -20,7 +20,6 @@ import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.protocol.TransactionOuterClass.Transaction.Builder;
 import iroha.validation.rest.dto.BinaryTransaction;
 import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
@@ -77,8 +76,6 @@ public class RestService {
   private TransactionVerdictStorage verdictStorage;
   @Inject
   private IrohaAPI irohaAPI;
-  @Inject
-  private CacheProvider cacheProvider;
 
   /**
    * Keypair used to sign incoming transactions
@@ -281,14 +278,6 @@ public class RestService {
     logger.info("Going to send transaction: {}", hash);
     return irohaAPI.transaction(transaction, subscriptionStrategy)
         .blockingLast();
-  }
-
-  @GET
-  @Path("/transactions")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response getTransactions() throws InvalidProtocolBufferException {
-    return Response.status(HttpStatus.SC_OK)
-        .entity(printer.print(Utils.createTxList(cacheProvider.getTransactions()))).build();
   }
 
   @POST

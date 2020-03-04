@@ -8,7 +8,6 @@ package iroha.validation;
 import iroha.validation.filter.CrossDomainFilter;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.provider.impl.util.CacheProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import java.net.PortUnreachableException;
 import java.net.URI;
@@ -59,7 +58,6 @@ public class Application {
         bind(context.getBean(TransactionVerdictStorage.class)).to(TransactionVerdictStorage.class);
         bind(context.getBean(RegistrationProvider.class)).to(RegistrationProvider.class);
         bind(context.getBean(IrohaAPI.class)).to(IrohaAPI.class);
-        bind(context.getBean(CacheProvider.class)).to(CacheProvider.class);
         bind(context.getBean("brvsAccountKeyPair", KeyPair.class)).to(KeyPair.class);
       }
     });

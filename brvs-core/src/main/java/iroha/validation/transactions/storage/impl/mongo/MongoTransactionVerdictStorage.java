@@ -30,7 +30,6 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
 
   private final MongoClient mongoClient;
   private final MongoCollection<MongoVerdict> collection;
-  private final PublishSubject<String> subject = PublishSubject.create();
 
   public MongoTransactionVerdictStorage(String mongoHost, int mongoPort) {
     if (Strings.isNullOrEmpty(mongoHost)) {
@@ -79,16 +78,12 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
    */
   @Override
   public void markTransactionRejected(String txHash, String reason) {
-    final String upperCaseHash = txHash.toUpperCase();
-    store(upperCaseHash, ValidationResult.REJECTED(reason), optionsToReplace);
-    subject.onNext(upperCaseHash);
+    store(txHash.toUpperCase(), ValidationResult.REJECTED(reason), optionsToReplace);
   }
 
   @Override
   public void markTransactionFailed(String txHash, String reason) {
-    final String upperCaseHash = txHash.toUpperCase();
-    store(upperCaseHash, ValidationResult.FAILED(reason), optionsToReplace);
-    subject.onNext(upperCaseHash);
+    store(txHash.toUpperCase(), ValidationResult.FAILED(reason), optionsToReplace);
   }
 
   /**
@@ -98,14 +93,6 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   public ValidationResult getTransactionVerdict(String txHash) {
     MongoVerdict verdict = collection.find(eq(TX_HASH_ATTRIBUTE, txHash.toUpperCase())).first();
     return verdict == null ? null : verdict.getResult();
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public Observable<String> getRejectedOrFailedTransactionsHashesStreaming() {
-    return subject;
   }
 
   private void store(String txHash, ValidationResult result, ReplaceOptions options) {

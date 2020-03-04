@@ -6,6 +6,7 @@
 package iroha.validation.service.impl;
 
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
+import static iroha.validation.utils.ValidationUtils.hexHash;
 
 import io.reactivex.Observable;
 import io.reactivex.Scheduler;
@@ -17,12 +18,14 @@ import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
+import iroha.validation.transactions.provider.impl.AccountManager;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.signatory.TransactionSigner;
-import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.Validator;
 import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -33,7 +36,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Core BRVS service abstraction impl
  */
-public class ValidationServiceImpl implements ValidationService {
+public class ValidationServiceImpl implements ValidationService, Closeable {
 
   private static Logger logger = LoggerFactory.getLogger(ValidationServiceImpl.class);
 
@@ -84,7 +87,7 @@ public class ValidationServiceImpl implements ValidationService {
    * @return the same {@link TransactionBatch} that was passed as an argument
    */
   private TransactionBatch processTransactionBatch(TransactionBatch transactionBatch) {
-    final List<String> hex = ValidationUtils.hexHash(transactionBatch);
+    final List<String> hex = hexHash(transactionBatch);
     try {
       logger.info("Got transactions to validate: {}", hex);
       final ValidationResult validationResult = validator.validate(transactionBatch);
@@ -121,5 +124,12 @@ public class ValidationServiceImpl implements ValidationService {
     } catch (Exception e) {
       logger.error("Couldn't register some of existing accounts", e);
     }
+  }
+
+  @Override
+  public void close() throws IOException {
+    mainScheduler.shutdown();
+    transactionProvider.close();
+    ((AccountManager) registrationProvider).close();
   }
 }
