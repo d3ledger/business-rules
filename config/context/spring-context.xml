@@ -105,9 +105,6 @@
     <constructor-arg name="registrationProvider" ref="accountManager"/>
   </bean>
 
-  <!-- CACHE CONFIG -->
-  <bean id="cacheProvider" class="iroha.validation.transactions.provider.impl.util.CacheProvider"/>
-
   <!-- BRVS DATA CONFIG -->
   <bean id="pubkey" class="java.lang.String">
     <constructor-arg name="original" value="${CREDENTIAL_PUBKEY}"/>
