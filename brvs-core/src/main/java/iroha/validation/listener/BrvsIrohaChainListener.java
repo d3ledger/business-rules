@@ -13,6 +13,7 @@ import iroha.protocol.QryResponses.ErrorResponse;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
+import iroha.validation.utils.ValidationUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.security.KeyPair;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.ErrorResponseException;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.Query;
@@ -75,6 +77,11 @@ public class BrvsIrohaChainListener implements Closeable {
         pendingTransactions.addAll(getPendingTransactions(account, userKeyPair))
     );
     logger.info("Got {} pending batches from Iroha", pendingTransactions.size());
+    logger.debug("Hashes: {}", pendingTransactions
+        .stream()
+        .map(ValidationUtils::hexHash)
+        .collect(Collectors.toList())
+    );
     return pendingTransactions;
   }
 
