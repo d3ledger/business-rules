@@ -5,10 +5,15 @@
 
 package iroha.validation.rest;
 
+import static iroha.validation.exception.BrvsErrorCode.MALFORMED_QUERY;
+import static iroha.validation.exception.BrvsErrorCode.MALFORMED_TRANSACTION;
+import static iroha.validation.exception.BrvsErrorCode.REGISTRATION_FAILED;
 import static iroha.validation.utils.ValidationUtils.derivePublicKey;
+import static iroha.validation.utils.ValidationUtils.fieldValidator;
 import static iroha.validation.utils.ValidationUtils.subscriptionStrategy;
 
-import com.google.gson.Gson;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.google.protobuf.util.JsonFormat.Parser;
@@ -18,7 +23,9 @@ import iroha.protocol.Endpoint.TxList;
 import iroha.protocol.Queries.Query;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.protocol.TransactionOuterClass.Transaction.Builder;
+import iroha.validation.exception.BrvsException;
 import iroha.validation.rest.dto.BinaryTransaction;
+import iroha.validation.rest.dto.GenericStatusedResponse;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
@@ -45,11 +52,10 @@ import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
-import org.springframework.util.StringUtils;
 
 @Singleton
-@Path("")
-public class RestService {
+@Path("/v1")
+public class BusinessController {
 
   /**
    * Lambda function interface with unhandled exception
@@ -60,15 +66,14 @@ public class RestService {
   @FunctionalInterface
   public interface CheckedFunction<T, R> {
 
-    R apply(T t) throws Exception;
+    R apply(T t) throws InvalidProtocolBufferException;
   }
 
-  private static final Logger logger = LoggerFactory.getLogger(RestService.class);
+  private static final Logger logger = LoggerFactory.getLogger(BusinessController.class);
   private static final Printer printer = JsonFormat.printer()
       .omittingInsignificantWhitespace()
       .preservingProtoFieldNames();
   private static final Parser parser = JsonFormat.parser().ignoringUnknownFields();
-  private static final Gson gson = new Gson();
 
   @Inject
   private RegistrationProvider registrationProvider;
@@ -84,13 +89,6 @@ public class RestService {
   private KeyPair brvsAccountKeyPair;
 
   @GET
-  @Path("/actuator/health")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response isHealthy() {
-    return Response.ok("{\"status\":\"UP\"}").build();
-  }
-
-  @GET
   @Path("/status/{txHash}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getStatus(@PathParam("txHash") String hash) {
@@ -98,18 +96,19 @@ public class RestService {
     if (transactionVerdict == null) {
       transactionVerdict = ValidationResult.UNKNOWN;
     }
-    return Response.status(HttpStatus.SC_OK).entity(transactionVerdict).build();
+    return Response.ok(new ValidationResultResponse(transactionVerdict)).build();
   }
 
   @POST
   @Path("/register/{accountId}")
+  @Produces(MediaType.APPLICATION_JSON)
   public Response register(@PathParam("accountId") String accountId) {
     try {
       registrationProvider.register(accountId);
-    } catch (Exception e) {
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).entity(e).build();
+    } catch (InterruptedException e) {
+      throw new BrvsException(e.getMessage(), e, REGISTRATION_FAILED);
     }
-    return Response.status(HttpStatus.SC_NO_CONTENT).build();
+    return Response.ok(GenericStatusedResponse.SUCCESS).build();
   }
 
   @POST
@@ -117,22 +116,14 @@ public class RestService {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response isRegistered(String jsonBody) {
-    try {
-      final String accountId = ValidationUtils.gson
-          .fromJson(jsonBody, AccountIdJsonWrapper.class)
-          .getAccountId();
-      if (StringUtils.isEmpty(accountId)) {
-        throw new IllegalArgumentException("Invalid input");
-      }
-      final boolean isRegistered = registrationProvider.getRegisteredAccounts()
-          .stream()
-          .anyMatch(registeredAccount -> registeredAccount.equals(accountId));
-      return Response.status(HttpStatus.SC_OK)
-          .entity(ValidationUtils.gson.toJson(new AccountRegisteredBooleanWrapper(isRegistered)))
-          .build();
-    } catch (Exception e) {
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).entity(e).build();
-    }
+    final String accountId = ValidationUtils.gson
+        .fromJson(jsonBody, AccountIdJsonWrapper.class)
+        .getAccountId();
+    fieldValidator.checkAccountId(accountId);
+    final boolean isRegistered = registrationProvider.getRegisteredAccounts()
+        .stream()
+        .anyMatch(registeredAccount -> registeredAccount.equals(accountId));
+    return Response.ok(new AccountRegisteredResponse(isRegistered)).build();
   }
 
   @POST
@@ -332,11 +323,7 @@ public class RestService {
       return Response.status(HttpStatus.SC_OK).entity(printer.print(irohaAPI.query(queryToSend)))
           .build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
-      logger.error("Error during query processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during query processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+      throw new BrvsException(e.getMessage(), e, MALFORMED_QUERY);
     }
   }
 
@@ -395,7 +382,7 @@ public class RestService {
    * @return bytes of proto transaction
    */
   private byte[] decode(String hexString) {
-    BinaryTransaction bt = gson.fromJson(hexString, BinaryTransaction.class);
+    BinaryTransaction bt = ValidationUtils.gson.fromJson(hexString, BinaryTransaction.class);
     return Hex.decode(bt.hexString);
   }
 
@@ -495,20 +482,17 @@ public class RestService {
       ToriiResponse res = handler.apply(requestedTx);
       String status = printer.print(res);
       logger.info("Got transaction status {}", status);
-      return Response.status(HttpStatus.SC_OK).entity(status).build();
+      return Response.ok(new ToriiResultResponse(res)).build();
     } catch (InvalidProtocolBufferException | IllegalArgumentException e) {
       logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_UNPROCESSABLE_ENTITY).build();
-    } catch (Exception e) {
-      logger.error("Error during transaction processing", e);
-      return Response.status(HttpStatus.SC_INTERNAL_SERVER_ERROR).build();
+      throw new BrvsException(e.getMessage(), e, MALFORMED_TRANSACTION);
     }
   }
 
   /**
    * A simple wrapper class for (de)serializing JSONed account id in Iroha
    */
-  private class AccountIdJsonWrapper {
+  private static class AccountIdJsonWrapper {
 
     private String accountId;
 
@@ -518,14 +502,28 @@ public class RestService {
   }
 
   /**
-   * A simple wrapper class for (de)serializing JSONed boolean result
+   * A simple wrapper class for serializing proper boolean result response
    */
-  private class AccountRegisteredBooleanWrapper {
+  @JsonAutoDetect(fieldVisibility = Visibility.ANY)
+  private static class AccountRegisteredResponse extends GenericStatusedResponse {
 
-    private boolean registered;
+    private final boolean registered;
 
-    AccountRegisteredBooleanWrapper(boolean registered) {
+    AccountRegisteredResponse(boolean registered) {
       this.registered = registered;
+    }
+  }
+
+  /**
+   * A simple wrapper class for serializing proper {@link ValidationResult} response
+   */
+  @JsonAutoDetect(fieldVisibility = Visibility.ANY)
+  private static class ValidationResultResponse extends GenericStatusedResponse {
+
+    private final ValidationResult validationResult;
+
+    public ValidationResultResponse(ValidationResult validationResult) {
+      this.validationResult = validationResult;
     }
   }
 
@@ -533,7 +531,7 @@ public class RestService {
    * A simple wrapper class for (de)serializing JSONed transaction with custom keys to be signed
    * with
    */
-  private class TransactionWithSignatoriesJsonWrapper {
+  private static class TransactionWithSignatoriesJsonWrapper {
 
     private String transaction;
 
@@ -545,6 +543,19 @@ public class RestService {
 
     List<String> getKeys() {
       return keys;
+    }
+  }
+
+  /**
+   * A simple wrapper class for serializing proper {@link ToriiResponse} response
+   */
+  @JsonAutoDetect(fieldVisibility = Visibility.ANY)
+  private static class ToriiResultResponse extends GenericStatusedResponse {
+
+    private final ToriiResponse toriiResponse;
+
+    public ToriiResultResponse(ToriiResponse toriiResponse) {
+      this.toriiResponse = toriiResponse;
     }
   }
 }

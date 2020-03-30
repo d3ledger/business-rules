@@ -35,6 +35,7 @@ import jp.co.soramitsu.crypto.ed25519.EdDSAPublicKey;
 import jp.co.soramitsu.crypto.ed25519.spec.EdDSANamedCurveTable;
 import jp.co.soramitsu.crypto.ed25519.spec.EdDSAParameterSpec;
 import jp.co.soramitsu.crypto.ed25519.spec.EdDSAPublicKeySpec;
+import jp.co.soramitsu.iroha.java.FieldValidator;
 import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
@@ -44,6 +45,8 @@ public interface ValidationUtils {
   EdDSAParameterSpec EdDSASpec = EdDSANamedCurveTable.getByName(ED_25519);
   Gson gson = new GsonBuilder().create();
   JsonParser parser = new JsonParser();
+  FieldValidator fieldValidator = new FieldValidator();
+
 
   // BRVS keys count = User keys count
   int PROPORTION = 2;

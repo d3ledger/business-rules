@@ -5,7 +5,12 @@
 
 package iroha.validation.transactions.provider.impl;
 
+import static iroha.validation.exception.BrvsErrorCode.REGISTRATION_FAILED;
+import static iroha.validation.exception.BrvsErrorCode.REGISTRATION_TIMEOUT;
+import static iroha.validation.exception.BrvsErrorCode.UNKNOWN_ACCOUNT;
+import static iroha.validation.exception.BrvsErrorCode.WRONG_DOMAIN;
 import static iroha.validation.utils.ValidationUtils.PROPORTION;
+import static iroha.validation.utils.ValidationUtils.fieldValidator;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
@@ -16,6 +21,7 @@ import com.google.gson.reflect.TypeToken;
 import iroha.protocol.Endpoint;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass;
+import iroha.validation.exception.BrvsException;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
@@ -40,7 +46,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.ErrorResponseException;
-import jp.co.soramitsu.iroha.java.FieldValidator;
 import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Transaction;
 import jp.co.soramitsu.iroha.java.TransactionBuilder;
@@ -55,7 +60,6 @@ import org.springframework.util.CollectionUtils;
 public class AccountManager implements UserQuorumProvider, RegistrationProvider, Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(AccountManager.class);
-  private static final FieldValidator FIELD_VALIDATOR = new FieldValidator();
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
   private static final int INITIAL_KEYS_AMOUNT = 1;
@@ -253,11 +257,15 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     );
 
     if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10L, TimeUnit.SECONDS)) {
-      throw new IllegalStateException("Couldn't register accounts within a timeout");
+      throw new BrvsException("Couldn't register accounts within a timeout", REGISTRATION_TIMEOUT);
     }
     final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper.getException();
     if (registrationAwaiterWrapperException != null) {
-      throw new IllegalStateException(registrationAwaiterWrapperException);
+      throw new BrvsException(
+          registrationAwaiterWrapperException.getMessage(),
+          registrationAwaiterWrapperException,
+          REGISTRATION_FAILED
+      );
     }
   }
 
@@ -420,20 +428,22 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
 
     private void doRegister(String accountId) {
       logger.info("Going to register {}", accountId);
-      FIELD_VALIDATOR.checkAccountId(accountId);
+      fieldValidator.checkAccountId(accountId);
       if (registeredAccounts.contains(accountId)) {
         logger.warn("Account {} has already been registered, omitting", accountId);
         return;
       }
       if (!userDomains.contains(getDomain(accountId))) {
-        throw new IllegalArgumentException(
+        throw new BrvsException(
             "The BRVS instance is not permitted to process the domain specified: " +
-                getDomain(accountId) + ".");
+                getDomain(accountId) + ".", WRONG_DOMAIN);
       }
       if (!existsInIroha(accountId)) {
-        throw new IllegalArgumentException(
+        throw new BrvsException(
             "Account " + accountId
-                + " does not exist or an error during querying process occurred.");
+                + " does not exist or an error during querying process occurred.",
+            UNKNOWN_ACCOUNT
+        );
       }
       final Set<String> userSignatories = getUserSignatoriesDetail(accountId);
       try {
@@ -444,8 +454,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         registeredAccounts.add(accountId);
         logger.info("Successfully registered {}", accountId);
       } catch (Exception e) {
-        throw new IllegalStateException(
-            "Error during brvs user registration occurred. Account id: " + accountId, e);
+        throw new BrvsException(
+            "Error during brvs user registration occurred. Account id: " + accountId,
+            e,
+            REGISTRATION_FAILED
+        );
       }
     }
 

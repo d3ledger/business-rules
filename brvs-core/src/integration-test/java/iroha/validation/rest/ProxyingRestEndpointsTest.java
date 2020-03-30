@@ -139,7 +139,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
 
   @Override
   protected Application configure() {
-    final ResourceConfig resourceConfig = new ResourceConfig(RestService.class)
+    final ResourceConfig resourceConfig = new ResourceConfig(BusinessController.class)
         .packages("iroha.validation.rest");
     resourceConfig.register(new AbstractBinder() {
       @Override
@@ -154,7 +154,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} with a valid creator's signature is passed to the '/transaction'
    * @then BRVS proxies the transaction and returns successful status code 200 with status stream
    */
@@ -180,7 +180,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} without a valid creator's signature is passed to the
    * '/transaction/sign'
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
@@ -208,7 +208,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} with a valid creator's signature is passed to the
    * '/transaction/sendBinary' as byte array
    * @then BRVS proxies the transaction and returns successful status code 200 with status stream
@@ -236,7 +236,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} without a valid creator's signature is passed to the
    * '/transaction/sendBinary/sign' as byte array
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
@@ -265,7 +265,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Query} with a valid creator's signature is passed to the '/query'
    * @then BRVS proxies the query, signs it and returns successful status code 200 with a
    * corresponding query response
@@ -290,7 +290,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Query} without a signature is passed to the '/query/sign'
    * @then BRVS proxies the query, signs it and returns successful status code 200 with a
    * corresponding query response
@@ -315,7 +315,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} batch with a valid creator's signature for each contained transaction
    * is passed to the '/batch'
    * @then BRVS proxies the transaction and returns successful status code 200 with first
@@ -350,7 +350,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} batch without a signature in each contained transaction is passed to
    * the '/batch/sign'
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with first
@@ -390,7 +390,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} with a valid creator's signature is passed to the '/batch/sendBinary'
    * as byte array
    * @then BRVS proxies the transaction and returns successful status code 200 with status stream
@@ -429,7 +429,7 @@ public class ProxyingRestEndpointsTest extends JerseyTest {
   }
 
   /**
-   * @given {@link RestService} instance with a creator's signature inside
+   * @given {@link BusinessController} instance with a creator's signature inside
    * @when {@link Transaction} without a valid creator's signature is passed to the
    * '/batch/sendBinary/sign' as byte array
    * @then BRVS proxies the transaction, signs it and returns successful status code 200 with status
