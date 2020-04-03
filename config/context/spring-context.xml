@@ -74,12 +74,21 @@
     <constructor-arg name="keyPairs" ref="keysList"/>
   </bean>
 
+  <!--  SORA DISTRIBUTION CONFIG-->
+  <bean id="soraDistributionLogic"
+    class="iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="projectAccounts" value="${SORA_DISTRIBUTION_PROJECTS}"/>
+    <constructor-arg name="infoSetterAccount" value="${SORA_DISTRIBUTION_SETTER}"/>
+  </bean>
+
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
     <constructor-arg name="transactionVerdictStorage" ref="mongoVerdictStorage"/>
     <constructor-arg name="userQuorumProvider" ref="accountManager"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
+    <constructor-arg name="soraDistributionPluginLogic" ref="soraDistributionLogic"/>
     <constructor-arg name="irohaReliableChainListener" ref="irohaReliableChainListener"/>
     <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
   </bean>
@@ -159,7 +168,8 @@
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
   </bean>
   <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
-  <bean id="byaccoDomainInternalJpyRule" class="iroha.validation.rules.impl.byacco.ByaccoDomainInternalAssetRule">
+  <bean id="byaccoDomainInternalJpyRule"
+    class="iroha.validation.rules.impl.byacco.ByaccoDomainInternalAssetRule">
     <constructor-arg name="assetId" value="${BYACCO_DOMAIN_INTERNAL_ASSET_ID}"/>
     <constructor-arg name="domains" value="${BYACCO_DOMAIN_INTERNAL_DOMAINS}"/>
   </bean>

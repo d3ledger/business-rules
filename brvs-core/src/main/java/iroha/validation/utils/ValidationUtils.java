@@ -11,9 +11,10 @@ import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_QUOTE;
 
 import com.d3.chainadapter.client.RMQConfig;
 import com.d3.commons.config.ConfigsKt;
+import com.d3.commons.util.GsonInstance;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Endpoint.TxStatus;
@@ -36,6 +37,7 @@ import jp.co.soramitsu.crypto.ed25519.spec.EdDSANamedCurveTable;
 import jp.co.soramitsu.crypto.ed25519.spec.EdDSAParameterSpec;
 import jp.co.soramitsu.crypto.ed25519.spec.EdDSAPublicKeySpec;
 import jp.co.soramitsu.iroha.java.FieldValidator;
+import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
@@ -43,7 +45,7 @@ import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 public interface ValidationUtils {
 
   EdDSAParameterSpec EdDSASpec = EdDSANamedCurveTable.getByName(ED_25519);
-  Gson gson = new GsonBuilder().create();
+  Gson gson = GsonInstance.INSTANCE.get();
   JsonParser parser = new JsonParser();
   FieldValidator fieldValidator = new FieldValidator();
 
@@ -147,5 +149,24 @@ public interface ValidationUtils {
 
   static EdDSAPublicKey derivePublicKey(EdDSAPrivateKey privateKey) {
     return new EdDSAPublicKey(new EdDSAPublicKeySpec(privateKey.getA(), EdDSASpec));
+  }
+
+  static <T> T advancedQueryAccountDetails(
+      QueryAPI queryAPI,
+      String accountId,
+      String setterAccountId,
+      String key,
+      Class<T> type) {
+    final JsonElement jsonElement = parser.parse(
+        queryAPI.getAccountDetails(
+            accountId,
+            setterAccountId,
+            key
+        )
+    ).getAsJsonObject().get(setterAccountId);
+    return jsonElement == null ? null : gson.fromJson(
+        Utils.irohaUnEscape(jsonElement.getAsJsonObject().get(key).getAsString()),
+        type
+    );
   }
 }

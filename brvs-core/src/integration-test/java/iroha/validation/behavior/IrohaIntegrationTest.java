@@ -5,8 +5,15 @@
 
 package iroha.validation.behavior;
 
+import static iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.DISTRIBUTION_FINISHED_KEY;
+import static iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.DISTRIBUTION_PROPORTIONS_KEY;
+import static iroha.validation.utils.ValidationUtils.advancedQueryAccountDetails;
 import static iroha.validation.utils.ValidationUtils.crypto;
+import static iroha.validation.utils.ValidationUtils.gson;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.d3.chainadapter.client.RMQConfig;
 import com.google.common.io.Files;
@@ -25,6 +32,9 @@ import iroha.validation.rules.impl.assets.TransferTxVolumeRule;
 import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
+import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic;
+import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.SoraDistributionFinished;
+import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.SoraDistributionProportions;
 import iroha.validation.transactions.provider.impl.AccountManager;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
@@ -70,10 +80,22 @@ public class IrohaIntegrationTest {
   private static final KeyPair senderKeypair = crypto.generateKeypair();
   private static final KeyPair receiverKeypair = crypto.generateKeypair();
   private static final KeyPair validatorKeypair = crypto.generateKeypair();
-  private static final String serviceDomainName = "notary";
+  private static final KeyPair projectOwnerKeypair = crypto.generateKeypair();
+  private static final String serviceDomainName = "sora";
   private static final String userDomainName = "user";
   private static final String roleName = "user";
   private static final String senderName = "sender";
+  private static final String projectOwner = "owner";
+  private static final String projectParticipantOne = "participantone";
+  private static final String projectParticipantTwo = "participanttwo";
+  private static final String projectParticipantThree = "participantthree";
+  private static final String projectOwnerId = String.format("%s@%s", projectOwner, userDomainName);
+  private static final String projectParticipantOneId = String
+      .format("%s@%s", projectParticipantOne, userDomainName);
+  private static final String projectParticipantTwoId = String
+      .format("%s@%s", projectParticipantTwo, userDomainName);
+  private static final String projectParticipantThreeId = String
+      .format("%s@%s", projectParticipantThree, userDomainName);
   private static final String senderId = String.format("%s@%s", senderName, userDomainName);
   private static final String receiverName = "receiver";
   private static final String receiverId = String.format("%s@%s", receiverName, userDomainName);
@@ -83,7 +105,7 @@ public class IrohaIntegrationTest {
       .format("%s@%s", validatorName, serviceDomainName);
   private static final String validatorConfigId = String.format("%s@%s", validatorConfigName,
       serviceDomainName);
-  private static final String asset = "bux";
+  private static final String asset = "xor";
   private static final String assetId = String.format("%s#%s", asset, serviceDomainName);
   private static final int INITIALIZATION_TIME = 5000;
   private TransactionVerdictStorage transactionVerdictStorage;
@@ -94,7 +116,7 @@ public class IrohaIntegrationTest {
   private static final GenericContainer mongo = new GenericContainer<>("mongo:4.0.6")
       .withExposedPorts(27017);
   private static final GenericContainer chainAdapter = new GenericContainer<>(
-      "nexus.iroha.tech:19002/d3-deploy/chain-adapter:latest");
+      "nexus.iroha.tech:19002/d3-deploy/chain-adapter:develop");
   private static final WaitForTerminalStatus terminalStrategy = new WaitForTerminalStatus(
       Arrays.asList(
           TxStatus.COMMITTED,
@@ -154,7 +176,25 @@ public class IrohaIntegrationTest {
                     receiverName + userDomainName, userDomainName)
                 .createAccount("rmq", serviceDomainName, Utils.parseHexPublicKey(
                     "7a4af859a775dd7c7b4024c97c8118f0280455b8135f6f41422101f0397e0fa5"))
-                .createAsset(asset, serviceDomainName, 0)
+                .createAsset(asset, serviceDomainName, 18)
+                // create project owner acc
+                .createAccount(projectOwner, userDomainName, projectOwnerKeypair.getPublic())
+                // create project participants accs
+                .createAccount(
+                    projectParticipantOne,
+                    userDomainName,
+                    projectOwnerKeypair.getPublic()
+                )
+                .createAccount(
+                    projectParticipantTwo,
+                    userDomainName,
+                    projectOwnerKeypair.getPublic()
+                )
+                .createAccount(
+                    projectParticipantThree,
+                    userDomainName,
+                    projectOwnerKeypair.getPublic()
+                )
                 // transactions in genesis block can be unsigned
                 .build()
                 .build()
@@ -171,6 +211,24 @@ public class IrohaIntegrationTest {
             Transaction.builder(senderId)
                 .addAssetQuantity(assetId, "1000000")
                 .sign(senderKeypair)
+                .build()
+        )
+        .addTransaction(
+            Transaction.builder(projectParticipantOneId)
+                .addAssetQuantity(assetId, "1")
+                .sign(projectOwnerKeypair)
+                .build()
+        )
+        .addTransaction(
+            Transaction.builder(projectParticipantTwoId)
+                .addAssetQuantity(assetId, "1")
+                .sign(projectOwnerKeypair)
+                .build()
+        )
+        .addTransaction(
+            Transaction.builder(projectParticipantThreeId)
+                .addAssetQuantity(assetId, "1")
+                .sign(projectOwnerKeypair)
                 .build()
         )
         .build();
@@ -229,6 +287,11 @@ public class IrohaIntegrationTest {
             transactionVerdictStorage,
             accountManager,
             accountManager,
+            new SoraDistributionPluggableLogic(
+                queryAPI,
+                projectOwnerId,
+                projectOwnerId
+            ),
             brvsIrohaChainListener,
             userDomainName
         ),
@@ -274,6 +337,15 @@ public class IrohaIntegrationTest {
 
     chainAdapter
         .withEnv("CHAIN-ADAPTER_DROPLASTEREADBLOCK", "true")
+        .withEnv("CHAIN-ADAPTER_IROHACREDENTIAL_ACCOUNTID", validatorId)
+        .withEnv(
+            "CHAIN-ADAPTER_IROHACREDENTIAL_PUBKEY",
+            Utils.toHex(validatorKeypair.getPublic().getEncoded())
+        )
+        .withEnv(
+            "CHAIN-ADAPTER_IROHACREDENTIAL_PRIVKEY",
+            Utils.toHex(validatorKeypair.getPrivate().getEncoded())
+        )
         .withNetwork(iroha.getNetwork())
         .start();
 
@@ -281,12 +353,6 @@ public class IrohaIntegrationTest {
         .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
         .grantPermission(validatorId, GrantablePermission.can_set_my_quorum)
         .sign(senderKeypair)
-        .build()
-    );
-    irohaAPI.transactionSync(Transaction.builder(receiverId)
-        .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
-        .grantPermission(validatorId, GrantablePermission.can_set_my_quorum)
-        .sign(receiverKeypair)
         .build()
     );
     irohaAPI.transactionSync(Transaction.builder(receiverId)
@@ -586,5 +652,132 @@ public class IrohaIntegrationTest {
         .setAccountDetail(validatorId, ruleName, "false")
         .sign(validatorKeypair)
         .build());
+  }
+
+  /**
+   * @given {@link ValidationService} instance with {@link SoraDistributionPluggableLogic} attached
+   * and relevant JSON with Sora distribution proportions provided
+   * @when {@link Transaction} with {@link iroha.protocol.Commands.Command TransferAsset} command
+   * going from a project owner appears
+   * @then {@link ValidationService} performs needed transfer and settings
+   */
+  @Test
+  void exactDistributionPortions() throws InterruptedException {
+    // projectOwner is a json setter
+    final Map<String, BigDecimal> proportionsMap = new HashMap<>();
+    proportionsMap.put(projectParticipantOneId, new BigDecimal("0.5"));
+    proportionsMap.put(projectParticipantTwoId, new BigDecimal("0.3"));
+    proportionsMap.put(projectParticipantThreeId, new BigDecimal("0.2"));
+    final BigDecimal totalSupply = new BigDecimal("1000");
+    final SoraDistributionProportions proportions = new SoraDistributionProportions(
+        proportionsMap,
+        totalSupply
+    );
+    final QueryAPI queryAPI = new QueryAPI(irohaAPI, validatorId, validatorKeypair);
+
+    BigDecimal oneBalance = new BigDecimal(queryAPI.getAccountAssets(projectParticipantOneId)
+        .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+        .findAny().get().getBalance()
+    );
+    BigDecimal twoBalance = new BigDecimal(queryAPI.getAccountAssets(projectParticipantTwoId)
+        .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+        .findAny().get().getBalance()
+    );
+    BigDecimal threeBalance = new BigDecimal(queryAPI.getAccountAssets(projectParticipantThreeId)
+        .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+        .findAny().get().getBalance()
+    );
+
+    irohaAPI.transaction(
+        Transaction.builder(validatorId)
+            .addAssetQuantity(assetId, totalSupply)
+            .sign(validatorKeypair)
+            .build()
+    ).blockingLast();
+    irohaAPI.transaction(
+        Transaction.builder(projectOwnerId)
+            .addAssetQuantity(assetId, new BigDecimal("3000"))
+            .setAccountDetail(
+                projectOwnerId,
+                DISTRIBUTION_PROPORTIONS_KEY,
+                Utils.irohaEscape(gson.toJson(proportions))
+            )
+            .sign(projectOwnerKeypair)
+            .build()
+    ).blockingLast();
+
+    final BigDecimal firstAmount = new BigDecimal("600");
+
+    irohaAPI.transaction(
+        Transaction.builder(projectOwnerId)
+            .transferAsset(projectOwnerId, receiverId, assetId, "perevod nomer 1", firstAmount)
+            .sign(projectOwnerKeypair)
+            .build()
+    ).blockingLast();
+
+    Thread.sleep(5000);
+
+    assertEquals(0, oneBalance.add(new BigDecimal("300"))
+        .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantOneId)
+            .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+            .findAny().get().getBalance()))
+    );
+    assertEquals(0, twoBalance.add(new BigDecimal("180"))
+        .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantTwoId)
+            .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+            .findAny().get().getBalance()))
+    );
+    assertEquals(0, threeBalance.add(new BigDecimal("120"))
+        .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantThreeId)
+            .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+            .findAny().get().getBalance()))
+    );
+    final SoraDistributionFinished finished = advancedQueryAccountDetails(
+        queryAPI,
+        projectOwnerId,
+        validatorId,
+        DISTRIBUTION_FINISHED_KEY,
+        SoraDistributionFinished.class
+    );
+
+    assertNotNull(finished);
+    assertFalse(finished.getFinished());
+
+    final BigDecimal secondAmount = firstAmount;
+
+    irohaAPI.transaction(
+        Transaction.builder(projectOwnerId)
+            .transferAsset(projectOwnerId, receiverId, assetId, "perevod nomer 2", secondAmount)
+            .sign(projectOwnerKeypair)
+            .build()
+    ).blockingLast();
+
+    Thread.sleep(5000);
+
+    assertEquals(0, oneBalance.add(new BigDecimal("300")).add(new BigDecimal("200"))
+        .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantOneId)
+            .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+            .findAny().get().getBalance()))
+    );
+    assertEquals(0, twoBalance.add(new BigDecimal("180")).add(new BigDecimal("120"))
+        .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantTwoId)
+            .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+            .findAny().get().getBalance()))
+    );
+    assertEquals(0, threeBalance.add(new BigDecimal("120")).add(new BigDecimal("80"))
+        .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantThreeId)
+            .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
+            .findAny().get().getBalance()))
+    );
+    final SoraDistributionFinished finishedNow = advancedQueryAccountDetails(
+        queryAPI,
+        projectOwnerId,
+        validatorId,
+        DISTRIBUTION_FINISHED_KEY,
+        SoraDistributionFinished.class
+    );
+
+    assertNotNull(finishedNow);
+    assertTrue(finishedNow.getFinished());
   }
 }

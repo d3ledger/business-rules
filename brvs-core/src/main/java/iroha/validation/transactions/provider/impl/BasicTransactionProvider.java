@@ -21,6 +21,7 @@ import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.BrvsIrohaChainListener;
 import iroha.validation.transactions.TransactionBatch;
+import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.TransactionProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
@@ -54,6 +55,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final UserQuorumProvider userQuorumProvider;
   private final RegistrationProvider registrationProvider;
   private final BrvsIrohaChainListener irohaReliableChainListener;
+  private final SoraDistributionPluggableLogic soraDistributionPluginLogic;
   private final ScheduledExecutorService executor = createPrettyScheduledThreadPool(
       "brvs", "pending-processor"
   );
@@ -69,14 +71,30 @@ public class BasicTransactionProvider implements TransactionProvider {
       TransactionVerdictStorage transactionVerdictStorage,
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
+      SoraDistributionPluggableLogic soraDistributionPluginLogic,
       BrvsIrohaChainListener irohaReliableChainListener,
       String userDomains
   ) {
-    Objects.requireNonNull(transactionVerdictStorage, "TransactionVerdictStorage must not be null");
-    Objects.requireNonNull(userQuorumProvider, "UserQuorumProvider must not be null");
-    Objects.requireNonNull(registrationProvider, "RegistrationProvider must not be null");
-    Objects
-        .requireNonNull(irohaReliableChainListener, "IrohaReliableChainListener must not be null");
+    Objects.requireNonNull(
+        transactionVerdictStorage,
+        "TransactionVerdictStorage must not be null"
+    );
+    Objects.requireNonNull(
+        userQuorumProvider,
+        "UserQuorumProvider must not be null"
+    );
+    Objects.requireNonNull(
+        registrationProvider,
+        "RegistrationProvider must not be null"
+    );
+    Objects.requireNonNull(
+        soraDistributionPluginLogic,
+        "Sora distribution logic must not be null"
+    );
+    Objects.requireNonNull(
+        irohaReliableChainListener,
+        "IrohaReliableChainListener must not be null"
+    );
     if (Strings.isNullOrEmpty(userDomains)) {
       throw new IllegalArgumentException("User domains string must not be null nor empty");
     }
@@ -84,6 +102,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.transactionVerdictStorage = transactionVerdictStorage;
     this.userQuorumProvider = userQuorumProvider;
     this.registrationProvider = registrationProvider;
+    this.soraDistributionPluginLogic = soraDistributionPluginLogic;
     this.irohaReliableChainListener = irohaReliableChainListener;
     this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
   }
@@ -188,8 +207,10 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void processCommitted(List<Transaction> blockTransactions) {
     if (blockTransactions != null) {
+      soraDistributionPluginLogic.apply(blockTransactions);
       blockTransactions.forEach(transaction -> {
             try {
+              // TODO: XNET-72 create plugin logic instances
               registerCreatedAccountByTransactionScanning(transaction);
               modifyUserQuorumIfNeeded(transaction);
             } catch (Exception e) {
