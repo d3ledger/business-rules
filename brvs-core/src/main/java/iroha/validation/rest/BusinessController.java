@@ -54,7 +54,7 @@ import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
 
 @Singleton
-@Path("/v1")
+@Path("/brvs/rest/v1")
 public class BusinessController {
 
   /**
