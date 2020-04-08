@@ -47,7 +47,12 @@ public class SoraDistributionPluggableLogic
   public static final String DISTRIBUTION_PROPORTIONS_KEY = "distribution";
   public static final String DISTRIBUTION_FINISHED_KEY = "distribution_finished";
   private static final String XOR_ASSET_ID = "xor#sora";
-  private static final MathContext XOR_MATH_CONTEXT = new MathContext(18, RoundingMode.DOWN);
+  private static final int XOR_PRECISION = 18;
+  private static final RoundingMode XOR_ROUNDING_MODE = RoundingMode.DOWN;
+  private static final MathContext XOR_MATH_CONTEXT = new MathContext(
+      Integer.MAX_VALUE,
+      XOR_ROUNDING_MODE
+  );
   private static final int TRANSACTION_SIZE = 9999;
   private static final String DESCRIPTION_FORMAT = "Distribution from %s";
 
@@ -222,7 +227,10 @@ public class SoraDistributionPluggableLogic
         toDistributeMap
     );
     final SoraDistributionFinished soraDistributionFinished = new SoraDistributionFinished(
-        afterDistribution.totalSupply.signum() == 0
+        afterDistribution.totalSupply.signum() == 0 ||
+            afterDistribution.accountProportions.values().stream().allMatch(
+                amount -> amount.signum() == 0
+            )
     );
     transactionList.add(
         constructDetailTransaction(
@@ -349,7 +357,7 @@ public class SoraDistributionPluggableLogic
         .collect(
             Collectors.toMap(
                 Entry::getKey,
-                entry -> totalSupply.multiply(entry.getValue(), XOR_MATH_CONTEXT)
+                entry -> multiplyWithRespect(totalSupply, entry.getValue())
             )
         );
 
@@ -363,7 +371,7 @@ public class SoraDistributionPluggableLogic
       BigDecimal percentage,
       BigDecimal transferAmount,
       BigDecimal leftToDistribute) {
-    final BigDecimal calculated = transferAmount.multiply(percentage, XOR_MATH_CONTEXT);
+    final BigDecimal calculated = multiplyWithRespect(transferAmount, percentage);
     if (leftToDistribute == null) {
       return calculated;
     }
@@ -394,6 +402,11 @@ public class SoraDistributionPluggableLogic
         DISTRIBUTION_FINISHED_KEY,
         SoraDistributionFinished.class
     );
+  }
+
+  private BigDecimal multiplyWithRespect(BigDecimal value, BigDecimal multiplicand) {
+    return value.multiply(multiplicand, XOR_MATH_CONTEXT)
+        .setScale(XOR_PRECISION, XOR_ROUNDING_MODE);
   }
 
   public static class SoraDistributionProportions {

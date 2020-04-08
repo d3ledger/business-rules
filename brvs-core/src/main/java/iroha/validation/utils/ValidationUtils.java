@@ -11,16 +11,21 @@ import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_QUOTE;
 
 import com.d3.chainadapter.client.RMQConfig;
 import com.d3.commons.config.ConfigsKt;
-import com.d3.commons.util.GsonInstance;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
 import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import java.io.IOException;
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,7 +50,10 @@ import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 public interface ValidationUtils {
 
   EdDSAParameterSpec EdDSASpec = EdDSANamedCurveTable.getByName(ED_25519);
-  Gson gson = GsonInstance.INSTANCE.get();
+  Gson gson = new GsonBuilder().registerTypeAdapter(
+      BigDecimal.class,
+      new BigDecimalAsStringJsonSerializer()
+  ).create();
   JsonParser parser = new JsonParser();
   FieldValidator fieldValidator = new FieldValidator();
 
@@ -168,5 +176,13 @@ public interface ValidationUtils {
         Utils.irohaUnEscape(jsonElement.getAsJsonObject().get(key).getAsString()),
         type
     );
+  }
+
+  class BigDecimalAsStringJsonSerializer implements JsonSerializer<BigDecimal> {
+
+    @Override
+    public JsonElement serialize(BigDecimal src, Type typeOfSrc, JsonSerializationContext context) {
+      return new JsonPrimitive(src.toPlainString());
+    }
   }
 }
