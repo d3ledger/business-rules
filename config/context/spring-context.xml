@@ -168,17 +168,11 @@
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
   </bean>
   <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
-  <bean id="byaccoDomainInternalJpyRule"
-    class="iroha.validation.rules.impl.byacco.ByaccoDomainInternalAssetRule">
-    <constructor-arg name="assetId" value="${BYACCO_DOMAIN_INTERNAL_ASSET_ID}"/>
-    <constructor-arg name="domains" value="${BYACCO_DOMAIN_INTERNAL_DOMAINS}"/>
-  </bean>
   <util:map id="rules" map-class="java.util.HashMap">
     <entry key="restrictedKeysRule" value-ref="restrictedKeysRule"/>
     <entry key="minKeysRule" value-ref="minKeysRule"/>
     <entry key="billingRule" value-ref="billingRule"/>
     <entry key="quorumBanRule" value-ref="quorumBanRule"/>
-    <entry key="byaccoDomainInternalJpyRule" value-ref="byaccoDomainInternalJpyRule"/>
     <!-- More can be added -->
   </util:map>
 

@@ -57,8 +57,6 @@ public class Application {
       protected void configure() {
         bind(context.getBean(TransactionVerdictStorage.class)).to(TransactionVerdictStorage.class);
         bind(context.getBean(RegistrationProvider.class)).to(RegistrationProvider.class);
-        bind(context.getBean(IrohaAPI.class)).to(IrohaAPI.class);
-        bind(context.getBean("brvsAccountKeyPair", KeyPair.class)).to(KeyPair.class);
       }
     });
     resourceConfig.register(new CrossDomainFilter());

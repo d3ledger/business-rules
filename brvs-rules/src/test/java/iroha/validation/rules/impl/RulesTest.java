@@ -18,7 +18,6 @@ import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.impl.assets.TransferTxVolumeRule;
 import iroha.validation.rules.impl.billing.BillingRule;
-import iroha.validation.rules.impl.byacco.ByaccoDomainInternalAssetRule;
 import iroha.validation.rules.impl.core.MinimumSignatoriesAmountRule;
 import iroha.validation.rules.impl.core.RestrictedKeysRule;
 import iroha.validation.rules.impl.core.SampleRule;
@@ -118,11 +117,6 @@ class RulesTest {
     final int value = bad ? 3 : 5;
     when(queryAPI.getSignatories(fakeAccountId).getKeysCount()).thenReturn(value);
     when(commands.get(0).getRemoveSignatory()).thenReturn(removeSignatory);
-  }
-
-  private void initInternalTransferTest(boolean bad) {
-    init();
-    rule = new ByaccoDomainInternalAssetRule(asset, bad ? "fakedomain" : "users");
   }
 
   /**
@@ -280,31 +274,5 @@ class RulesTest {
     initSignatoriesAmountTest(false);
 
     assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
-  }
-
-  /**
-   * @given {@link ByaccoDomainInternalAssetRule} instance with configured domain and asset id
-   * @when {@link Transaction} with {@link Command TransferAsset} command with the asset and a valid
-   * domain appears
-   * @then {@link ByaccoDomainInternalAssetRule} is satisfied by such {@link Transaction}
-   */
-  @Test
-  void interDomainAssetGoodRuleTest() {
-    initInternalTransferTest(false);
-
-    assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
-  }
-
-  /**
-   * @given {@link ByaccoDomainInternalAssetRule} instance with configured domain and asset id
-   * @when {@link Transaction} with {@link Command TransferAsset} command with the asset and an
-   * invalid domain appears
-   * @then {@link ByaccoDomainInternalAssetRule} is not satisfied by such {@link Transaction}
-   */
-  @Test
-  void interDomainAssetGoodBadTest() {
-    initInternalTransferTest(true);
-
-    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
 }
