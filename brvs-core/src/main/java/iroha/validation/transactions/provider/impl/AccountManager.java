@@ -14,6 +14,7 @@ import static iroha.validation.utils.ValidationUtils.fieldValidator;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -31,7 +32,9 @@ import java.io.Closeable;
 import java.lang.reflect.Type;
 import java.security.Key;
 import java.security.KeyPair;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -63,6 +66,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
   private static final int INITIAL_KEYS_AMOUNT = 1;
+  private static final int REGISTRATION_BATCH_SIZE = 500;
   private static final Type USER_SIGNATORIES_TYPE_TOKEN = new TypeToken<Set<String>>() {
   }.getType();
 
@@ -246,26 +250,38 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    * {@inheritDoc}
    */
   @Override
-  public void register(Iterable<String> accounts) throws InterruptedException {
-    final int size = Iterables.size(accounts);
-    final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
-        new CountDownLatch(size)
-    );
-
-    accounts.forEach(account -> executorService
-        .submit(new RegistrationRunnable(account, registrationAwaiterWrapper))
-    );
-
-    if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10L, TimeUnit.SECONDS)) {
-      throw new BrvsException("Couldn't register accounts within a timeout", REGISTRATION_TIMEOUT);
-    }
-    final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper.getException();
-    if (registrationAwaiterWrapperException != null) {
-      throw new BrvsException(
-          registrationAwaiterWrapperException.getMessage(),
-          registrationAwaiterWrapperException,
-          REGISTRATION_FAILED
+  public void register(Collection<String> accounts) throws InterruptedException {
+    final List<List<String>> partitions = Lists
+        .partition(
+            new ArrayList<>(accounts),
+            REGISTRATION_BATCH_SIZE
+        );
+    for (List<String> partition : partitions) {
+      final int size = Iterables.size(partition);
+      final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
+          new CountDownLatch(size)
       );
+
+      // TODO after XNET-96 try replacing with fixed thread pool
+      partition.forEach(account -> executorService
+          .submit(new RegistrationRunnable(account, registrationAwaiterWrapper))
+      );
+
+      if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10L, TimeUnit.SECONDS)) {
+        throw new BrvsException(
+            "Couldn't register accounts within a timeout",
+            REGISTRATION_TIMEOUT
+        );
+      }
+      final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper
+          .getException();
+      if (registrationAwaiterWrapperException != null) {
+        throw new BrvsException(
+            registrationAwaiterWrapperException.getMessage(),
+            registrationAwaiterWrapperException,
+            REGISTRATION_FAILED
+        );
+      }
     }
   }
 

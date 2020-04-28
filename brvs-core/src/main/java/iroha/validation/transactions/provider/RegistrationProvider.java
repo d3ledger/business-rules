@@ -6,6 +6,7 @@
 package iroha.validation.transactions.provider;
 
 import iroha.validation.transactions.provider.impl.util.BrvsData;
+import java.util.Collection;
 import java.util.Set;
 
 public interface RegistrationProvider {
@@ -20,9 +21,9 @@ public interface RegistrationProvider {
   /**
    * Method for registering many user accounts as a batch for the service
    *
-   * @param accountIds {@link Iterable} of client account ids in Iroha
+   * @param accountIds {@link Collection} of client account ids in Iroha
    */
-  void register(Iterable<String> accountIds) throws InterruptedException;
+  void register(Collection<String> accountIds) throws InterruptedException;
 
   /**
    * Method for getting all the registered user accounts
