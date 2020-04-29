@@ -45,4 +45,11 @@ public interface RegistrationProvider {
    * @return {@link Iterable} of user accounts
    */
   Iterable<BrvsData> getBrvsInstances();
+
+  /**
+   * Provides the set of supported user domains of the instance
+   *
+   * @return {@link Set} of strings representing user domains in Iroha
+   */
+  Set<String> getUserDomains();
 }

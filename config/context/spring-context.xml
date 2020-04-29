@@ -82,15 +82,33 @@
     <constructor-arg name="infoSetterAccount" value="${SORA_DISTRIBUTION_SETTER}"/>
   </bean>
 
+  <!--  QUORUM REACTION CONFIG-->
+  <bean id="quorumReactionLogic"
+    class="iroha.validation.transactions.plugin.impl.QuorumReactionPluggableLogic">
+    <constructor-arg name="accountManager" ref="accountManager"/>
+  </bean>
+
+  <!--  REGISTRATION REACTION CONFIG-->
+  <bean id="registrationReactionLogic"
+    class="iroha.validation.transactions.plugin.impl.RegistrationReactionPluggableLogic">
+    <constructor-arg name="registrationProvider" ref="accountManager"/>
+  </bean>
+
+  <util:list id="logicList" list-class="java.util.ArrayList"
+    value-type="iroha.validation.transactions.plugin.PluggableLogic">
+    <ref bean="registrationReactionLogic"/>
+    <ref bean="quorumReactionLogic"/>
+    <ref bean="soraDistributionLogic"/>
+  </util:list>
+
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
     class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
     <constructor-arg name="transactionVerdictStorage" ref="mongoVerdictStorage"/>
     <constructor-arg name="userQuorumProvider" ref="accountManager"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
-    <constructor-arg name="soraDistributionPluginLogic" ref="soraDistributionLogic"/>
     <constructor-arg name="irohaReliableChainListener" ref="irohaReliableChainListener"/>
-    <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
+    <constructor-arg name="pluggableLogicList" ref="logicList"/>
   </bean>
 
   <!-- CHAIN LISTENER CONFIG -->

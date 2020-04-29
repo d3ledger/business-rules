@@ -8,6 +8,7 @@ package iroha.validation.utils;
 import static jp.co.soramitsu.crypto.ed25519.spec.EdDSANamedCurveTable.ED_25519;
 import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_NEW_LINE;
 import static jp.co.soramitsu.iroha.java.Utils.IROHA_FRIENDLY_QUOTE;
+import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.d3.chainadapter.client.RMQConfig;
 import com.d3.commons.config.ConfigsKt;
@@ -157,6 +158,10 @@ public interface ValidationUtils {
 
   static EdDSAPublicKey derivePublicKey(EdDSAPrivateKey privateKey) {
     return new EdDSAPublicKey(new EdDSAPublicKeySpec(privateKey.getA(), EdDSASpec));
+  }
+
+  static String getDomain(String accountId) {
+    return accountId.split(accountIdDelimiter)[1];
   }
 
   static <T> T advancedQueryAccountDetails(

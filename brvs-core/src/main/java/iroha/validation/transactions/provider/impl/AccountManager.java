@@ -11,6 +11,8 @@ import static iroha.validation.exception.BrvsErrorCode.UNKNOWN_ACCOUNT;
 import static iroha.validation.exception.BrvsErrorCode.WRONG_DOMAIN;
 import static iroha.validation.utils.ValidationUtils.PROPORTION;
 import static iroha.validation.utils.ValidationUtils.fieldValidator;
+import static iroha.validation.utils.ValidationUtils.getDomain;
+import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
@@ -387,7 +389,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     // usernamedomain -> domain
     // we need to extract username from the key and add the domain to it separated with @
     final String recoveredSuffix = suffix.replace('_', '.');
-    return key.substring(0, key.lastIndexOf(suffix)).concat("@").concat(recoveredSuffix);
+    return key.substring(0, key.lastIndexOf(suffix))
+        .concat(accountIdDelimiter)
+        .concat(recoveredSuffix);
   }
 
   private BrvsData brvsAccountProcessor(Entry<String, JsonPrimitive> entry) {
@@ -414,6 +418,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   @Override
   public Set<BrvsData> getBrvsInstances() {
     return getAccountsFrom(brvsInstancesHolderAccount, this::brvsAccountProcessor);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Set<String> getUserDomains() {
+    return Collections.unmodifiableSet(userDomains);
   }
 
   private Endpoint.TxStatus sendWithLastStatusWaiting(
@@ -492,10 +504,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
 
     private boolean existsInIroha(String userAccountId) {
       return queryAPI.getAccount(userAccountId).hasAccount();
-    }
-
-    private String getDomain(String accountId) {
-      return accountId.split("@")[1];
     }
 
     @Override

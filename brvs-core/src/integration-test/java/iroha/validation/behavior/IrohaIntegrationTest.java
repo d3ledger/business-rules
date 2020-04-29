@@ -32,6 +32,8 @@ import iroha.validation.rules.impl.assets.TransferTxVolumeRule;
 import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
+import iroha.validation.transactions.plugin.impl.QuorumReactionPluggableLogic;
+import iroha.validation.transactions.plugin.impl.RegistrationReactionPluggableLogic;
 import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic;
 import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.SoraDistributionFinished;
 import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.SoraDistributionProportions;
@@ -287,13 +289,20 @@ public class IrohaIntegrationTest {
             transactionVerdictStorage,
             accountManager,
             accountManager,
-            new SoraDistributionPluggableLogic(
-                queryAPI,
-                projectOwnerId,
-                projectOwnerId
-            ),
             brvsIrohaChainListener,
-            userDomainName
+            Arrays.asList(
+                new RegistrationReactionPluggableLogic(
+                    accountManager
+                ),
+                new QuorumReactionPluggableLogic(
+                    accountManager
+                ),
+                new SoraDistributionPluggableLogic(
+                    queryAPI,
+                    projectOwnerId,
+                    projectOwnerId
+                )
+            )
         ),
         new TransactionSignerImpl(
             irohaAPI,

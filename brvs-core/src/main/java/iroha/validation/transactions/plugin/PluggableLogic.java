@@ -5,13 +5,14 @@
 
 package iroha.validation.transactions.plugin;
 
+import iroha.protocol.TransactionOuterClass.Transaction;
+
 /**
  * Generic interface to add any logic for transaction commitments
  *
- * @param <Source> type of the incoming entities, can be transformed somehow
  * @param <Processable> type of the processable entities
  */
-public abstract class PluggableLogic<Source, Processable> {
+public abstract class PluggableLogic<Processable> {
 
   /**
    * Performs filtering and a source objects transformation if needed
@@ -19,7 +20,7 @@ public abstract class PluggableLogic<Source, Processable> {
    * @param sourceObjects {@link Iterable} of the source objects to process
    * @return <Processable> instance of a target object
    */
-  abstract public Processable filterAndTransform(Iterable<Source> sourceObjects);
+  abstract public Processable filterAndTransform(Iterable<Transaction> sourceObjects);
 
   /**
    * Applies a pluggable logic strictly after filtering and transformation
@@ -27,7 +28,7 @@ public abstract class PluggableLogic<Source, Processable> {
    * @param sourceObjects {@link Iterable} of the source objects to process
    * @see PluggableLogic#filterAndTransform(Iterable)
    */
-  public final void apply(Iterable<Source> sourceObjects) {
+  public final void apply(Iterable<Transaction> sourceObjects) {
     applyInternal(filterAndTransform(sourceObjects));
   }
 

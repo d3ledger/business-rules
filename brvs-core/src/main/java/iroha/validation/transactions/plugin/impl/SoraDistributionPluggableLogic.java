@@ -38,8 +38,7 @@ import org.springframework.util.StringUtils;
 /**
  * Sora distribution logic processor
  */
-public class SoraDistributionPluggableLogic
-    extends PluggableLogic<Transaction, Map<String, BigDecimal>> {
+public class SoraDistributionPluggableLogic extends PluggableLogic<Map<String, BigDecimal>> {
 
   private static final Logger logger = LoggerFactory
       .getLogger(SoraDistributionPluggableLogic.class);
