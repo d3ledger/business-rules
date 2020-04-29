@@ -15,8 +15,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.ReplaceOptions;
-import io.reactivex.Observable;
-import io.reactivex.subjects.PublishSubject;
 import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import org.bson.codecs.configuration.CodecRegistry;
@@ -79,11 +77,6 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
   @Override
   public void markTransactionRejected(String txHash, String reason) {
     store(txHash.toUpperCase(), ValidationResult.REJECTED(reason), optionsToReplace);
-  }
-
-  @Override
-  public void markTransactionFailed(String txHash, String reason) {
-    store(txHash.toUpperCase(), ValidationResult.FAILED(reason), optionsToReplace);
   }
 
   /**

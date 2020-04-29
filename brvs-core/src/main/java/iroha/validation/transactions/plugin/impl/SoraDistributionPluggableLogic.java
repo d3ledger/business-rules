@@ -6,6 +6,7 @@
 package iroha.validation.transactions.plugin.impl;
 
 import static iroha.validation.utils.ValidationUtils.advancedQueryAccountDetails;
+import static iroha.validation.utils.ValidationUtils.trackHashWithLastResponseWaiting;
 
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.TransferAsset;
@@ -198,10 +199,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<Map<String, B
       final IrohaAPI irohaAPI = queryAPI.getApi();
       irohaAPI.transactionListSync(atomicBatch);
       final byte[] byteHash = Utils.hash(atomicBatch.iterator().next());
-      final TxStatus txStatus = ValidationUtils.subscriptionStrategy
-          .subscribe(irohaAPI, byteHash)
-          .blockingLast()
-          .getTxStatus();
+      final TxStatus txStatus = trackHashWithLastResponseWaiting(irohaAPI, byteHash).getTxStatus();
       if (!txStatus.equals(TxStatus.COMMITTED)) {
         throw new IllegalStateException(
             "Could not perform distribution. Got transaction status: " + txStatus.name()

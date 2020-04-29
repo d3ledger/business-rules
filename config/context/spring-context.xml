@@ -141,16 +141,6 @@
     <constructor-arg name="hostname" value="${BRVS_LOCALHOSTNAME}"/>
   </bean>
 
-  <!-- RULE MONITOR -->
-  <bean id="ruleMonitor" class="iroha.validation.rules.RuleMonitor">
-    <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="irohaChainListener" ref="irohaReliableChainListener"/>
-    <constructor-arg name="repositoryAccountId" value="${REPOSITORY_ACCOUNTID}"/>
-    <constructor-arg name="settingsAccountId" value="${SETTER_ACCOUNTID}"/>
-    <constructor-arg name="setterAccountId" value="${SETTINGS_ACCOUNTID}"/>
-    <constructor-arg name="validator" ref="simpleAggregationValidator"/>
-  </bean>
-
   <!-- SERVICE CONFIG -->
   <bean id="serviceContext" class="iroha.validation.config.ValidationServiceContext">
     <constructor-arg name="validator" ref="simpleAggregationValidator"/>
@@ -158,7 +148,9 @@
     <constructor-arg name="transactionSigner" ref="transactionSigner"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
     <constructor-arg name="brvsData" ref="brvsData"/>
-    <constructor-arg name="ruleMonitor" ref="ruleMonitor"/>
+    <constructor-arg name="ruleMonitor">
+      <null/>
+    </constructor-arg>
   </bean>
 
   <bean class="iroha.validation.service.impl.ValidationServiceImpl">

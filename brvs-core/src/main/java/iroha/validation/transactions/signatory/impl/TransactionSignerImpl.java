@@ -5,11 +5,7 @@
 
 package iroha.validation.transactions.signatory.impl;
 
-import io.reactivex.Scheduler;
-import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Commands.Command;
-import iroha.protocol.Endpoint.ToriiResponse;
-import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
 import iroha.validation.transactions.provider.RegistrationProvider;
@@ -21,21 +17,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
-import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.detail.BuildableAndSignable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 public class TransactionSignerImpl implements TransactionSigner {
-
-  private static final Logger logger = LoggerFactory.getLogger(TransactionSignerImpl.class);
 
   private final IrohaAPI irohaAPI;
   private final String brvsAccountId;
@@ -43,7 +33,6 @@ public class TransactionSignerImpl implements TransactionSigner {
   private final List<KeyPair> keyPairs;
   private final TransactionVerdictStorage transactionVerdictStorage;
   private final RegistrationProvider registrationProvider;
-  private final Scheduler scheduler = Schedulers.from(Executors.newCachedThreadPool());
 
   public TransactionSignerImpl(IrohaAPI irohaAPI,
       List<KeyPair> keyPairs,
@@ -120,23 +109,15 @@ public class TransactionSignerImpl implements TransactionSigner {
       }
       transactions.add(parsedTransaction.build());
     }
-    sendTransactions(transactions, useUserKeypairs);
+    sendTransactions(transactions);
   }
 
-  private void sendTransactions(List<Transaction> transactions, boolean check) {
+  private void sendTransactions(List<Transaction> transactions) {
     if (transactions.size() > 1) {
       irohaAPI.transactionListSync(transactions);
-      if (check) {
-        transactions.forEach(transaction ->
-            scheduler.scheduleDirect(new IrohaStatusRunnable(transaction))
-        );
-      }
     } else {
       final Transaction transaction = transactions.get(0);
       irohaAPI.transactionSync(transaction);
-      if (check) {
-        scheduler.scheduleDirect(new IrohaStatusRunnable(transaction));
-      }
     }
   }
 
@@ -171,7 +152,7 @@ public class TransactionSignerImpl implements TransactionSigner {
         .map(BuildableAndSignable::build)
         .collect(Collectors.toList());
 
-    sendTransactions(transactions, true);
+    sendTransactions(transactions);
   }
 
   /**
@@ -189,40 +170,6 @@ public class TransactionSignerImpl implements TransactionSigner {
       sendBrvsTransactionBatch(transactionBatch, ValidationUtils.generateKeypair());
     } else {
       sendRejectedUserTransaction(transactionBatch);
-    }
-  }
-
-  /**
-   * Intermediary runnable-wrapper for Iroha status checking
-   */
-  private class IrohaStatusRunnable implements Runnable {
-
-    private final Transaction transaction;
-
-    IrohaStatusRunnable(Transaction transaction) {
-      this.transaction = transaction;
-    }
-
-    private void checkIrohaStatus(Transaction transaction) {
-      final ToriiResponse statusResponse = ValidationUtils.subscriptionStrategy
-          .subscribe(irohaAPI, Utils.hash(transaction))
-          .blockingLast();
-      if (!statusResponse.getTxStatus().equals(TxStatus.COMMITTED)) {
-        logger.warn(
-            "Transaction {} failed in Iroha: {}",
-            ValidationUtils.hexHash(transaction),
-            statusResponse.getTxStatus()
-        );
-        transactionVerdictStorage.markTransactionFailed(
-            ValidationUtils.hexHash(transaction),
-            statusResponse.getTxStatus() + " : " + statusResponse.getErrOrCmdName()
-        );
-      }
-    }
-
-    @Override
-    public void run() {
-      checkIrohaStatus(transaction);
     }
   }
 }

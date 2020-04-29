@@ -12,6 +12,7 @@ import static iroha.validation.exception.BrvsErrorCode.WRONG_DOMAIN;
 import static iroha.validation.utils.ValidationUtils.PROPORTION;
 import static iroha.validation.utils.ValidationUtils.fieldValidator;
 import static iroha.validation.utils.ValidationUtils.getDomain;
+import static iroha.validation.utils.ValidationUtils.sendWithLastResponseWaiting;
 import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.google.common.base.Strings;
@@ -21,9 +22,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
-import iroha.protocol.Endpoint;
 import iroha.protocol.Endpoint.TxStatus;
-import iroha.protocol.TransactionOuterClass;
 import iroha.validation.exception.BrvsException;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
@@ -168,13 +167,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       Iterable<String> publicKeys) {
 
     final String jsonedKeys = ValidationUtils.irohaEscape(ValidationUtils.gson.toJson(publicKeys));
-    TxStatus txStatus = sendWithLastStatusWaiting(
+    TxStatus txStatus = sendWithLastResponseWaiting(
+        queryAPI.getApi(),
         Transaction
             .builder(brvsAccountId)
             .setAccountDetail(targetAccount, userSignatoriesAttribute, jsonedKeys)
             .sign(brvsAccountKeyPair)
             .build()
-    );
+    ).getTxStatus();
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       throw new IllegalStateException(
           "Could not change user " + targetAccount +
@@ -216,13 +216,14 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   }
 
   private void setUserQuorumIroha(String targetAccount, int quorum) {
-    TxStatus txStatus = sendWithLastStatusWaiting(
+    TxStatus txStatus = sendWithLastResponseWaiting(
+        queryAPI.getApi(),
         Transaction
             .builder(brvsAccountId)
             .setAccountQuorum(targetAccount, quorum)
             .sign(brvsAccountKeyPair)
             .build()
-    );
+    ).getTxStatus();
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       throw new IllegalStateException(
           "Could not change user " + targetAccount +
@@ -315,11 +316,12 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         transactionBuilder.removeSignatory(userAccountId, keyPairs.get(i - 1).getPublic());
       }
     }
-    TxStatus txStatus = sendWithLastStatusWaiting(
+    TxStatus txStatus = sendWithLastResponseWaiting(
+        queryAPI.getApi(),
         transactionBuilder
             .sign(brvsAccountKeyPair)
             .build()
-    );
+    ).getTxStatus();
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       throw new IllegalStateException(
           "Could not set signatories to user " + userAccountId +
@@ -426,14 +428,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   @Override
   public Set<String> getUserDomains() {
     return Collections.unmodifiableSet(userDomains);
-  }
-
-  private Endpoint.TxStatus sendWithLastStatusWaiting(
-      TransactionOuterClass.Transaction transaction) {
-    return queryAPI.getApi().transaction(
-        transaction,
-        ValidationUtils.subscriptionStrategy
-    ).blockingLast().getTxStatus();
   }
 
   @Override

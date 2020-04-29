@@ -47,11 +47,6 @@ public class DummyMemoryTransactionVerdictStorage implements TransactionVerdictS
     validationResultMap.put(txHash.toUpperCase(), ValidationResult.REJECTED(reason));
   }
 
-  @Override
-  public void markTransactionFailed(String txHash, String reason) {
-    validationResultMap.put(txHash.toUpperCase(), ValidationResult.FAILED(reason));
-  }
-
   /**
    * {@inheritDoc}
    */

@@ -37,7 +37,6 @@ public class ValidationServiceContext {
     Objects.requireNonNull(transactionSigner, "Transaction signer must not be null");
     Objects.requireNonNull(registrationProvider, "Registration provider must not be null");
     Objects.requireNonNull(brvsData, "BRVS data must not be null");
-    Objects.requireNonNull(ruleMonitor, "Rule monitor must not be null");
 
     this.validator = validator;
     this.transactionProvider = transactionProvider;

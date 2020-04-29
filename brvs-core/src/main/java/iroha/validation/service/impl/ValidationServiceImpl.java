@@ -68,7 +68,9 @@ public class ValidationServiceImpl implements ValidationService, Closeable {
   @Override
   public void verifyTransactions() {
     registerExistentAccounts();
-    ruleMonitor.monitorUpdates();
+    if (ruleMonitor != null) {
+      ruleMonitor.monitorUpdates();
+    }
     transactionProvider.getPendingTransactionsStreaming()
         .observeOn(mainScheduler)
         .flatMap(transactionBatch ->

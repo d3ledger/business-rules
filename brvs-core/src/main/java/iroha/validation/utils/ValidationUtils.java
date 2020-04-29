@@ -20,7 +20,9 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import io.reactivex.Observable;
 import iroha.protocol.BlockOuterClass.Block;
+import iroha.protocol.Endpoint.ToriiResponse;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
@@ -34,6 +36,7 @@ import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.xml.bind.DatatypeConverter;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
@@ -43,6 +46,7 @@ import jp.co.soramitsu.crypto.ed25519.spec.EdDSANamedCurveTable;
 import jp.co.soramitsu.crypto.ed25519.spec.EdDSAParameterSpec;
 import jp.co.soramitsu.crypto.ed25519.spec.EdDSAPublicKeySpec;
 import jp.co.soramitsu.iroha.java.FieldValidator;
+import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.subscription.SubscriptionStrategy;
@@ -58,6 +62,7 @@ public interface ValidationUtils {
   JsonParser parser = new JsonParser();
   FieldValidator fieldValidator = new FieldValidator();
 
+  long timeoutForIrohaStatus = 5;
 
   // BRVS keys count = User keys count
   int PROPORTION = 2;
@@ -73,6 +78,25 @@ public interface ValidationUtils {
           TxStatus.UNRECOGNIZED
       )
   );
+
+  static ToriiResponse sendWithLastResponseWaiting(
+      IrohaAPI irohaAPI,
+      Transaction transaction) {
+    return irohaAPI.transaction(
+        transaction,
+        subscriptionStrategy
+    ).takeUntil(Observable.timer(timeoutForIrohaStatus, TimeUnit.MINUTES))
+        .blockingLast();
+  }
+
+  static ToriiResponse trackHashWithLastResponseWaiting(
+      IrohaAPI irohaAPI,
+      byte[] hash) {
+    return subscriptionStrategy
+        .subscribe(irohaAPI, hash)
+        .takeUntil(Observable.timer(timeoutForIrohaStatus, TimeUnit.MINUTES))
+        .blockingLast();
+  }
 
   static String getTxAccountId(final Transaction transaction) {
     return transaction.getPayload().getReducedPayload().getCreatorAccountId();
