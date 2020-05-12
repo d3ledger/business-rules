@@ -15,18 +15,17 @@ import static iroha.validation.utils.ValidationUtils.getDomain;
 import static iroha.validation.utils.ValidationUtils.sendWithLastResponseWaiting;
 import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
+import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
+import com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import com.google.gson.reflect.TypeToken;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.validation.exception.BrvsException;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import iroha.validation.transactions.provider.UserQuorumProvider;
-import iroha.validation.transactions.provider.impl.util.BrvsData;
 import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
 import iroha.validation.utils.ValidationUtils;
 import java.io.Closeable;
@@ -39,6 +38,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
@@ -80,15 +80,17 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   private final String userSignatoriesAttribute;
   private final Set<String> userDomains;
   private final String userAccountsHolderAccount;
-  private final String brvsInstancesHolderAccount;
+  private final String userAccountsSetterAccount;
   private final List<KeyPair> keyPairs;
   private final Set<String> pubKeys;
+  private final IrohaQueryHelper irohaQueryHelper;
 
   public AccountManager(QueryAPI queryAPI,
       String userSignatoriesAttribute,
       String userDomains,
       String userAccountsHolderAccount,
-      String brvsInstancesHolderAccount, List<KeyPair> keyPairs) {
+      String userAccountsSetterAccount,
+      List<KeyPair> keyPairs) {
 
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     if (Strings.isNullOrEmpty(userSignatoriesAttribute)) {
@@ -102,9 +104,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       throw new IllegalArgumentException(
           "User accounts holder account must not be neither null nor empty");
     }
-    if (Strings.isNullOrEmpty(brvsInstancesHolderAccount)) {
+    if (Strings.isNullOrEmpty(userAccountsSetterAccount)) {
       throw new IllegalArgumentException(
-          "Brvs instances holder account must not be neither null nor empty");
+          "User accounts holder account must not be neither null nor empty");
     }
     if (CollectionUtils.isEmpty(keyPairs)) {
       throw new IllegalArgumentException("Keypairs must not be neither null nor empty");
@@ -116,7 +118,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     this.userSignatoriesAttribute = userSignatoriesAttribute;
     this.userDomains = Arrays.stream(userDomains.split(",")).collect(Collectors.toSet());
     this.userAccountsHolderAccount = userAccountsHolderAccount;
-    this.brvsInstancesHolderAccount = brvsInstancesHolderAccount;
+    this.userAccountsSetterAccount = userAccountsSetterAccount;
     this.keyPairs = keyPairs;
     pubKeys = this.keyPairs
         .stream()
@@ -125,6 +127,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         .map(Utils::toHex)
         .map(String::toLowerCase)
         .collect(Collectors.toSet());
+    irohaQueryHelper = new IrohaQueryHelperImpl(queryAPI, REGISTRATION_BATCH_SIZE);
   }
 
   /**
@@ -347,32 +350,27 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    */
   @Override
   public Set<String> getRegisteredAccounts() {
+    //TODO XNET-96: Persist
     return registeredAccounts;
   }
 
-  private <T> Set<T> getAccountsFrom(String accountsHolderAccount,
+  private <T> Set<T> getAccountsFrom(
+      String accountsHolderAccount,
+      String accountsSetterAccount,
       Function<Entry, T> processor) {
     logger.info("Going to read accounts data from {}", accountsHolderAccount);
     Set<T> resultSet = new HashSet<>();
     try {
-      JsonElement rootNode = ValidationUtils.parser
-          .parse(queryAPI
-              .getAccount(accountsHolderAccount)
-              .getAccount()
-              .getJsonData()
-          );
-      rootNode.getAsJsonObject().entrySet().forEach(accountSetter ->
-          accountSetter
-              .getValue()
-              .getAsJsonObject()
-              .entrySet()
-              .forEach(entry -> {
-                    T candidate = processor.apply(entry);
-                    if (candidate != null) {
-                      resultSet.add(candidate);
-                    }
-                  }
-              )
+      final Map<String, String> map = irohaQueryHelper
+          .getAccountDetails(accountsHolderAccount, accountsSetterAccount)
+          .get();
+
+      map.entrySet().forEach(entry -> {
+            T candidate = processor.apply(entry);
+            if (candidate != null) {
+              resultSet.add(candidate);
+            }
+          }
       );
       return resultSet;
     } catch (ErrorResponseException e) {
@@ -381,9 +379,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     }
   }
 
-  private String userAccountProcessor(Entry<String, JsonPrimitive> entry) {
+  private String userAccountProcessor(Entry<String, String> entry) {
     String key = entry.getKey();
-    String suffix = entry.getValue().getAsString();
+    String suffix = entry.getValue();
     if (!key.endsWith(suffix)) {
       return null;
     }
@@ -396,30 +394,16 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         .concat(recoveredSuffix);
   }
 
-  private BrvsData brvsAccountProcessor(Entry<String, JsonPrimitive> entry) {
-    String pubkey = entry.getKey();
-    String hostname = entry.getValue().getAsString();
-    if (pubkey.length() != PUBKEY_LENGTH) {
-      logger.warn("Expected hostname-pubkey pair. Got {} : {}", hostname, pubkey);
-      return null;
-    }
-    return new BrvsData(hostname, pubkey);
-  }
-
   /**
    * {@inheritDoc}
    */
   @Override
   public Set<String> getUserAccounts() {
-    return getAccountsFrom(userAccountsHolderAccount, this::userAccountProcessor);
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public Set<BrvsData> getBrvsInstances() {
-    return getAccountsFrom(brvsInstancesHolderAccount, this::brvsAccountProcessor);
+    return getAccountsFrom(
+        userAccountsHolderAccount,
+        userAccountsSetterAccount,
+        this::userAccountProcessor
+    );
   }
 
   /**

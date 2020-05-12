@@ -248,14 +248,17 @@ public class IrohaIntegrationTest {
   }
 
   private ValidationServiceImpl getService(IrohaAPI irohaAPI) {
-    final String accountsHolderAccount = String.format("%s@%s", serviceDomainName,
-        serviceDomainName);
+    final String accountsHolderAccount = String.format(
+        "%s@%s",
+        serviceDomainName,
+        serviceDomainName
+    );
     final QueryAPI queryAPI = new QueryAPI(irohaAPI, validatorId, validatorKeypair);
     accountManager = new AccountManager(queryAPI,
         "uq",
         userDomainName,
         accountsHolderAccount,
-        accountsHolderAccount,
+        validatorId,
         Collections.singletonList(validatorKeypair)
     );
     transactionVerdictStorage = new MongoTransactionVerdictStorage(mongoHost, mongoPort);
