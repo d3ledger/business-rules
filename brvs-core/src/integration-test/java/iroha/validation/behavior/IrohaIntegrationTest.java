@@ -14,6 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.d3.chainadapter.client.RMQConfig;
 import com.google.common.io.Files;
@@ -29,6 +32,8 @@ import iroha.validation.listener.BrvsIrohaChainListener;
 import iroha.validation.rules.Rule;
 import iroha.validation.rules.RuleMonitor;
 import iroha.validation.rules.impl.assets.TransferTxVolumeRule;
+import iroha.validation.rules.impl.billing.BillingInfo;
+import iroha.validation.rules.impl.billing.BillingRule;
 import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
@@ -132,6 +137,7 @@ public class IrohaIntegrationTest {
   private String mongoHost;
   private Integer mongoPort;
   private ValidationServiceImpl validationService;
+  private final BillingRule billingRuleMock = mock(BillingRule.class);
 
   private static BlockOuterClass.Block getGenesisBlock() {
     return new GenesisBlockBuilder()
@@ -157,7 +163,8 @@ public class IrohaIntegrationTest {
                         RolePermission.can_grant_can_add_my_signatory,
                         RolePermission.can_grant_can_set_my_quorum,
                         RolePermission.can_set_detail,
-                        RolePermission.can_get_blocks
+                        RolePermission.can_get_blocks,
+                        RolePermission.can_subtract_asset_qty
                     )
                 )
                 .createDomain(serviceDomainName, roleName)
@@ -285,6 +292,11 @@ public class IrohaIntegrationTest {
         queryAPI,
         validatorKeypair
     );
+    final BillingInfo billingInfo = mock(BillingInfo.class);
+    when(billingInfo.getFeeFraction()).thenReturn(new BigDecimal("0.1"));
+    when(billingRuleMock.getBillingInfoFor(any(), any(), any())).thenReturn(
+        billingInfo
+    );
     final SimpleAggregationValidator validator = new SimpleAggregationValidator(ruleMap);
     return new ValidationServiceImpl(new ValidationServiceContext(
         validator,
@@ -303,7 +315,8 @@ public class IrohaIntegrationTest {
                 new SoraDistributionPluggableLogic(
                     queryAPI,
                     projectOwnerId,
-                    projectOwnerId
+                    projectOwnerId,
+                    billingRuleMock
                 )
             )
         ),
@@ -677,10 +690,10 @@ public class IrohaIntegrationTest {
   void exactDistributionPortions() throws InterruptedException {
     // projectOwner is a json setter
     final Map<String, BigDecimal> proportionsMap = new HashMap<>();
-    proportionsMap.put(projectParticipantOneId, new BigDecimal("0.5"));
-    proportionsMap.put(projectParticipantTwoId, new BigDecimal("0.3"));
-    proportionsMap.put(projectParticipantThreeId, new BigDecimal("0.2"));
-    final BigDecimal totalSupply = new BigDecimal("1000");
+    proportionsMap.put(projectParticipantOneId, new BigDecimal("0.005"));
+    proportionsMap.put(projectParticipantTwoId, new BigDecimal("0.003"));
+    proportionsMap.put(projectParticipantThreeId, new BigDecimal("0.002"));
+    final BigDecimal totalSupply = new BigDecimal("100000");
     final SoraDistributionProportions proportions = new SoraDistributionProportions(
         proportionsMap,
         totalSupply
@@ -708,7 +721,7 @@ public class IrohaIntegrationTest {
     ).blockingLast();
     irohaAPI.transaction(
         Transaction.builder(projectOwnerId)
-            .addAssetQuantity(assetId, new BigDecimal("3000"))
+            .addAssetQuantity(assetId, new BigDecimal("300000"))
             .setAccountDetail(
                 projectOwnerId,
                 DISTRIBUTION_PROPORTIONS_KEY,
@@ -718,7 +731,7 @@ public class IrohaIntegrationTest {
             .build()
     ).blockingLast();
 
-    final BigDecimal firstAmount = new BigDecimal("600");
+    final BigDecimal firstAmount = new BigDecimal("60000");
 
     irohaAPI.transaction(
         Transaction.builder(projectOwnerId)
@@ -729,17 +742,17 @@ public class IrohaIntegrationTest {
 
     Thread.sleep(5000);
 
-    assertEquals(0, oneBalance.add(new BigDecimal("300"))
+    assertEquals(0, oneBalance.add(new BigDecimal("299.95"))
         .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantOneId)
             .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
             .findAny().get().getBalance()))
     );
-    assertEquals(0, twoBalance.add(new BigDecimal("180"))
+    assertEquals(0, twoBalance.add(new BigDecimal("179.97"))
         .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantTwoId)
             .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
             .findAny().get().getBalance()))
     );
-    assertEquals(0, threeBalance.add(new BigDecimal("120"))
+    assertEquals(0, threeBalance.add(new BigDecimal("119.98"))
         .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantThreeId)
             .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
             .findAny().get().getBalance()))
@@ -766,17 +779,17 @@ public class IrohaIntegrationTest {
 
     Thread.sleep(5000);
 
-    assertEquals(0, oneBalance.add(new BigDecimal("300")).add(new BigDecimal("200"))
+    assertEquals(0, oneBalance.add(new BigDecimal("299.95")).add(new BigDecimal("199.95"))
         .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantOneId)
             .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
             .findAny().get().getBalance()))
     );
-    assertEquals(0, twoBalance.add(new BigDecimal("180")).add(new BigDecimal("120"))
+    assertEquals(0, twoBalance.add(new BigDecimal("179.97")).add(new BigDecimal("119.97"))
         .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantTwoId)
             .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
             .findAny().get().getBalance()))
     );
-    assertEquals(0, threeBalance.add(new BigDecimal("120")).add(new BigDecimal("80"))
+    assertEquals(0, threeBalance.add(new BigDecimal("119.98")).add(new BigDecimal("79.98"))
         .compareTo(new BigDecimal(queryAPI.getAccountAssets(projectParticipantThreeId)
             .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
             .findAny().get().getBalance()))

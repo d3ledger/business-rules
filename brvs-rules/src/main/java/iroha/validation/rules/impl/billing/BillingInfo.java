@@ -189,7 +189,7 @@ public class BillingInfo {
     return feeType;
   }
 
-  /* default */ BigDecimal getFeeFraction() {
+  public BigDecimal getFeeFraction() {
     return feeFraction;
   }
 

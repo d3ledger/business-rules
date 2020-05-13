@@ -80,6 +80,7 @@
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="projectAccounts" value="${SORA_DISTRIBUTION_PROJECTS}"/>
     <constructor-arg name="infoSetterAccount" value="${SORA_DISTRIBUTION_SETTER}"/>
+    <constructor-arg name="billingRule" ref="billingRule"/>
   </bean>
 
   <!--  QUORUM REACTION CONFIG-->

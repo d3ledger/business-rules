@@ -38,7 +38,6 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -406,7 +405,7 @@ public class BillingRule implements Rule {
     return null;
   }
 
-  private BillingInfo getBillingInfoFor(String domain, String asset, BillingTypeEnum originalType) {
+  public BillingInfo getBillingInfoFor(String domain, String asset, BillingTypeEnum originalType) {
     return cache
         .stream()
         .filter(entry -> entry.getDomain().equals(domain)
