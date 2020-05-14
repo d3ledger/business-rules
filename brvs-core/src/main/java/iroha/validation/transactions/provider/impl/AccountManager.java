@@ -10,6 +10,7 @@ import static iroha.validation.exception.BrvsErrorCode.REGISTRATION_TIMEOUT;
 import static iroha.validation.exception.BrvsErrorCode.UNKNOWN_ACCOUNT;
 import static iroha.validation.exception.BrvsErrorCode.WRONG_DOMAIN;
 import static iroha.validation.utils.ValidationUtils.PROPORTION;
+import static iroha.validation.utils.ValidationUtils.REGISTRATION_BATCH_SIZE;
 import static iroha.validation.utils.ValidationUtils.fieldValidator;
 import static iroha.validation.utils.ValidationUtils.getDomain;
 import static iroha.validation.utils.ValidationUtils.sendWithLastResponseWaiting;
@@ -64,10 +65,8 @@ import org.springframework.util.CollectionUtils;
 public class AccountManager implements UserQuorumProvider, RegistrationProvider, Closeable {
 
   private static final Logger logger = LoggerFactory.getLogger(AccountManager.class);
-  private static final int PUBKEY_LENGTH = 32;
   private static final int INITIAL_USER_QUORUM_VALUE = 1;
   private static final int INITIAL_KEYS_AMOUNT = 1;
-  private static final int REGISTRATION_BATCH_SIZE = 500;
   private static final Type USER_SIGNATORIES_TYPE_TOKEN = new TypeToken<Set<String>>() {
   }.getType();
 

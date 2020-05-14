@@ -5,7 +5,6 @@
 
 package iroha.validation.transactions.provider;
 
-import iroha.validation.transactions.provider.impl.util.BrvsData;
 import java.util.Collection;
 import java.util.Set;
 

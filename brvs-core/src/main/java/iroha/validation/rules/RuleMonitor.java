@@ -6,6 +6,7 @@
 package iroha.validation.rules;
 
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
+import static iroha.validation.utils.ValidationUtils.REGISTRATION_BATCH_SIZE;
 
 import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
 import com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl;
@@ -30,12 +31,10 @@ import org.springframework.util.StringUtils;
 public class RuleMonitor {
 
   private static final Logger logger = LoggerFactory.getLogger(RuleMonitor.class);
-  private static final int PAGE_SIZE = 50;
 
   private final Scheduler scheduler = Schedulers.from(createPrettySingleThreadPool(
       "rule-monitor", "chain-listener"
   ));
-  private final QueryAPI queryAPI;
   private final BrvsIrohaChainListener irohaChainListener;
   private final String repositoryAccountId;
   private final String settingsAccountId;
@@ -50,7 +49,6 @@ public class RuleMonitor {
       String settingsAccountId,
       String setterAccountId,
       Validator validator) {
-    this.queryAPI = queryAPI;
     Objects.requireNonNull(queryAPI, "QueryAPI must not be null");
     Objects.requireNonNull(irohaChainListener, "IrohaChainListener must not be null");
     if (StringUtils.isEmpty(repositoryAccountId)) {
@@ -71,7 +69,7 @@ public class RuleMonitor {
     this.settingsAccountId = settingsAccountId;
     this.setterAccountId = setterAccountId;
     this.validator = validator;
-    this.irohaQueryHelper = new IrohaQueryHelperImpl(queryAPI, PAGE_SIZE);
+    this.irohaQueryHelper = new IrohaQueryHelperImpl(queryAPI, REGISTRATION_BATCH_SIZE);
   }
 
   /**

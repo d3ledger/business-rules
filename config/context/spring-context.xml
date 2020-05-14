@@ -74,13 +74,21 @@
     <constructor-arg name="keyPairs" ref="keysList"/>
   </bean>
 
+  <!--  SORA PROJECT PROVIDER CONFIG-->
+  <bean id="soraProjectsProvider"
+    class="iroha.validation.transactions.plugin.impl.sora.ProjectAccountProvider">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="accountsHolder" value="${SORA_DISTRIBUTION_PROJECTS_HOLDER}"/>
+    <constructor-arg name="accountsSetter" value="${SORA_DISTRIBUTION_PROJECTS_SETTER}"/>
+  </bean>
+
   <!--  SORA DISTRIBUTION CONFIG-->
   <bean id="soraDistributionLogic"
-    class="iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic">
+    class="iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="projectAccounts" value="${SORA_DISTRIBUTION_PROJECTS}"/>
     <constructor-arg name="infoSetterAccount" value="${SORA_DISTRIBUTION_SETTER}"/>
     <constructor-arg name="billingRule" ref="billingRule"/>
+    <constructor-arg name="projectAccountProvider" ref="soraProjectsProvider"/>
   </bean>
 
   <!--  QUORUM REACTION CONFIG-->
@@ -95,10 +103,17 @@
     <constructor-arg name="registrationProvider" ref="accountManager"/>
   </bean>
 
+  <!--  PROJECT ACCOUNTS REACTION CONFIG-->
+  <bean id="projectAccountsReactionLogic"
+    class="iroha.validation.transactions.plugin.impl.sora.NewProjectReactionPluggableLogic">
+    <constructor-arg name="projectAccountProvider" ref="soraProjectsProvider"/>
+  </bean>
+
   <util:list id="logicList" list-class="java.util.ArrayList"
     value-type="iroha.validation.transactions.plugin.PluggableLogic">
     <ref bean="registrationReactionLogic"/>
     <ref bean="quorumReactionLogic"/>
+    <ref bean="projectAccountsReactionLogic"/>
     <ref bean="soraDistributionLogic"/>
   </util:list>
 

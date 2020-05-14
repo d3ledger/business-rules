@@ -5,8 +5,9 @@
 
 package iroha.validation.behavior;
 
-import static iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.DISTRIBUTION_FINISHED_KEY;
-import static iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.DISTRIBUTION_PROPORTIONS_KEY;
+import static iroha.validation.transactions.plugin.impl.sora.ProjectAccountProvider.ACCOUNT_PLACEHOLDER;
+import static iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.DISTRIBUTION_FINISHED_KEY;
+import static iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.DISTRIBUTION_PROPORTIONS_KEY;
 import static iroha.validation.utils.ValidationUtils.advancedQueryAccountDetails;
 import static iroha.validation.utils.ValidationUtils.crypto;
 import static iroha.validation.utils.ValidationUtils.gson;
@@ -39,9 +40,10 @@ import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.plugin.impl.QuorumReactionPluggableLogic;
 import iroha.validation.transactions.plugin.impl.RegistrationReactionPluggableLogic;
-import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic;
-import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.SoraDistributionFinished;
-import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.SoraDistributionProportions;
+import iroha.validation.transactions.plugin.impl.sora.ProjectAccountProvider;
+import iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic;
+import iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.SoraDistributionFinished;
+import iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.SoraDistributionProportions;
 import iroha.validation.transactions.provider.impl.AccountManager;
 import iroha.validation.transactions.provider.impl.BasicTransactionProvider;
 import iroha.validation.transactions.provider.impl.util.BrvsData;
@@ -204,6 +206,11 @@ public class IrohaIntegrationTest {
                     userDomainName,
                     projectOwnerKeypair.getPublic()
                 )
+                .setAccountDetail(
+                    projectOwnerId,
+                    projectOwner + ACCOUNT_PLACEHOLDER + userDomainName,
+                    "HELLO"
+                )
                 // transactions in genesis block can be unsigned
                 .build()
                 .build()
@@ -298,6 +305,11 @@ public class IrohaIntegrationTest {
         billingInfo
     );
     final SimpleAggregationValidator validator = new SimpleAggregationValidator(ruleMap);
+    final ProjectAccountProvider projectAccountProvider = new ProjectAccountProvider(
+        projectOwnerId,
+        validatorId,
+        queryAPI
+    );
     return new ValidationServiceImpl(new ValidationServiceContext(
         validator,
         new BasicTransactionProvider(
@@ -315,8 +327,8 @@ public class IrohaIntegrationTest {
                 new SoraDistributionPluggableLogic(
                     queryAPI,
                     projectOwnerId,
-                    projectOwnerId,
-                    billingRuleMock
+                    billingRuleMock,
+                    projectAccountProvider
                 )
             )
         ),

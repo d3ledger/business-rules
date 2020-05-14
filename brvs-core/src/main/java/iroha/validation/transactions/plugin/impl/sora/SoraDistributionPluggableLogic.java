@@ -3,34 +3,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.plugin.impl;
+package iroha.validation.transactions.plugin.impl.sora;
 
 import static iroha.validation.utils.ValidationUtils.advancedQueryAccountDetails;
 import static iroha.validation.utils.ValidationUtils.trackHashWithLastResponseWaiting;
 
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
+import iroha.protocol.TransactionOuterClass.Transaction.Payload.ReducedPayload;
 import iroha.validation.rules.impl.billing.BillingInfo;
 import iroha.validation.rules.impl.billing.BillingInfo.BillingTypeEnum;
 import iroha.validation.rules.impl.billing.BillingRule;
 import iroha.validation.transactions.plugin.PluggableLogic;
-import iroha.validation.transactions.plugin.impl.SoraDistributionPluggableLogic.SoraDistributionInputContext;
+import iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.SoraDistributionInputContext;
 import iroha.validation.utils.ValidationUtils;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.security.KeyPair;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
@@ -48,7 +46,6 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
 
   private static final Logger logger = LoggerFactory
       .getLogger(SoraDistributionPluggableLogic.class);
-  private static final String COMMA_SPACES_REGEX = ",\\s*";
   public static final String DISTRIBUTION_PROPORTIONS_KEY = "distribution";
   public static final String DISTRIBUTION_FINISHED_KEY = "distribution_finished";
   private static final String SORA_DOMAIN = "sora";
@@ -63,36 +60,32 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
   private static final String DESCRIPTION_FORMAT = "Distribution from %s";
   private static final BigDecimal FEE_RATE = new BigDecimal("100");
 
-  private final Set<String> projectAccounts;
   private final QueryAPI queryAPI;
   private final String brvsAccountId;
   private final KeyPair brvsKeypair;
   private final String infoSetterAccount;
   // for fee retrieval
   private final BillingRule billingRule;
+  private final ProjectAccountProvider projectAccountProvider;
 
   public SoraDistributionPluggableLogic(
       QueryAPI queryAPI,
-      String projectAccounts,
       String infoSetterAccount,
-      BillingRule billingRule) {
+      BillingRule billingRule,
+      ProjectAccountProvider projectAccountProvider) {
     Objects.requireNonNull(queryAPI, "Query API must not be null");
-    if (StringUtils.isEmpty(projectAccounts)) {
-      throw new IllegalArgumentException("Project accounts must not be neither null nor empty");
-    }
     if (StringUtils.isEmpty(infoSetterAccount)) {
       throw new IllegalArgumentException("Info setter account must not be neither null nor empty");
     }
     Objects.requireNonNull(billingRule, "Billing rule must not be null");
+    Objects.requireNonNull(projectAccountProvider, "ProjectAccountProvider must not be null");
 
     this.queryAPI = queryAPI;
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsKeypair = queryAPI.getKeyPair();
-    this.projectAccounts = new HashSet<>(Arrays.asList(projectAccounts.split(COMMA_SPACES_REGEX)));
     this.infoSetterAccount = infoSetterAccount;
     this.billingRule = billingRule;
-
-    logger.info("Started distribution processor with project accounts: {}", this.projectAccounts);
+    this.projectAccountProvider = projectAccountProvider;
   }
 
   private <T> List<T> mergeLists(List<T> first, List<T> second) {
@@ -111,21 +104,16 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
     return new SoraDistributionInputContext(
         StreamSupport
             .stream(sourceObjects.spliterator(), false)
-            .filter(transaction -> projectAccounts
-                .contains(
-                    transaction
-                        .getPayload()
-                        .getReducedPayload()
-                        .getCreatorAccountId()
-                )
+            .map(tx -> tx.getPayload().getReducedPayload())
+            .filter(reducedPayload -> projectAccountProvider
+                .isProjectAccount(reducedPayload.getCreatorAccountId())
             )
             .collect(
                 Collectors.groupingBy(
-                    tx -> tx.getPayload().getReducedPayload().getCreatorAccountId(),
+                    ReducedPayload::getCreatorAccountId,
                     Collectors.reducing(
                         BigDecimal.ZERO,
-                        tx -> tx.getPayload()
-                            .getReducedPayload()
+                        reducedPayload -> reducedPayload
                             .getCommandsList()
                             .stream()
                             .map(command -> {
@@ -383,7 +371,10 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
         brvsAccountId,
         clientAccountId,
         XOR_ASSET_ID,
-        String.format(DESCRIPTION_FORMAT, projectOwnerAccountId),
+        String.format(
+            DESCRIPTION_FORMAT,
+            projectAccountProvider.getProjectDescription(projectOwnerAccountId)
+        ),
         amount
     );
     logger.debug("Appended distribution command: project - {}, to - {}, amount - {}",

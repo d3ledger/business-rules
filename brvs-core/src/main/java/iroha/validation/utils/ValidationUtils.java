@@ -67,6 +67,8 @@ public interface ValidationUtils {
   // BRVS keys count = User keys count
   int PROPORTION = 2;
 
+  int REGISTRATION_BATCH_SIZE = 500;
+
   Ed25519Sha3 crypto = new Ed25519Sha3();
 
   SubscriptionStrategy subscriptionStrategy = new WaitForTerminalStatus(
@@ -205,6 +207,10 @@ public interface ValidationUtils {
         Utils.irohaUnEscape(jsonElement.getAsJsonObject().get(key).getAsString()),
         type
     );
+  }
+
+  static String replaceLast(String text, String regex, String replacement) {
+    return text.replaceFirst("(?s)(.*)" + regex, "$1" + replacement);
   }
 
   class BigDecimalAsStringJsonSerializer implements JsonSerializer<BigDecimal> {
