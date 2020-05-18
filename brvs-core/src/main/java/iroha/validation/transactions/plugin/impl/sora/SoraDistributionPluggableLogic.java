@@ -105,13 +105,19 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
    */
   @Override
   public SoraDistributionInputContext filterAndTransform(Iterable<Transaction> sourceObjects) {
+    return filterAndTransformInternal(sourceObjects, true);
+  }
+
+  private SoraDistributionInputContext filterAndTransformInternal(
+      Iterable<Transaction> sourceObjects,
+      boolean checkAccounts) {
     // sums all the xor transfers and subtractions per project owner
     return new SoraDistributionInputContext(
         StreamSupport
             .stream(sourceObjects.spliterator(), false)
             .map(tx -> tx.getPayload().getReducedPayload())
-            .filter(reducedPayload -> projectAccountProvider
-                .isProjectAccount(reducedPayload.getCreatorAccountId())
+            .filter(reducedPayload -> !checkAccounts ||
+                projectAccountProvider.isProjectAccount(reducedPayload.getCreatorAccountId())
             )
             .collect(
                 Collectors.groupingBy(
@@ -273,7 +279,8 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
       distributionTransactions.forEach((projectAccount, transactions) -> {
         if (transactions != null && !transactions.isEmpty()) {
           final BigDecimal currentBalance = getBrvsXorBalance();
-          final BigDecimal sumToSend = filterAndTransform(transactions).projectAmountMap
+          final BigDecimal sumToSend = filterAndTransformInternal(transactions, false)
+              .projectAmountMap
               .values()
               .stream()
               .reduce(BigDecimal::add)
