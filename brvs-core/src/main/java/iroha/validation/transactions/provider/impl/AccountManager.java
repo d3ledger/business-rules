@@ -89,7 +89,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       String userDomains,
       String userAccountsHolderAccount,
       String userAccountsSetterAccount,
-      List<KeyPair> keyPairs) {
+      List<KeyPair> keyPairs,
+      IrohaQueryHelper irohaQueryHelper) {
 
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     if (Strings.isNullOrEmpty(userSignatoriesAttribute)) {
@@ -110,6 +111,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     if (CollectionUtils.isEmpty(keyPairs)) {
       throw new IllegalArgumentException("Keypairs must not be neither null nor empty");
     }
+    Objects.requireNonNull(irohaQueryHelper, "IrohaQueryHelper must not be null");
 
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsAccountKeyPair = queryAPI.getKeyPair();
@@ -126,7 +128,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         .map(Utils::toHex)
         .map(String::toLowerCase)
         .collect(Collectors.toSet());
-    irohaQueryHelper = new IrohaQueryHelperImpl(queryAPI, REGISTRATION_BATCH_SIZE);
+    this.irohaQueryHelper = irohaQueryHelper;
   }
 
   /**

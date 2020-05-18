@@ -56,6 +56,12 @@
     <constructor-arg name="keyPair" ref="brvsAccountKeyPair"/>
   </bean>
 
+  <!-- IROHA QUERY HELPER CONFIG -->
+  <bean id="queryHelper" class="com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="pageSize" type="int" value="500"/>
+  </bean>
+
   <!-- STORAGE CONFIG -->
   <bean id="mongoVerdictStorage"
     class="iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage">
@@ -72,12 +78,13 @@
     <constructor-arg name="userAccountsHolderAccount" value="${ACCOUNTS_HOLDER}"/>
     <constructor-arg name="userAccountsSetterAccount" value="${ACCOUNTS_HOLDER_SETTER}"/>
     <constructor-arg name="keyPairs" ref="keysList"/>
+    <constructor-arg name="irohaQueryHelper" ref="queryHelper"/>
   </bean>
 
   <!--  SORA PROJECT PROVIDER CONFIG-->
   <bean id="soraProjectsProvider"
     class="iroha.validation.transactions.plugin.impl.sora.ProjectAccountProvider">
-    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="irohaQueryHelper" ref="queryHelper"/>
     <constructor-arg name="accountsHolder" value="${SORA_DISTRIBUTION_PROJECTS_HOLDER}"/>
     <constructor-arg name="accountsSetter" value="${SORA_DISTRIBUTION_PROJECTS_SETTER}"/>
   </bean>
@@ -89,6 +96,7 @@
     <constructor-arg name="infoSetterAccount" value="${SORA_DISTRIBUTION_SETTER}"/>
     <constructor-arg name="billingRule" ref="billingRule"/>
     <constructor-arg name="projectAccountProvider" ref="soraProjectsProvider"/>
+    <constructor-arg name="irohaQueryHelper" ref="queryHelper"/>
   </bean>
 
   <!--  QUORUM REACTION CONFIG-->

@@ -5,17 +5,14 @@
 
 package iroha.validation.transactions.plugin.impl.sora;
 
-import static iroha.validation.utils.ValidationUtils.REGISTRATION_BATCH_SIZE;
 import static iroha.validation.utils.ValidationUtils.replaceLast;
 import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
-import com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import jp.co.soramitsu.iroha.java.QueryAPI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
@@ -33,7 +30,7 @@ public class ProjectAccountProvider {
   public ProjectAccountProvider(
       String accountsHolder,
       String accountsSetter,
-      QueryAPI queryAPI) {
+      IrohaQueryHelper irohaQueryHelper) {
     if (StringUtils.isEmpty(accountsHolder)) {
       throw new IllegalArgumentException(
           "Project accounts holder account must not be neither null nor empty"
@@ -44,11 +41,10 @@ public class ProjectAccountProvider {
           "Project accounts setter account must not be neither null nor empty"
       );
     }
-    Objects.requireNonNull(queryAPI, "Query API must not be null");
+    Objects.requireNonNull(irohaQueryHelper, "IrohaQueryHelper must not be null");
 
     this.accountsHolder = accountsHolder;
     this.accountsSetter = accountsSetter;
-    IrohaQueryHelper irohaQueryHelper = new IrohaQueryHelperImpl(queryAPI, REGISTRATION_BATCH_SIZE);
     projectDescriptions = irohaQueryHelper.getAccountDetails(accountsHolder, accountsSetter)
         .get()
         .entrySet()

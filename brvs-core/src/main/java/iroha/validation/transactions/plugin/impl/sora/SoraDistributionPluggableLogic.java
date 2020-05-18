@@ -8,6 +8,7 @@ package iroha.validation.transactions.plugin.impl.sora;
 import static iroha.validation.utils.ValidationUtils.advancedQueryAccountDetails;
 import static iroha.validation.utils.ValidationUtils.trackHashWithLastResponseWaiting;
 
+import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.protocol.TransactionOuterClass.Transaction.Payload.ReducedPayload;
@@ -67,18 +68,21 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
   // for fee retrieval
   private final BillingRule billingRule;
   private final ProjectAccountProvider projectAccountProvider;
+  private final IrohaQueryHelper irohaQueryHelper;
 
   public SoraDistributionPluggableLogic(
       QueryAPI queryAPI,
       String infoSetterAccount,
       BillingRule billingRule,
-      ProjectAccountProvider projectAccountProvider) {
+      ProjectAccountProvider projectAccountProvider,
+      IrohaQueryHelper irohaQueryHelper) {
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     if (StringUtils.isEmpty(infoSetterAccount)) {
       throw new IllegalArgumentException("Info setter account must not be neither null nor empty");
     }
     Objects.requireNonNull(billingRule, "Billing rule must not be null");
     Objects.requireNonNull(projectAccountProvider, "ProjectAccountProvider must not be null");
+    Objects.requireNonNull(irohaQueryHelper, "IrohaQueryHelper must not be null");
 
     this.queryAPI = queryAPI;
     this.brvsAccountId = queryAPI.getAccountId();
@@ -86,6 +90,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
     this.infoSetterAccount = infoSetterAccount;
     this.billingRule = billingRule;
     this.projectAccountProvider = projectAccountProvider;
+    this.irohaQueryHelper = irohaQueryHelper;
   }
 
   private <T> List<T> mergeLists(List<T> first, List<T> second) {
@@ -267,6 +272,21 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
     if (distributionTransactions != null && !distributionTransactions.isEmpty()) {
       distributionTransactions.forEach((projectAccount, transactions) -> {
         if (transactions != null && !transactions.isEmpty()) {
+          final BigDecimal currentBalance = getBrvsXorBalance();
+          final BigDecimal sumToSend = filterAndTransform(transactions).projectAmountMap
+              .values()
+              .stream()
+              .reduce(BigDecimal::add)
+              .orElse(BigDecimal.ZERO);
+          if (sumToSend.compareTo(currentBalance) > 0) {
+            logger.error(
+                "BRVS has insufficient balance to perform the distribution for {}, needed - {}, present - {}",
+                projectAccount,
+                sumToSend.toPlainString(),
+                currentBalance.toPlainString()
+            );
+            return;
+          }
           final Iterable<Transaction> atomicBatch = Utils.createTxAtomicBatch(
               transactions,
               brvsKeypair
@@ -360,6 +380,10 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
         transactionList.size()
     );
     return transactionList;
+  }
+
+  private BigDecimal getBrvsXorBalance() {
+    return new BigDecimal(irohaQueryHelper.getAccountAsset(brvsAccountId, XOR_ASSET_ID).get());
   }
 
   private void appendDistributionCommand(

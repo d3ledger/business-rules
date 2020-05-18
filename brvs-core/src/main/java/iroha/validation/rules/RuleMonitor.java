@@ -48,7 +48,8 @@ public class RuleMonitor {
       String repositoryAccountId,
       String settingsAccountId,
       String setterAccountId,
-      Validator validator) {
+      Validator validator,
+      IrohaQueryHelper irohaQueryHelper) {
     Objects.requireNonNull(queryAPI, "QueryAPI must not be null");
     Objects.requireNonNull(irohaChainListener, "IrohaChainListener must not be null");
     if (StringUtils.isEmpty(repositoryAccountId)) {
@@ -63,13 +64,14 @@ public class RuleMonitor {
       throw new IllegalArgumentException("Setter account ID must not be neither null nor empty");
     }
     Objects.requireNonNull(validator, "ValidationServiceContext must not be null");
+    Objects.requireNonNull(irohaQueryHelper, "IrohaQueryHelper must not be null");
 
     this.irohaChainListener = irohaChainListener;
     this.repositoryAccountId = repositoryAccountId;
     this.settingsAccountId = settingsAccountId;
     this.setterAccountId = setterAccountId;
     this.validator = validator;
-    this.irohaQueryHelper = new IrohaQueryHelperImpl(queryAPI, REGISTRATION_BATCH_SIZE);
+    this.irohaQueryHelper = irohaQueryHelper;
   }
 
   /**
