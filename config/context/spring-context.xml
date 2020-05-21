@@ -117,12 +117,28 @@
     <constructor-arg name="projectAccountProvider" ref="soraProjectsProvider"/>
   </bean>
 
+  <!-- ATOMIC REFERENCE OF WITHDRAWAL LIMITS-->
+  <bean id="xorWithdrawalLimitRemainderReference"
+    class="java.util.concurrent.atomic.AtomicReference"/>
+
+  <!-- WITHDRAWAL REACTION LOGIC-->
+  <bean id="withdrawalReactionLogic"
+    class="iroha.validation.transactions.plugin.impl.sora.XorWithdrawalLimitReactionPluggableLogic">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="irohaQueryHelper" ref="queryHelper"/>
+    <constructor-arg name="limitHolderAccount" value="${SORA_WITHDRAWAL_LIMIT_HOLDER_ACCOUNT_ID}"/>
+    <constructor-arg name="limitSetterAccount" value="${SORA_WITHDRAWAL_LIMIT_SETTER_ACCOUNT_ID}"/>
+    <constructor-arg name="xorWithdrawalLimitRemainder" ref="xorWithdrawalLimitRemainderReference"/>
+    <constructor-arg name="withdrawalAccountId" value="${SORA_WITHDRAWAL_ACCOUNT_ID}"/>
+  </bean>
+
   <util:list id="logicList" list-class="java.util.ArrayList"
     value-type="iroha.validation.transactions.plugin.PluggableLogic">
     <ref bean="registrationReactionLogic"/>
     <ref bean="quorumReactionLogic"/>
     <ref bean="projectAccountsReactionLogic"/>
     <ref bean="soraDistributionLogic"/>
+    <ref bean="withdrawalReactionLogic"/>
   </util:list>
 
   <!-- PROVIDER CONFIG -->
@@ -202,6 +218,10 @@
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
   </bean>
   <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
+  <bean id="xorWithdrawalLimitRule" class="iroha.validation.rules.impl.sora.XorWithdrawalLimitRule">
+    <constructor-arg name="withdrawalAccountId" value="${SORA_WITHDRAWAL_ACCOUNT_ID}"/>
+    <constructor-arg name="xorWithdrawalLimitRemainder" ref="xorWithdrawalLimitRemainderReference"/>
+  </bean>
   <util:map id="rules" map-class="java.util.HashMap">
     <entry key="restrictedKeysRule" value-ref="restrictedKeysRule"/>
     <entry key="minKeysRule" value-ref="minKeysRule"/>

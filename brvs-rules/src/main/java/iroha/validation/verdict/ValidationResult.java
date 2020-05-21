@@ -17,10 +17,6 @@ public class ValidationResult {
     return new ValidationResult(Verdict.REJECTED, reason);
   }
 
-  public static ValidationResult FAILED(String reason) {
-    return new ValidationResult(Verdict.FAILED, reason);
-  }
-
   private Verdict status;
 
   private String reason;
