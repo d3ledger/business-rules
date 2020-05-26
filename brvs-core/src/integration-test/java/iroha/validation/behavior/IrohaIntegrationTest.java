@@ -8,6 +8,7 @@ package iroha.validation.behavior;
 import static iroha.validation.transactions.plugin.impl.sora.ProjectAccountProvider.ACCOUNT_PLACEHOLDER;
 import static iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.DISTRIBUTION_FINISHED_KEY;
 import static iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.DISTRIBUTION_PROPORTIONS_KEY;
+import static iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.DISTRIBUTION_REMAINING_KEY;
 import static iroha.validation.utils.ValidationUtils.advancedQueryAccountDetails;
 import static iroha.validation.utils.ValidationUtils.crypto;
 import static iroha.validation.utils.ValidationUtils.gson;
@@ -227,6 +228,7 @@ public class IrohaIntegrationTest {
                     userDomainName,
                     projectSetterKeypair.getPublic()
                 )
+                .addAssetQuantity(assetId, "1")
                 // transactions in genesis block can be unsigned
                 .build()
                 .build()
@@ -761,7 +763,7 @@ public class IrohaIntegrationTest {
 
     irohaAPI.transaction(
         Transaction.builder(validatorId)
-            .addAssetQuantity(assetId, new BigDecimal("1100"))
+            .addAssetQuantity(assetId, new BigDecimal("1001"))
             .sign(validatorKeypair)
             .build()
     ).blockingLast();
@@ -813,6 +815,20 @@ public class IrohaIntegrationTest {
     assertNotNull(finished);
     assertFalse(finished.getFinished());
 
+    final BigDecimal remaining = advancedQueryAccountDetails(
+        queryAPI,
+        projectOwnerOneId,
+        validatorId,
+        DISTRIBUTION_REMAINING_KEY,
+        BigDecimal.class
+    );
+
+    assertNotNull(remaining);
+    assertEquals(
+        0,
+        remaining.compareTo(new BigDecimal("400"))
+    );
+
     final BigDecimal secondAmount = firstAmount;
 
     irohaAPI.transaction(
@@ -849,6 +865,17 @@ public class IrohaIntegrationTest {
 
     assertNotNull(finishedNow);
     assertTrue(finishedNow.getFinished());
+
+    final BigDecimal remainingNow = advancedQueryAccountDetails(
+        queryAPI,
+        projectOwnerOneId,
+        validatorId,
+        DISTRIBUTION_REMAINING_KEY,
+        BigDecimal.class
+    );
+
+    assertNotNull(remainingNow);
+    assertEquals(0, remainingNow.compareTo(BigDecimal.ZERO));
   }
 
   /**
@@ -1039,6 +1066,17 @@ public class IrohaIntegrationTest {
         0,
         oneBalance.compareTo(getBalance(projectParticipantOneId))
     );
+
+    final SoraDistributionFinished finishedNow = advancedQueryAccountDetails(
+        queryAPI,
+        projectOwnerThreeId,
+        validatorId,
+        DISTRIBUTION_FINISHED_KEY,
+        SoraDistributionFinished.class
+    );
+
+    assertNotNull(finishedNow);
+    assertTrue(finishedNow.getFinished());
   }
 
   private BigDecimal getBalance(String accountId) {
