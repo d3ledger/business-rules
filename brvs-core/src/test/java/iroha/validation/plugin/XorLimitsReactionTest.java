@@ -20,6 +20,7 @@ import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
 import com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl;
 import io.reactivex.ObservableSource;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.CompareAndSetAccountDetail;
 import iroha.protocol.Commands.SetAccountDetail;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.Endpoint.ToriiResponse;
@@ -57,10 +58,12 @@ public class XorLimitsReactionTest {
     when(transaction.getPayload().getReducedPayload().getCreatedTime()).thenReturn(time);
 
     final Command commandTime = mock(Command.class);
-    final SetAccountDetail setAccountDetailTime = mock(SetAccountDetail.class);
-    when(setAccountDetailTime.getAccountId()).thenReturn(USER_ID);
-    when(setAccountDetailTime.getKey()).thenReturn(LIMIT_TIME_KEY);
-    when(setAccountDetailTime.getValue()).thenReturn(String.valueOf(time));
+    final CompareAndSetAccountDetail compareAndSetAccountDetail = mock(
+        CompareAndSetAccountDetail.class
+    );
+    when(compareAndSetAccountDetail.getAccountId()).thenReturn(USER_ID);
+    when(compareAndSetAccountDetail.getKey()).thenReturn(LIMIT_TIME_KEY);
+    when(compareAndSetAccountDetail.getValue()).thenReturn(String.valueOf(time));
 
     final Command commandValue = mock(Command.class);
     final SetAccountDetail setAccountDetailValue = mock(SetAccountDetail.class);
@@ -74,8 +77,8 @@ public class XorLimitsReactionTest {
     when(transferAsset.getAmount()).thenReturn(newLimit.toPlainString());
     when(transferAsset.getDestAccountId()).thenReturn(USER_ID);
 
-    when(commandTime.hasSetAccountDetail()).thenReturn(true);
-    when(commandTime.getSetAccountDetail()).thenReturn(setAccountDetailTime);
+    when(commandTime.hasCompareAndSetAccountDetail()).thenReturn(true);
+    when(commandTime.getCompareAndSetAccountDetail()).thenReturn(compareAndSetAccountDetail);
 
     when(commandValue.hasSetAccountDetail()).thenReturn(true);
     when(commandValue.getSetAccountDetail()).thenReturn(setAccountDetailValue);

@@ -10,6 +10,7 @@ import static iroha.validation.utils.ValidationUtils.sendWithLastResponseWaiting
 
 import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
 import iroha.protocol.Commands.Command;
+import iroha.protocol.Commands.CompareAndSetAccountDetail;
 import iroha.protocol.Commands.SetAccountDetail;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.Endpoint.TxStatus;
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import jp.co.soramitsu.iroha.java.QueryAPI;
+import jp.co.soramitsu.iroha.java.Utils;
 import kotlin.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -160,13 +162,30 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
         .filter(it -> limitSetterAccount.equals(it.getCreatorAccountId()))
         .map(ReducedPayload::getCommandsList)
         .flatMap(Collection::stream)
-        .filter(Command::hasSetAccountDetail)
-        .map(Command::getSetAccountDetail)
-        .filter(command -> limitHolderAccount.equals(command.getAccountId()))
+        .filter(command -> command.hasSetAccountDetail() || command.hasCompareAndSetAccountDetail())
+        .map(command -> {
+          if (command.hasSetAccountDetail()) {
+            final SetAccountDetail setAccountDetail = command.getSetAccountDetail();
+            return new AccountDetailsData(
+                setAccountDetail.getAccountId(),
+                setAccountDetail.getKey(),
+                setAccountDetail.getValue()
+            );
+          } else {
+            final CompareAndSetAccountDetail compareAndSetAccountDetail = command
+                .getCompareAndSetAccountDetail();
+            return new AccountDetailsData(
+                compareAndSetAccountDetail.getAccountId(),
+                compareAndSetAccountDetail.getKey(),
+                compareAndSetAccountDetail.getValue()
+            );
+          }
+        })
+        .filter(accountDetailsData -> limitHolderAccount.equals(accountDetailsData.accountId))
         .collect(
             Collectors.toMap(
-                SetAccountDetail::getKey,
-                SetAccountDetail::getValue
+                accountDetailsData -> accountDetailsData.key,
+                accountDetailsData -> accountDetailsData.value
             )
         );
 
@@ -211,17 +230,20 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
       if (newDetails.containsKey(LIMIT_AMOUNT_KEY)) {
         final String newTimeDue = newDetails.get(LIMIT_TIME_KEY);
         final String newLimitValue = newDetails.get(LIMIT_AMOUNT_KEY);
+        final Transaction transaction = jp.co.soramitsu.iroha.java.Transaction
+            .builder(queryAPI.getAccountId())
+            .setAccountDetail(limitHolderAccount, LIMIT_AMOUNT_KEY, newLimitValue)
+            .setAccountDetail(limitHolderAccount, LIMIT_TIME_KEY, newTimeDue)
+            .sign(queryAPI.getKeyPair())
+            .build();
         TxStatus txStatus = sendWithLastResponseWaiting(
             queryAPI.getApi(),
-            jp.co.soramitsu.iroha.java.Transaction.builder(queryAPI.getAccountId())
-                .setAccountDetail(limitHolderAccount, LIMIT_AMOUNT_KEY, newLimitValue)
-                .setAccountDetail(limitHolderAccount, LIMIT_TIME_KEY, newTimeDue)
-                .sign(queryAPI.getKeyPair())
-                .build()
+            transaction
         ).getTxStatus();
         if (!txStatus.equals(TxStatus.COMMITTED)) {
           throw new IllegalStateException(
               "Could not update withdrawal limits. Got transaction status: " + txStatus.name()
+                  + ". Hash: " + Utils.toHexHash(transaction)
           );
         }
         updateWithdrawalLimits(
@@ -241,12 +263,40 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
       final XorWithdrawalLimitRemainder currentLimits = this.xorWithdrawalLimitRemainder.get();
       final BigDecimal remaining = currentLimits.getAmountRemaining().subtract(withdrawalsAmount);
       final long timestampDue = currentLimits.getTimestampDue();
+      final Transaction transaction = jp.co.soramitsu.iroha.java.Transaction
+          .builder(queryAPI.getAccountId())
+          .setAccountDetail(limitHolderAccount, LIMIT_AMOUNT_KEY, remaining.toPlainString())
+          .sign(queryAPI.getKeyPair())
+          .build();
+      TxStatus txStatus = sendWithLastResponseWaiting(
+          queryAPI.getApi(),
+          transaction
+      ).getTxStatus();
+      if (!txStatus.equals(TxStatus.COMMITTED)) {
+        throw new IllegalStateException(
+            "Could not update withdrawal limits. Got transaction status: " + txStatus.name()
+                + ". Hash: " + Utils.toHexHash(transaction)
+        );
+      }
       updateWithdrawalLimits(
           new XorWithdrawalLimitRemainder(
               remaining,
               timestampDue
           )
       );
+    }
+  }
+
+  private static class AccountDetailsData {
+
+    private final String accountId;
+    private final String key;
+    private final String value;
+
+    public AccountDetailsData(String accountId, String key, String value) {
+      this.accountId = accountId;
+      this.key = key;
+      this.value = value;
     }
   }
 }
