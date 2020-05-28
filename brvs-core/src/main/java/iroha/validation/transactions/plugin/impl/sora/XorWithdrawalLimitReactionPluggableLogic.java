@@ -19,11 +19,13 @@ import iroha.protocol.TransactionOuterClass.Transaction.Payload;
 import iroha.protocol.TransactionOuterClass.Transaction.Payload.ReducedPayload;
 import iroha.validation.rules.impl.sora.XorWithdrawalLimitRule.XorWithdrawalLimitRemainder;
 import iroha.validation.transactions.plugin.PluggableLogic;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -50,6 +52,7 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
   private final String limitSetterAccount;
   private final AtomicReference<XorWithdrawalLimitRemainder> xorWithdrawalLimitRemainder;
   private final String withdrawalAccountId;
+  private final RegistrationProvider registrationProvider;
 
   public XorWithdrawalLimitReactionPluggableLogic(
       QueryAPI queryAPI,
@@ -57,7 +60,8 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
       String limitHolderAccount,
       String limitSetterAccount,
       AtomicReference<XorWithdrawalLimitRemainder> xorWithdrawalLimitRemainder,
-      String withdrawalAccountId) {
+      String withdrawalAccountId,
+      RegistrationProvider registrationProvider) {
 
     Objects.requireNonNull(
         queryAPI,
@@ -81,6 +85,10 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
         xorWithdrawalLimitRemainder,
         "Xor withdrawal limit remainder reference must not be null"
     );
+    Objects.requireNonNull(
+        registrationProvider,
+        "Registration provider reference must not be null"
+    );
     if (StringUtils.isEmpty(withdrawalAccountId)) {
       throw new IllegalArgumentException(
           "Withdrawal account ID must not be neither null nor empty"
@@ -92,6 +100,7 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
     this.limitSetterAccount = limitSetterAccount;
     this.xorWithdrawalLimitRemainder = xorWithdrawalLimitRemainder;
     this.withdrawalAccountId = withdrawalAccountId;
+    this.registrationProvider = registrationProvider;
 
     final long timestampDue = getTimestampFrom(
         irohaQueryHelper,
@@ -193,6 +202,7 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
     final long lastUpdateTime = Optional.ofNullable(newDetails.get(LIMIT_TIME_KEY))
         .map(Long::parseLong).orElse(0L);
 
+    final Set<String> registeredAccounts = registrationProvider.getRegisteredAccounts();
     final BigDecimal withdrawalsAmount = StreamSupport.stream(sourceObjects.spliterator(), false)
         .map(Transaction::getPayload)
         .map(Payload::getReducedPayload)
@@ -202,6 +212,7 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
         .filter(Command::hasTransferAsset)
         .map(Command::getTransferAsset)
         .filter(command -> ASSET_ID.equals(command.getAssetId()))
+        .filter(command -> registeredAccounts.contains(command.getSrcAccountId()))
         .filter(command -> withdrawalAccountId.equals(command.getDestAccountId()))
         .map(TransferAsset::getAmount)
         .map(BigDecimal::new)
@@ -232,8 +243,8 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
         final String newLimitValue = newDetails.get(LIMIT_AMOUNT_KEY);
         final Transaction transaction = jp.co.soramitsu.iroha.java.Transaction
             .builder(queryAPI.getAccountId())
-            .setAccountDetail(limitHolderAccount, LIMIT_AMOUNT_KEY, newLimitValue)
             .setAccountDetail(limitHolderAccount, LIMIT_TIME_KEY, newTimeDue)
+            .setAccountDetail(limitHolderAccount, LIMIT_AMOUNT_KEY, newLimitValue)
             .sign(queryAPI.getKeyPair())
             .build();
         TxStatus txStatus = sendWithLastResponseWaiting(
@@ -265,6 +276,7 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
       final long timestampDue = currentLimits.getTimestampDue();
       final Transaction transaction = jp.co.soramitsu.iroha.java.Transaction
           .builder(queryAPI.getAccountId())
+          .setAccountDetail(limitHolderAccount, LIMIT_TIME_KEY, String.valueOf(timestampDue))
           .setAccountDetail(limitHolderAccount, LIMIT_AMOUNT_KEY, remaining.toPlainString())
           .sign(queryAPI.getKeyPair())
           .build();

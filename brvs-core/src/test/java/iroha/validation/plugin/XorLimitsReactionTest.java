@@ -28,9 +28,11 @@ import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.impl.sora.XorWithdrawalLimitRule.XorWithdrawalLimitRemainder;
 import iroha.validation.transactions.plugin.impl.sora.XorWithdrawalLimitReactionPluggableLogic;
+import iroha.validation.transactions.provider.RegistrationProvider;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
@@ -76,6 +78,7 @@ public class XorLimitsReactionTest {
     when(transferAsset.getAssetId()).thenReturn(ASSET_ID);
     when(transferAsset.getAmount()).thenReturn(newLimit.toPlainString());
     when(transferAsset.getDestAccountId()).thenReturn(USER_ID);
+    when(transferAsset.getSrcAccountId()).thenReturn(USER_ID);
 
     when(commandTime.hasCompareAndSetAccountDetail()).thenReturn(true);
     when(commandTime.getCompareAndSetAccountDetail()).thenReturn(compareAndSetAccountDetail);
@@ -102,14 +105,18 @@ public class XorLimitsReactionTest {
     when(irohaQueryHelper.getAccountDetails(any(), any(), any()).get())
         .thenReturn(Optional.empty());
 
+    RegistrationProvider registrationProvider = mock(RegistrationProvider.class);
+    when(registrationProvider.getRegisteredAccounts())
+        .thenReturn(new HashSet<>(Collections.singletonList(USER_ID)));
+
     xorWithdrawalLimitReactionPluggableLogic = new XorWithdrawalLimitReactionPluggableLogic(
         queryAPI,
         irohaQueryHelper,
         USER_ID,
         USER_ID,
         atomicReference,
-        USER_ID
-    );
+        USER_ID,
+        registrationProvider);
   }
 
   /**

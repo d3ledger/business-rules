@@ -130,6 +130,7 @@
     <constructor-arg name="limitSetterAccount" value="${SORA_WITHDRAWAL_LIMIT_SETTER_ACCOUNT_ID}"/>
     <constructor-arg name="xorWithdrawalLimitRemainder" ref="xorWithdrawalLimitRemainderReference"/>
     <constructor-arg name="withdrawalAccountId" value="${SORA_WITHDRAWAL_ACCOUNT_ID}"/>
+    <constructor-arg name="registrationProvider" ref="accountManager"/>
   </bean>
 
   <util:list id="logicList" list-class="java.util.ArrayList"
