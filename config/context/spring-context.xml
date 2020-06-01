@@ -228,6 +228,7 @@
     <entry key="minKeysRule" value-ref="minKeysRule"/>
     <entry key="billingRule" value-ref="billingRule"/>
     <entry key="quorumBanRule" value-ref="quorumBanRule"/>
+    <entry key="xorWithdrawalLimitRule" value-ref="xorWithdrawalLimitRule"/>
     <!-- More can be added -->
   </util:map>
 
