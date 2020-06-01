@@ -239,7 +239,12 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
           suppliesLeft = constructInitialAmountMap(initialProportions);
         }
         final SoraDistributionProportions finalSuppliesLeft = suppliesLeft;
-        final BigDecimal multipliedFee = multiplyWithRespect(fee, FEE_RATE, false);
+        BigDecimal multipliedFee = multiplyWithRespect(fee, FEE_RATE, false);
+        final Map<String, BigDecimal> feesByUsers = calculateFeesByUsers(
+            multipliedFee,
+            initialProportions.accountProportions
+        );
+        final BigDecimal transferAmountWithFeeExcluded = transferAmount.subtract(multipliedFee);
         // <String -> Amount> map for the project client accounts
         final Map<String, BigDecimal> toDistributeMap = initialProportions.accountProportions
             .entrySet()
@@ -249,9 +254,8 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
                     Entry::getKey,
                     entry -> calculateAmountForDistribution(
                         entry.getValue(),
-                        transferAmount,
-                        finalSuppliesLeft.accountProportions.get(entry.getKey()),
-                        multipliedFee
+                        transferAmountWithFeeExcluded,
+                        finalSuppliesLeft.accountProportions.get(entry.getKey())
                     )
                 )
             );
@@ -263,8 +267,8 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
                 transferAmount,
                 finalSuppliesLeft,
                 toDistributeMap,
-                initialProportions,
                 fee,
+                feesByUsers,
                 soraDistributionInputContext.timestamp
             ),
             this::mergeLists
@@ -322,30 +326,22 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
       BigDecimal transferAmount,
       SoraDistributionProportions supplies,
       Map<String, BigDecimal> toDistributeMap,
-      SoraDistributionProportions initialProportions,
       BigDecimal fee,
+      Map<String, BigDecimal> feesByUsers,
       long creationTime) {
     int commandCounter = 0;
     final List<Transaction> transactionList = new ArrayList<>();
-    final BigDecimal multipliedFee = multiplyWithRespect(fee, FEE_RATE, false);
     final SoraDistributionProportions afterDistribution = getSuppliesLeftAfterDistributions(
         supplies,
         transferAmount,
         toDistributeMap,
-        initialProportions,
-        multipliedFee
+        feesByUsers
     );
     final SoraDistributionFinished soraDistributionFinished = new SoraDistributionFinished(
         afterDistribution.totalSupply.signum() == 0 ||
             afterDistribution.accountProportions.values().stream().allMatch(
                 amount -> amount.signum() == 0
             )
-    );
-    transactionList.add(
-        constructFeeTransaction(
-            fee,
-            creationTime
-        )
     );
     afterDistribution.rewardToDistribute = afterDistribution.rewardToDistribute.subtract(fee);
     TransactionBuilder transactionBuilder = jp.co.soramitsu.iroha.java.Transaction
@@ -356,6 +352,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
           toDistributeMap.merge(account, amount, BigDecimal::add)
       );
     }
+    boolean anyDistributions = false;
     for (Map.Entry<String, BigDecimal> entry : toDistributeMap.entrySet()) {
       final BigDecimal amount = entry.getValue();
       if (amount.signum() == 1) {
@@ -373,19 +370,29 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
           transactionBuilder = jp.co.soramitsu.iroha.java.Transaction.builder(brvsAccountId);
           commandCounter = 0;
         }
+        anyDistributions = true;
       }
     }
     if (commandCounter > 0) {
       transactionList.add(transactionBuilder.build().build());
     }
-    // In case it is going to finish, burn remains
-    if (soraDistributionFinished.finished && afterDistribution.rewardToDistribute.signum() == 1) {
+    if (anyDistributions) {
       transactionList.add(
-          constructBurnRemainsTransaction(
-              afterDistribution.rewardToDistribute,
+          constructFeeTransaction(
+              fee,
               creationTime
           )
       );
+    }
+    // In case it is going to finish, burn remains
+    if (soraDistributionFinished.finished && afterDistribution.rewardToDistribute.signum() == 1) {
+      final Transaction remainsTransaction = constructBurnRemainsTransaction(
+          afterDistribution.rewardToDistribute,
+          creationTime
+      );
+      if (remainsTransaction != null) {
+        transactionList.add(remainsTransaction);
+      }
       afterDistribution.rewardToDistribute = BigDecimal.ZERO;
     }
     transactionList.add(
@@ -396,7 +403,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
             creationTime
         )
     );
-    logger.debug("Constrtucted project distribution transactions: count - {}",
+    logger.debug("Constructed project distribution transactions: count - {}",
         transactionList.size()
     );
     return transactionList;
@@ -452,11 +459,15 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
         .build();
   }
 
-  private Transaction constructFeeTransaction(BigDecimal amount, long creationTime) {
+  private Transaction constructFeeTransaction(BigDecimal fee, long creationTime) {
+    if (fee.signum() < 1) {
+      logger.warn("Got negative value for subtraction");
+      return null;
+    }
     return jp.co.soramitsu.iroha.java.Transaction.builder(brvsAccountId, creationTime)
         .subtractAssetQuantity(
             XOR_ASSET_ID,
-            amount
+            fee
         )
         .sign(brvsKeypair)
         .build();
@@ -464,7 +475,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
 
   private Transaction constructBurnRemainsTransaction(BigDecimal amount, long creationTime) {
     logger.info("Going to burn remaining ditstibution balance {}", amount.toPlainString());
-    // for now the same
+    // for now is the same
     return constructFeeTransaction(amount, creationTime);
   }
 
@@ -472,8 +483,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
       SoraDistributionProportions supplies,
       BigDecimal transferAmount,
       Map<String, BigDecimal> toDistributeMap,
-      SoraDistributionProportions initialProportions,
-      BigDecimal fee) {
+      Map<String, BigDecimal> feesByUsers) {
     final BigDecimal totalSupply = supplies.totalSupply;
     final Map<String, BigDecimal> resultingSuppliesMap = supplies.accountProportions.entrySet()
         .stream()
@@ -481,16 +491,17 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
             Collectors.toMap(
                 Entry::getKey,
                 entry -> {
-                  BigDecimal subtrahend = toDistributeMap.get(entry.getKey());
-                  if (subtrahend == null) {
-                    subtrahend = BigDecimal.ZERO;
+                  final String userId = entry.getKey();
+                  final BigDecimal subtrahend = Optional.ofNullable(toDistributeMap.get(userId))
+                      .orElse(BigDecimal.ZERO);
+                  BigDecimal remainingForUser = entry.getValue()
+                      .subtract(subtrahend)
+                      .subtract(feesByUsers.get(userId));
+                  if (remainingForUser.signum() == -1) {
+                    toDistributeMap.put(userId, subtrahend.add(remainingForUser));
+                    remainingForUser = BigDecimal.ZERO;
                   }
-                  final BigDecimal feeSubtrahend = multiplyWithRespect(
-                      initialProportions.accountProportions.get(entry.getKey()),
-                      fee,
-                      false
-                  ).add(subtrahend);
-                  return entry.getValue().subtract(feeSubtrahend).max(BigDecimal.ZERO);
+                  return remainingForUser;
                 }
             )
         );
@@ -532,17 +543,26 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
   private BigDecimal calculateAmountForDistribution(
       BigDecimal percentage,
       BigDecimal transferAmount,
-      BigDecimal leftToDistribute,
-      BigDecimal fee) {
+      BigDecimal leftToDistribute) {
     final BigDecimal calculated = multiplyWithRespect(
         transferAmount,
         percentage,
         true
     );
-    if (leftToDistribute == null) {
-      return calculated;
-    }
-    return calculated.min(leftToDistribute).subtract(multiplyWithRespect(fee, percentage, false));
+    return Optional.ofNullable(leftToDistribute).map(calculated::min).orElse(calculated);
+  }
+
+  private Map<String, BigDecimal> calculateFeesByUsers(
+      BigDecimal fee,
+      Map<String, BigDecimal> proportions) {
+    return proportions.entrySet()
+        .stream()
+        .collect(
+            Collectors.toMap(
+                Entry::getKey,
+                entry -> multiplyWithRespect(fee, entry.getValue(), false)
+            )
+        );
   }
 
   private SoraDistributionProportions queryProportionsForAccount(String accountId) {

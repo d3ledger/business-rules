@@ -69,6 +69,7 @@ import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.QueryBuilder;
 import jp.co.soramitsu.iroha.java.Transaction;
+import jp.co.soramitsu.iroha.java.TransactionBuilder;
 import jp.co.soramitsu.iroha.java.Utils;
 import jp.co.soramitsu.iroha.java.subscription.WaitForTerminalStatus;
 import jp.co.soramitsu.iroha.testcontainers.IrohaContainer;
@@ -762,13 +763,14 @@ public class IrohaIntegrationTest {
     BigDecimal twoBalance = getBalance(projectParticipantTwoId);
     BigDecimal threeBalance = getBalance(projectParticipantThreeId);
 
-    irohaAPI.transaction(
-        Transaction.builder(validatorId)
-            .subtractAssetQuantity(assetId, getBalance(validatorId))
-            .addAssetQuantity(assetId, new BigDecimal("1001"))
-            .sign(validatorKeypair)
-            .build()
-    ).blockingLast();
+    final TransactionBuilder transaction = Transaction
+        .builder(validatorId)
+        .addAssetQuantity(assetId, rewardToDistribute);
+    final BigDecimal validatorBalance = getBalance(validatorId);
+    if (validatorBalance.signum() == 1) {
+      transaction.subtractAssetQuantity(assetId, validatorBalance);
+    }
+    irohaAPI.transaction(transaction.sign(validatorKeypair).build()).blockingLast();
     final BigDecimal amount = new BigDecimal("300000");
     irohaAPI.transaction(
         Transaction.builder(projectInfoSetterId)
@@ -878,6 +880,8 @@ public class IrohaIntegrationTest {
 
     assertNotNull(remainingNow);
     assertEquals(0, remainingNow.compareTo(BigDecimal.ZERO));
+
+    assertEquals(0, BigDecimal.ZERO.compareTo(getBalance(validatorId)));
   }
 
   /**
@@ -906,13 +910,14 @@ public class IrohaIntegrationTest {
     BigDecimal twoBalance = getBalance(projectParticipantTwoId);
     BigDecimal threeBalance = getBalance(projectParticipantThreeId);
 
-    irohaAPI.transaction(
-        Transaction.builder(validatorId)
-            .subtractAssetQuantity(assetId, getBalance(validatorId))
-            .addAssetQuantity(assetId, BigDecimal.ONE)
-            .sign(validatorKeypair)
-            .build()
-    ).blockingLast();
+    final TransactionBuilder transaction = Transaction
+        .builder(validatorId)
+        .addAssetQuantity(assetId, BigDecimal.ONE);
+    final BigDecimal validatorBalance = getBalance(validatorId);
+    if (validatorBalance.signum() == 1) {
+      transaction.subtractAssetQuantity(assetId, validatorBalance);
+    }
+    irohaAPI.transaction(transaction.sign(validatorKeypair).build()).blockingLast();
     irohaAPI.transaction(
         Transaction.builder(projectInfoSetterId)
             .addAssetQuantity(assetId, new BigDecimal("300000"))
@@ -967,7 +972,7 @@ public class IrohaIntegrationTest {
     final Map<String, BigDecimal> proportionsMap = new HashMap<>();
     proportionsMap.put(projectParticipantOneId, new BigDecimal("0.000000142327463691"));
     final BigDecimal totalSupply = new BigDecimal("12837.0638633542");
-    final BigDecimal rewardToDistribute = new BigDecimal("0.401821373642362953");
+    final BigDecimal rewardToDistribute = new BigDecimal("0.401827066740910593");
     final SoraDistributionProportions proportions = new SoraDistributionProportions(
         proportionsMap,
         totalSupply,
@@ -976,13 +981,14 @@ public class IrohaIntegrationTest {
 
     BigDecimal oneBalance = getBalance(projectParticipantOneId);
 
-    irohaAPI.transaction(
-        Transaction.builder(validatorId)
-            .subtractAssetQuantity(assetId, getBalance(validatorId))
-            .addAssetQuantity(assetId, rewardToDistribute)
-            .sign(validatorKeypair)
-            .build()
-    ).blockingLast();
+    final TransactionBuilder transaction = Transaction
+        .builder(validatorId)
+        .addAssetQuantity(assetId, rewardToDistribute);
+    final BigDecimal validatorBalance = getBalance(validatorId);
+    if (validatorBalance.signum() == 1) {
+      transaction.subtractAssetQuantity(assetId, validatorBalance);
+    }
+    irohaAPI.transaction(transaction.sign(validatorKeypair).build()).blockingLast();
     irohaAPI.transaction(
         Transaction.builder(projectInfoSetterId)
             .addAssetQuantity(assetId, totalSupply.add(BigDecimal.ONE))
@@ -1085,6 +1091,8 @@ public class IrohaIntegrationTest {
 
     assertNotNull(finishedNow);
     assertTrue(finishedNow.getFinished());
+
+    assertEquals(0, BigDecimal.ZERO.compareTo(getBalance(validatorId)));
   }
 
   private BigDecimal getBalance(String accountId) {
