@@ -86,7 +86,7 @@ public class XorWithdrawalLimitRule implements Rule {
 
   public static class XorWithdrawalLimitRemainder {
 
-    private final BigDecimal amountRemaining;
+    private BigDecimal amountRemaining;
 
     private final long timestampDue;
 
@@ -101,6 +101,10 @@ public class XorWithdrawalLimitRule implements Rule {
 
     public BigDecimal getAmountRemaining() {
       return amountRemaining;
+    }
+
+    public void setAmountRemaining(BigDecimal amountRemaining) {
+      this.amountRemaining = amountRemaining;
     }
 
     public long getTimestampDue() {
