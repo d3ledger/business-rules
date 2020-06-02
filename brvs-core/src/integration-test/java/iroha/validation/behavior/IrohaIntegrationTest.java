@@ -970,9 +970,9 @@ public class IrohaIntegrationTest {
   void wildDistributionProportions() throws InterruptedException {
     // projectOwner is a json setter
     final Map<String, BigDecimal> proportionsMap = new HashMap<>();
-    proportionsMap.put(projectParticipantOneId, new BigDecimal("0.000000142327463691"));
+    proportionsMap.put(projectParticipantOneId, new BigDecimal("0.00142327463691"));
     final BigDecimal totalSupply = new BigDecimal("12837.0638633542");
-    final BigDecimal rewardToDistribute = new BigDecimal("0.401827066740910593");
+    final BigDecimal rewardToDistribute = new BigDecimal("18.27066740910593086");
     final SoraDistributionProportions proportions = new SoraDistributionProportions(
         proportionsMap,
         totalSupply,
@@ -980,6 +980,7 @@ public class IrohaIntegrationTest {
     );
 
     BigDecimal oneBalance = getBalance(projectParticipantOneId);
+    System.out.println(getBalance(projectParticipantOneId));
 
     final TransactionBuilder transaction = Transaction
         .builder(validatorId)
@@ -1016,7 +1017,8 @@ public class IrohaIntegrationTest {
 
     Thread.sleep(5000);
 
-    oneBalance = oneBalance.add(new BigDecimal("0.000402383062110052"));
+    oneBalance = oneBalance.add(new BigDecimal("3.938063367469625560"));
+
     assertEquals(
         0,
         oneBalance.compareTo(getBalance(projectParticipantOneId))
@@ -1035,7 +1037,7 @@ public class IrohaIntegrationTest {
 
     Thread.sleep(5000);
 
-    oneBalance = oneBalance.add(new BigDecimal("0.000567900812873459"));
+    oneBalance = oneBalance.add(new BigDecimal("5.593240875103690999"));
 
     assertEquals(
         0,
@@ -1054,7 +1056,7 @@ public class IrohaIntegrationTest {
 
     Thread.sleep(5000);
 
-    oneBalance = oneBalance.add(new BigDecimal("0.000425573349182459"));
+    oneBalance = oneBalance.add(new BigDecimal("4.169966238193690999"));
 
     assertEquals(
         0,
@@ -1074,7 +1076,7 @@ public class IrohaIntegrationTest {
 
     Thread.sleep(5000);
 
-    oneBalance = oneBalance.add(new BigDecimal("0.000425516418196983"));
+    oneBalance = oneBalance.add(new BigDecimal("4.169396928338923297"));
 
     assertEquals(
         0,

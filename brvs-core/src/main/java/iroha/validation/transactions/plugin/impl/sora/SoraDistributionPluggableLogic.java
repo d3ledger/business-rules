@@ -58,7 +58,6 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
   );
   private static final int TRANSACTION_SIZE = 9999;
   private static final String DESCRIPTION_FORMAT = "Distribution from %s";
-  private static final BigDecimal FEE_RATE = new BigDecimal("100");
 
   private final QueryAPI queryAPI;
   private final String brvsAccountId;
@@ -239,12 +238,18 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
           suppliesLeft = constructInitialAmountMap(initialProportions);
         }
         final SoraDistributionProportions finalSuppliesLeft = suppliesLeft;
-        BigDecimal multipliedFee = multiplyWithRespect(fee, FEE_RATE, false);
+        BigDecimal normalizedFee = fee
+            .divide(
+                initialProportions.accountProportions.values().stream()
+                    .reduce(BigDecimal.ZERO, BigDecimal::add),
+                XOR_PRECISION,
+                RoundingMode.UP
+            );
         final Map<String, BigDecimal> feesByUsers = calculateFeesByUsers(
-            multipliedFee,
+            normalizedFee,
             initialProportions.accountProportions
         );
-        final BigDecimal transferAmountWithFeeExcluded = transferAmount.subtract(multipliedFee);
+        final BigDecimal transferAmountWithFeeExcluded = transferAmount.subtract(normalizedFee);
         // <String -> Amount> map for the project client accounts
         final Map<String, BigDecimal> toDistributeMap = initialProportions.accountProportions
             .entrySet()
@@ -366,7 +371,8 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
         commandCounter++;
         if (commandCounter == TRANSACTION_SIZE) {
           transactionList.add(transactionBuilder.build().build());
-          transactionBuilder = jp.co.soramitsu.iroha.java.Transaction.builder(brvsAccountId);
+          transactionBuilder = jp.co.soramitsu.iroha.java.Transaction
+              .builder(brvsAccountId, creationTime);
           commandCounter = 0;
         }
         anyDistributions = true;
