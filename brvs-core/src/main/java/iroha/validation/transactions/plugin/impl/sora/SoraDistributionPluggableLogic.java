@@ -343,7 +343,6 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
                 amount -> amount.signum() == 0
             )
     );
-    afterDistribution.rewardToDistribute = afterDistribution.rewardToDistribute.subtract(fee);
     TransactionBuilder transactionBuilder = jp.co.soramitsu.iroha.java.Transaction
         .builder(brvsAccountId, creationTime);
     // In case it is going to finish, add all amounts left
@@ -383,6 +382,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
               creationTime
           )
       );
+      afterDistribution.rewardToDistribute = afterDistribution.rewardToDistribute.subtract(fee);
     }
     // In case it is going to finish, burn remains
     if (soraDistributionFinished.finished && afterDistribution.rewardToDistribute.signum() == 1) {
@@ -474,7 +474,7 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
   }
 
   private Transaction constructBurnRemainsTransaction(BigDecimal amount, long creationTime) {
-    logger.info("Going to burn remaining ditstibution balance {}", amount.toPlainString());
+    logger.info("Going to burn remaining distribution balance {}", amount.toPlainString());
     // for now is the same
     return constructFeeTransaction(amount, creationTime);
   }
