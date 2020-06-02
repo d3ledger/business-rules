@@ -3,7 +3,7 @@ version: '3.1'
 services:
   brvs-core:
     container_name: "brvs-core"
-    image: nexus.iroha.tech:19002/brvs-deploy/brvs-core:latest
+    image: docker.soramitsu.co.jp/soranet/brvs-core:latest
     ports:
       - 8080:8080
     depends_on:

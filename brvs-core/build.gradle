@@ -32,7 +32,7 @@ soramitsu {
     projectGroup = 'soranet'
     docker {
         // docker tag
-        tag = System.getenv("TAG")
+        tag = System.getenv("DOCKER_TAG")
         // jar file that is used in the generated Dockerfile
         jar = new File("build/libs/app.jar")
         // files that will be added to the docker image (optional)
