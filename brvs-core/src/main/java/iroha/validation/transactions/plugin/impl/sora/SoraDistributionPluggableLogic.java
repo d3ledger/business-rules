@@ -382,12 +382,13 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
       transactionList.add(transactionBuilder.build().build());
     }
     if (anyDistributions) {
-      transactionList.add(
-          constructFeeTransaction(
-              fee,
-              creationTime
-          )
+      final Transaction feeTransaction = constructFeeTransaction(
+          fee,
+          creationTime
       );
+      if (feeTransaction != null) {
+        transactionList.add(feeTransaction);
+      }
       afterDistribution.rewardToDistribute = afterDistribution.rewardToDistribute.subtract(fee);
     }
     // In case it is going to finish, burn remains
