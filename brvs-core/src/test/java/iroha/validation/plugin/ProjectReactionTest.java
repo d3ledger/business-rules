@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.SetAccountDetail;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -29,12 +30,14 @@ public class ProjectReactionTest {
   private static final String USERNAME = "user";
   private static final String USER_ID = USERNAME + "@" + DOMAIN;
   private static final String DESCRIPTION = "DESCRIPTION";
+  private Block block;
   private Transaction transaction;
   private NewProjectReactionPluggableLogic newProjectReactionPluggableLogic;
   private ProjectAccountProvider projectAccountProvider;
 
   @BeforeEach
   public void initMocks() {
+    block = mock(Block.class, RETURNS_DEEP_STUBS);
     transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
     when(transaction.getPayload().getReducedPayload().getCreatorAccountId()).thenReturn(USER_ID);
     projectAccountProvider = mock(ProjectAccountProvider.class);
@@ -53,6 +56,8 @@ public class ProjectReactionTest {
     when(command.getSetAccountDetail()).thenReturn(setAccountDetail);
     when(transaction.getPayload().getReducedPayload().getCommandsList())
         .thenReturn(Collections.singletonList(command));
+    when(block.getBlockV1().getPayload().getTransactionsList())
+        .thenReturn(Collections.singletonList(transaction));
   }
 
   /**
@@ -64,7 +69,7 @@ public class ProjectReactionTest {
   @SneakyThrows
   @Test
   public void sunnyDayTest() {
-    newProjectReactionPluggableLogic.apply(Collections.singleton(transaction));
+    newProjectReactionPluggableLogic.apply(block);
     verify(projectAccountProvider).addProjectWithDescription(
         ArgumentMatchers.eq(USERNAME + ACCOUNT_PLACEHOLDER + DOMAIN),
         ArgumentMatchers.eq(DESCRIPTION)

@@ -14,6 +14,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.AddSignatory;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -30,12 +31,14 @@ public class QuorumReactionTest {
   private static final String USER_ID = USERNAME + "@" + DOMAIN;
   private static final String KEY = "KEY";
   private static final String KEY_TWO = "KEY_TWO";
+  private Block block;
   private Transaction transaction;
   private QuorumReactionPluggableLogic quorumReactionPluggableLogic;
   private AccountManager accountManager;
 
   @BeforeEach
   public void initMocks() {
+    block = mock(Block.class, RETURNS_DEEP_STUBS);
     transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
     accountManager = mock(AccountManager.class);
     quorumReactionPluggableLogic = new QuorumReactionPluggableLogic(accountManager);
@@ -54,6 +57,8 @@ public class QuorumReactionTest {
         .thenReturn(Collections.singleton(KEY));
     when(accountManager.getValidQuorumForUserAccount(USER_ID))
         .thenReturn(2);
+    when(block.getBlockV1().getPayload().getTransactionsList())
+        .thenReturn(Collections.singletonList(transaction));
   }
 
   /**
@@ -66,7 +71,7 @@ public class QuorumReactionTest {
   public void sunnyDayTest() {
     when(getTxAccountId(transaction)).thenReturn(USER_ID);
 
-    quorumReactionPluggableLogic.apply(Collections.singleton(transaction));
+    quorumReactionPluggableLogic.apply(block);
     verify(accountManager).setUserQuorumDetail(eq(USER_ID), any());
     verify(accountManager).setUserAccountQuorum(eq(USER_ID), eq(2));
   }
@@ -80,7 +85,7 @@ public class QuorumReactionTest {
   public void unknownAccountTest() {
     when(getTxAccountId(transaction)).thenReturn("unknown@sora");
 
-    quorumReactionPluggableLogic.apply(Collections.singleton(transaction));
+    quorumReactionPluggableLogic.apply(block);
     verify(accountManager, never()).setUserQuorumDetail(eq(USER_ID), any());
     verify(accountManager, never()).setUserAccountQuorum(eq(USER_ID), eq(2));
   }

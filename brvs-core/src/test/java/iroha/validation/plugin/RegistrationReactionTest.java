@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.CreateAccount;
 import iroha.protocol.TransactionOuterClass.Transaction;
@@ -26,12 +27,14 @@ public class RegistrationReactionTest {
   private static final String DOMAIN = "sora";
   private static final String USERNAME = "user";
   private static final String USER_ID = USERNAME + "@" + DOMAIN;
+  private Block block;
   private Transaction transaction;
   private RegistrationReactionPluggableLogic registrationReactionPluggableLogic;
   private RegistrationProvider registrationProvider;
 
   @BeforeEach
   public void initMocks() {
+    block = mock(Block.class, RETURNS_DEEP_STUBS);
     transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
     registrationProvider = mock(RegistrationProvider.class);
     registrationReactionPluggableLogic = new RegistrationReactionPluggableLogic(
@@ -48,6 +51,8 @@ public class RegistrationReactionTest {
     when(command.getCreateAccount()).thenReturn(createAccount);
     when(transaction.getPayload().getReducedPayload().getCommandsList())
         .thenReturn(Collections.singletonList(command));
+    when(block.getBlockV1().getPayload().getTransactionsList())
+        .thenReturn(Collections.singletonList(transaction));
   }
 
   /**
@@ -59,7 +64,7 @@ public class RegistrationReactionTest {
   @SneakyThrows
   @Test
   public void sunnyDayTest() {
-    registrationReactionPluggableLogic.apply(Collections.singleton(transaction));
+    registrationReactionPluggableLogic.apply(block);
     verify(registrationProvider).register(ArgumentMatchers.anyCollection());
   }
 }

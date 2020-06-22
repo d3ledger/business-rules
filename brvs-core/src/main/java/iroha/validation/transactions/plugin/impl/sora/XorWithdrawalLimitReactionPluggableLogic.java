@@ -9,6 +9,7 @@ import static iroha.validation.rules.impl.sora.XorWithdrawalLimitRule.ASSET_ID;
 import static iroha.validation.utils.ValidationUtils.sendWithLastResponseWaiting;
 
 import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.CompareAndSetAccountDetail;
 import iroha.protocol.Commands.SetAccountDetail;
@@ -22,13 +23,14 @@ import iroha.validation.transactions.plugin.PluggableLogic;
 import iroha.validation.transactions.provider.RegistrationProvider;
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Utils;
 import kotlin.Pair;
@@ -175,10 +177,12 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
    * {@inheritDoc}
    */
   @Override
-  public Pair<Map<String, String>, BigDecimal> filterAndTransform(
-      Iterable<Transaction> sourceObjects) {
-    final Map<String, String> newDetails = StreamSupport
-        .stream(sourceObjects.spliterator(), false)
+  public Pair<Map<String, String>, BigDecimal> filterAndTransform(Block block) {
+    final List<Transaction> transactions = block.getBlockV1().getPayload().getTransactionsList();
+    if (transactions == null || transactions.isEmpty()) {
+      return new Pair<>(Collections.emptyMap(), BigDecimal.ZERO);
+    }
+    final Map<String, String> newDetails = transactions.stream()
         .map(Transaction::getPayload)
         .map(Payload::getReducedPayload)
         .filter(it -> limitSetterAccount.equals(it.getCreatorAccountId()))
@@ -216,7 +220,7 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
         .map(Long::parseLong).orElse(0L);
 
     final Set<String> registeredAccounts = registrationProvider.getRegisteredAccounts();
-    final BigDecimal withdrawalsAmount = StreamSupport.stream(sourceObjects.spliterator(), false)
+    final BigDecimal withdrawalsAmount = transactions.stream()
         .map(Transaction::getPayload)
         .map(Payload::getReducedPayload)
         .filter(pld -> pld.getCreatedTime() >= lastUpdateTime)

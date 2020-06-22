@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
 import com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl;
 import io.reactivex.ObservableSource;
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.CompareAndSetAccountDetail;
 import iroha.protocol.Commands.SetAccountDetail;
@@ -48,6 +49,7 @@ public class XorLimitsReactionTest {
   private static final String USER_ID = USERNAME + "@" + DOMAIN;
   private final long time = System.currentTimeMillis();
   private final BigDecimal newLimit = new BigDecimal("150");
+  private Block block;
   private Transaction transaction;
   private XorWithdrawalLimitReactionPluggableLogic xorWithdrawalLimitReactionPluggableLogic;
   private final AtomicReference<XorWithdrawalLimitRemainder> atomicReference =
@@ -55,6 +57,7 @@ public class XorLimitsReactionTest {
 
   @BeforeEach
   public void initMocks() {
+    block = mock(Block.class, RETURNS_DEEP_STUBS);
     transaction = mock(Transaction.class, RETURNS_DEEP_STUBS);
     when(transaction.getPayload().getReducedPayload().getCreatorAccountId()).thenReturn(USER_ID);
     when(transaction.getPayload().getReducedPayload().getCreatedTime()).thenReturn(time);
@@ -108,6 +111,8 @@ public class XorLimitsReactionTest {
     RegistrationProvider registrationProvider = mock(RegistrationProvider.class);
     when(registrationProvider.getRegisteredAccounts())
         .thenReturn(new HashSet<>(Collections.singletonList(USER_ID)));
+    when(block.getBlockV1().getPayload().getTransactionsList())
+        .thenReturn(Collections.singletonList(transaction));
 
     xorWithdrawalLimitReactionPluggableLogic = new XorWithdrawalLimitReactionPluggableLogic(
         queryAPI,
@@ -128,7 +133,7 @@ public class XorLimitsReactionTest {
    */
   @Test
   public void sunnyDayTest() {
-    xorWithdrawalLimitReactionPluggableLogic.apply(Collections.singleton(transaction));
+    xorWithdrawalLimitReactionPluggableLogic.apply(block);
     verify(atomicReference, times(3)).set(any());
   }
 }

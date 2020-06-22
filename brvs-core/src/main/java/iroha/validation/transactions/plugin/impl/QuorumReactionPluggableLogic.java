@@ -8,6 +8,7 @@ package iroha.validation.transactions.plugin.impl;
 import static iroha.validation.utils.ValidationUtils.getDomain;
 import static iroha.validation.utils.ValidationUtils.getTxAccountId;
 
+import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.plugin.PluggableLogic;
@@ -22,7 +23,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,10 +48,15 @@ public class QuorumReactionPluggableLogic extends PluggableLogic<Map<String, Col
    * {@inheritDoc}
    */
   @Override
-  public Map<String, Collection<String>> filterAndTransform(Iterable<Transaction> sourceObjects) {
+  public Map<String, Collection<String>> filterAndTransform(Block block) {
+    final List<Transaction> transactions = block.getBlockV1().getPayload().getTransactionsList();
+    if (transactions == null || transactions.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
     final Set<String> userDomains = accountManager.getUserDomains();
     final Set<String> registeredAccounts = accountManager.getRegisteredAccounts();
-    final List<Command> commands = StreamSupport.stream(sourceObjects.spliterator(), false)
+    final List<Command> commands = transactions.stream()
         .map(blockTransaction -> {
               final String creatorAccountId = getTxAccountId(blockTransaction);
               if (!userDomains.contains(getDomainSafely(creatorAccountId))) {
