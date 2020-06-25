@@ -31,7 +31,7 @@ public class BillingInfo {
   private BigDecimal feeFraction;
   private long updated;
 
-  private BillingInfo(
+  public BillingInfo(
       String domain,
       BillingTypeEnum billingType,
       String asset,

@@ -217,6 +217,7 @@
     <constructor-arg name="depositAccounts" value="${BILLING_DEPOSITACCOUNTS}"/>
     <constructor-arg name="ethWithdrawalAccount" value="${BILLING_ETHWITHDRAWALACCOUNT}"/>
     <constructor-arg name="btcWithdrawalAccount" value="${BILLING_BTCWITHDRAWALACCOUNT}"/>
+    <constructor-arg name="exchangerAccount" value="${BILLING_EXCHANGERACCOUNT}"/>
   </bean>
   <bean id="quorumBanRule" class="iroha.validation.rules.impl.core.NoQuorumModificationsRule"/>
   <bean id="xorWithdrawalLimitRule" class="iroha.validation.rules.impl.sora.XorWithdrawalLimitRule">

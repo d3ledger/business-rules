@@ -55,6 +55,7 @@ public class BillingRule implements Rule {
 
   private static final Logger logger = LoggerFactory.getLogger(BillingRule.class);
 
+  public static final String ASSET_ID = "xor#sora";
   private static final String SEPARATOR = ",";
   private static final String QUEUE_NAME = "brvs_billing_updates";
   private static final String BILLING_ERROR_MESSAGE = "Couldn't request primary billing information.";
@@ -75,6 +76,7 @@ public class BillingRule implements Rule {
   private final String rmqRoutingKey;
   private final String ethWithdrawalAccount;
   private final String btcWithdrawalAccount;
+  private final String exchangerAccount;
   private final Set<String> userDomains;
   private final Set<String> depositAccounts;
   private final Set<BillingInfo> cache = ConcurrentHashMap.newKeySet();
@@ -87,7 +89,8 @@ public class BillingRule implements Rule {
       String userDomains,
       String depositAccounts,
       String ethWithdrawalAccount,
-      String btcWithdrawalAccount) throws MalformedURLException {
+      String btcWithdrawalAccount,
+      String exchangerAccount) throws MalformedURLException {
 
     if (Strings.isNullOrEmpty(getBillingBaseURL)) {
       throw new IllegalArgumentException("Billing URL must not be neither null nor empty");
@@ -118,6 +121,10 @@ public class BillingRule implements Rule {
       throw new IllegalArgumentException(
           "BTC Withdrawal account must not be neither null nor empty");
     }
+    if (Strings.isNullOrEmpty(exchangerAccount)) {
+      throw new IllegalArgumentException(
+          "Exchanger account must not be neither null nor empty");
+    }
 
     this.getBillingBaseURL = getBillingBaseURL;
     this.rmqHost = rmqHost;
@@ -128,6 +135,7 @@ public class BillingRule implements Rule {
     this.depositAccounts = new HashSet<>(Arrays.asList(depositAccounts.split(SEPARATOR)));
     this.ethWithdrawalAccount = ethWithdrawalAccount;
     this.btcWithdrawalAccount = btcWithdrawalAccount;
+    this.exchangerAccount = exchangerAccount;
     runCacheUpdater();
   }
 
@@ -290,20 +298,19 @@ public class BillingRule implements Rule {
       }
       return ValidationResult.VALIDATED;
     }
-    final boolean isBatch = transaction.getPayload().getBatch().getReducedHashesCount() > 1;
-    return processFeeValidation(transfers, feesAsBurns, isBatch);
+    return processFeeValidation(transfers, feesAsBurns);
   }
 
   private ValidationResult processFeeValidation(
       List<TransferAsset> transfers,
-      List<SubtractAssetQuantity> feesAsBurns,
-      boolean isBatch) {
+      List<SubtractAssetQuantity> feesAsBurns) {
     for (TransferAsset transferAsset : transfers) {
-      final BillingTypeEnum originalType = getBillingType(transferAsset, isBatch);
+      final BillingTypeEnum originalType = getBillingType(transferAsset);
       if (originalType != null) {
         final BillingInfo billingInfo = getBillingInfoFor(
             BillingInfo.getDomain(transferAsset.getSrcAccountId()),
-            transferAsset.getAssetId(),
+            // enforce xor for any fee
+            ASSET_ID,
             originalType
         );
         // Not billable operation
@@ -380,7 +387,7 @@ public class BillingRule implements Rule {
     );
   }
 
-  private BillingTypeEnum getBillingType(TransferAsset transfer, boolean isBatch) {
+  private BillingTypeEnum getBillingType(TransferAsset transfer) {
     final String srcAccountId = transfer.getSrcAccountId();
     final String destAccountId = transfer.getDestAccountId();
     final String srcDomain = BillingInfo.getDomain(srcAccountId);
@@ -395,12 +402,13 @@ public class BillingRule implements Rule {
         && userDomains.contains(srcDomain)) {
       return BillingTypeEnum.WITHDRAWAL;
     }
-    if (userDomains.contains(srcDomain)
-        && userDomains.contains(destDomain)) {
-      if (isBatch) {
+    if (userDomains.contains(srcDomain)) {
+      if (userDomains.contains(destDomain)) {
+        return BillingTypeEnum.TRANSFER;
+      }
+      if (destAccountId.equals(exchangerAccount)) {
         return BillingTypeEnum.EXCHANGE;
       }
-      return BillingTypeEnum.TRANSFER;
     }
     return null;
   }
