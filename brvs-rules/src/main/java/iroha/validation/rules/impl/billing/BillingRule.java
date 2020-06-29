@@ -341,12 +341,11 @@ public class BillingRule implements Rule {
       List<SubtractAssetQuantity> burnableFees,
       BillingInfo billingInfo) {
 
-    final String assetId = transfer.getAssetId();
     final BigDecimal amount = new BigDecimal(transfer.getAmount());
     final BigDecimal relevantFeeAmount = calculateRelevantFeeAmount(amount, billingInfo);
 
     for (SubtractAssetQuantity fee : burnableFees) {
-      if (fee.getAssetId().equals(assetId)
+      if (fee.getAssetId().equals(ASSET_ID)
           && new BigDecimal(fee.getAmount())
           .compareTo(relevantFeeAmount) == 0) {
         // To prevent case when there are two identical operations and only one fee
@@ -357,7 +356,7 @@ public class BillingRule implements Rule {
     logger.warn(
         "Corresponding fee is not found for the transfer. Must be: "
             + relevantFeeAmount + " "
-            + assetId
+            + ASSET_ID
     );
     return false;
   }
