@@ -21,9 +21,11 @@ public class XorWithdrawalLimitRule implements Rule {
 
   private final String withdrawalAccountId;
   private final AtomicReference<XorWithdrawalLimitRemainder> xorWithdrawalLimitRemainder;
+  private final boolean isDisabled;
 
   public XorWithdrawalLimitRule(String withdrawalAccountId,
-      AtomicReference<XorWithdrawalLimitRemainder> xorWithdrawalLimitRemainder) {
+      AtomicReference<XorWithdrawalLimitRemainder> xorWithdrawalLimitRemainder,
+      boolean isDisabled) {
     if (StringUtils.isEmpty(withdrawalAccountId)) {
       throw new IllegalArgumentException(
           "Withdrawal account ID must not be neither null nor empty"
@@ -36,6 +38,7 @@ public class XorWithdrawalLimitRule implements Rule {
 
     this.withdrawalAccountId = withdrawalAccountId;
     this.xorWithdrawalLimitRemainder = xorWithdrawalLimitRemainder;
+    this.isDisabled = isDisabled;
   }
 
   @Override
@@ -53,6 +56,11 @@ public class XorWithdrawalLimitRule implements Rule {
     if (sum.compareTo(BigDecimal.ZERO) == 0) {
       return ValidationResult.VALIDATED;
     }
+    // > 0 XOR to withdraw
+    if (this.isDisabled) {
+      return ValidationResult.REJECTED("Sorry, withdrawals are temporarily disabled");
+    }
+
     final long createdTime = transaction.getPayload().getReducedPayload().getCreatedTime();
     final long timestampDue = xorWithdrawalLimitRemainder.get().timestampDue;
     if (createdTime > timestampDue) {

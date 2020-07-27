@@ -32,7 +32,7 @@ class XorWithdrawalRuleTest {
   private List<Command> commands;
   private Rule rule;
 
-  private void init(boolean moreThanValid) {
+  private void init(boolean moreThanValid, boolean isDisabled) {
     final String withdrawalAccountId = "withdrawal@users";
     amount = new BigDecimal("100");
 
@@ -67,7 +67,8 @@ class XorWithdrawalRuleTest {
                 moreThanValid ? BigDecimal.ONE : amount,
                 System.currentTimeMillis()
             )
-        )
+        ),
+        isDisabled
     );
   }
 
@@ -78,7 +79,7 @@ class XorWithdrawalRuleTest {
    */
   @Test
   void correctTransferTxVolumeRuleTest() {
-    init(false);
+    init(false, false);
 
     assertEquals(Verdict.VALIDATED, rule.isSatisfiedBy(transaction).getStatus());
   }
@@ -90,7 +91,19 @@ class XorWithdrawalRuleTest {
    */
   @Test
   void otherAssetTransferTxVolumeRuleTest() {
-    init(true);
+    init(true, false);
+
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link XorWithdrawalLimitRule} instance with disabled withdrawal transactions
+   * @when {@link Transaction} with {@link Command TransferAsset} command of 100 "asset" hasn't passed
+   * @then {@link XorWithdrawalLimitRule} is not satisfied by such {@link Transaction}
+   */
+  @Test
+  void disabledTransferTxVolumeRuleTest() {
+    init(false, true);
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }

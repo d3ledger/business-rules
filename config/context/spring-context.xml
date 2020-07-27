@@ -223,6 +223,7 @@
   <bean id="xorWithdrawalLimitRule" class="iroha.validation.rules.impl.sora.XorWithdrawalLimitRule">
     <constructor-arg name="withdrawalAccountId" value="${SORA_WITHDRAWAL_ACCOUNT_ID}"/>
     <constructor-arg name="xorWithdrawalLimitRemainder" ref="xorWithdrawalLimitRemainderReference"/>
+    <constructor-arg name="isDisabled" value="${SORA_WITHDRAWAL_LIMIT_DISABLED}"/>
   </bean>
   <util:map id="rules" map-class="java.util.HashMap">
     <entry key="restrictedKeysRule" value-ref="restrictedKeysRule"/>
