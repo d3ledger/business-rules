@@ -59,19 +59,24 @@
   <!-- IROHA QUERY HELPER CONFIG -->
   <bean id="queryHelper" class="com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="pageSize" type="int" value="500"/>
   </bean>
 
-  <!-- STORAGE CONFIG -->
+  <!-- VERDICT STORAGE CONFIG -->
   <bean id="mongoVerdictStorage"
-    class="iroha.validation.transactions.storage.impl.mongo.MongoTransactionVerdictStorage">
+    class="iroha.validation.transactions.core.storage.impl.mongo.MongoTransactionVerdictStorage">
+    <constructor-arg name="mongoHost" value="${MONGO_HOST}"/>
+    <constructor-arg name="mongoPort" value="${MONGO_PORT}"/>
+  </bean>
+
+  <!-- USER STORAGE CONFIG -->
+  <bean id="userStorage" class="iroha.validation.transactions.core.provider.impl.RegisteredUsersStorageImpl">
     <constructor-arg name="mongoHost" value="${MONGO_HOST}"/>
     <constructor-arg name="mongoPort" value="${MONGO_PORT}"/>
   </bean>
 
   <!-- USER ACCOUNTS MANAGER CONFIG -->
   <bean id="accountManager"
-    class="iroha.validation.transactions.provider.impl.AccountManager">
+    class="iroha.validation.transactions.core.provider.impl.AccountManager">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="userSignatoriesAttribute" value="${USER_SIGNATORIES_KEY}"/>
     <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
@@ -79,6 +84,7 @@
     <constructor-arg name="userAccountsSetterAccount" value="${ACCOUNTS_HOLDER_SETTER}"/>
     <constructor-arg name="keyPairs" ref="keysList"/>
     <constructor-arg name="irohaQueryHelper" ref="queryHelper"/>
+    <constructor-arg name="registeredUsersStorage" ref="userStorage"/>
   </bean>
 
   <!--  SORA PROJECT PROVIDER CONFIG-->
@@ -144,12 +150,13 @@
 
   <!-- PROVIDER CONFIG -->
   <bean id="transactionProvider"
-    class="iroha.validation.transactions.provider.impl.BasicTransactionProvider">
+    class="iroha.validation.transactions.core.provider.impl.BasicTransactionProvider">
     <constructor-arg name="transactionVerdictStorage" ref="mongoVerdictStorage"/>
-    <constructor-arg name="userQuorumProvider" ref="accountManager"/>
+    <constructor-arg name="userQuorumProdvider" ref="accountManager"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
     <constructor-arg name="irohaReliableChainListener" ref="irohaReliableChainListener"/>
     <constructor-arg name="pluggableLogicList" ref="logicList"/>
+    <constructor-arg name="pendingPollingPeriod" value="${PENDING_POLLING_PERIOD}"/>
   </bean>
 
   <!-- CHAIN LISTENER CONFIG -->
@@ -160,11 +167,12 @@
     <constructor-arg name="rmqConfig" ref="rmqConfig"/>
     <constructor-arg name="queryAPI" ref="queryAPI"/>
     <constructor-arg name="userKeyPair" ref="firstUserKey"/>
+    <constructor-arg name="registeredUsersStorage" ref="userStorage"/>
   </bean>
 
   <!-- SIGNER CONFIG -->
   <bean id="transactionSigner"
-    class="iroha.validation.transactions.signatory.impl.TransactionSignerImpl">
+    class="iroha.validation.transactions.core.signatory.impl.TransactionSignerImpl">
     <constructor-arg name="irohaAPI" ref="irohaAPI"/>
     <constructor-arg name="brvsAccountId" value="${CREDENTIAL_ACCOUNTID}"/>
     <constructor-arg name="brvsAccountKeyPair" ref="brvsAccountKeyPair"/>
@@ -177,7 +185,7 @@
   <bean id="pubkey" class="java.lang.String">
     <constructor-arg name="original" value="${CREDENTIAL_PUBKEY}"/>
   </bean>
-  <bean id="brvsData" class="iroha.validation.transactions.provider.impl.util.BrvsData">
+  <bean id="brvsData" class="iroha.validation.transactions.core.provider.impl.util.BrvsData">
     <constructor-arg name="hexPubKey" ref="pubkey"/>
     <constructor-arg name="hostname" value="${BRVS_LOCALHOSTNAME}"/>
   </bean>

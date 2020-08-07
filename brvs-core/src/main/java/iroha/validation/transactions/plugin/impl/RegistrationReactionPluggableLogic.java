@@ -14,8 +14,8 @@ import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.protocol.TransactionOuterClass.Transaction.Payload;
 import iroha.protocol.TransactionOuterClass.Transaction.Payload.ReducedPayload;
 import iroha.validation.exception.BrvsException;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
 import iroha.validation.transactions.plugin.PluggableLogic;
-import iroha.validation.transactions.provider.RegistrationProvider;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -50,7 +50,6 @@ public class RegistrationReactionPluggableLogic extends PluggableLogic<List<Stri
     }
 
     final Set<String> userDomains = registrationProvider.getUserDomains();
-    final Set<String> userAccounts = registrationProvider.getUserAccounts();
     return transactions.stream()
         .map(Transaction::getPayload)
         .map(Payload::getReducedPayload)
@@ -61,7 +60,7 @@ public class RegistrationReactionPluggableLogic extends PluggableLogic<List<Stri
         .filter(command -> userDomains.contains(command.getDomainId()))
         .map(command -> command.getAccountName().concat(accountIdDelimiter)
             .concat(command.getDomainId()))
-        .filter(userAccounts::contains)
+        .filter(registrationProvider::isUserAccount)
         .collect(Collectors.toList());
   }
 

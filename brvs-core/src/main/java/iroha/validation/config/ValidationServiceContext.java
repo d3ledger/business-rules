@@ -6,10 +6,10 @@
 package iroha.validation.config;
 
 import iroha.validation.rules.RuleMonitor;
-import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.provider.TransactionProvider;
-import iroha.validation.transactions.provider.impl.util.BrvsData;
-import iroha.validation.transactions.signatory.TransactionSigner;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
+import iroha.validation.transactions.core.provider.TransactionProvider;
+import iroha.validation.transactions.core.provider.impl.util.BrvsData;
+import iroha.validation.transactions.core.signatory.TransactionSigner;
 import iroha.validation.validators.Validator;
 import java.util.Objects;
 

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.storage.impl.dummy;
+package iroha.validation.transactions.core.storage.impl.dummy;
 
-import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

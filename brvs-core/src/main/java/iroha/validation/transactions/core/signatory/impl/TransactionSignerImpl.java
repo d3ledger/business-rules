@@ -3,20 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.signatory.impl;
+package iroha.validation.transactions.core.signatory.impl;
 
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
-import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.signatory.TransactionSigner;
-import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
+import iroha.validation.transactions.core.signatory.TransactionSigner;
+import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.security.KeyPair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -88,11 +87,10 @@ public class TransactionSignerImpl implements TransactionSigner {
     final List<Transaction> transactions = new ArrayList<>(
         transactionBatch.getTransactionList().size()
     );
-    final Set<String> accounts = registrationProvider.getRegisteredAccounts();
     for (Transaction transaction : transactionBatch) {
       jp.co.soramitsu.iroha.java.Transaction parsedTransaction =
           jp.co.soramitsu.iroha.java.Transaction.parseFrom(transaction);
-      if (accounts.contains(ValidationUtils.getTxAccountId(transaction))) {
+      if (registrationProvider.isRegistered(ValidationUtils.getTxAccountId(transaction))) {
         final int signaturesCount = transaction.getSignaturesCount();
         if (useUserKeypairs && signaturesCount > keyPairs.size()) {
           throw new IllegalStateException(

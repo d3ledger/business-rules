@@ -19,8 +19,8 @@ import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.protocol.TransactionOuterClass.Transaction.Payload;
 import iroha.protocol.TransactionOuterClass.Transaction.Payload.ReducedPayload;
 import iroha.validation.rules.impl.sora.XorWithdrawalLimitRule.XorWithdrawalLimitRemainder;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
 import iroha.validation.transactions.plugin.PluggableLogic;
-import iroha.validation.transactions.provider.RegistrationProvider;
 import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.QueryAPI;
@@ -219,7 +218,6 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
     final long lastUpdateTime = Optional.ofNullable(newDetails.get(LIMIT_TIME_KEY))
         .map(Long::parseLong).orElse(0L);
 
-    final Set<String> registeredAccounts = registrationProvider.getRegisteredAccounts();
     final BigDecimal withdrawalsAmount = transactions.stream()
         .map(Transaction::getPayload)
         .map(Payload::getReducedPayload)
@@ -229,7 +227,7 @@ public class XorWithdrawalLimitReactionPluggableLogic extends
         .filter(Command::hasTransferAsset)
         .map(Command::getTransferAsset)
         .filter(command -> ASSET_ID.equals(command.getAssetId()))
-        .filter(command -> registeredAccounts.contains(command.getSrcAccountId()))
+        .filter(command -> registrationProvider.isRegistered(command.getSrcAccountId()))
         .filter(command -> withdrawalAccountId.equals(command.getDestAccountId()))
         .map(TransferAsset::getAmount)
         .map(BigDecimal::new)

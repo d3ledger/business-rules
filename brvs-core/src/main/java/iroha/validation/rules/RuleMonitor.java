@@ -6,10 +6,8 @@
 package iroha.validation.rules;
 
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
-import static iroha.validation.utils.ValidationUtils.REGISTRATION_BATCH_SIZE;
 
 import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
-import com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl;
 import io.reactivex.Scheduler;
 import io.reactivex.schedulers.Schedulers;
 import iroha.protocol.Commands.Command;

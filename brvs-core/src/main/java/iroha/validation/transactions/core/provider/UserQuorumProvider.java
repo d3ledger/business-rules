@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.provider;
+package iroha.validation.transactions.core.provider;
 
 import java.util.Set;
 

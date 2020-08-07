@@ -49,12 +49,12 @@ dependencies {
 
     compile project(':brvs-rules')
     // Notary
-    compile('com.github.d3ledger.notary:notary-commons:9f811288a43c17dc01a1a6604080b45ad6be22f9') {
-        exclude group:  'com.github.hyperledger.iroha-java', module: 'client'
+    compile('com.github.soramitsu.soranet-validator:notary-commons:3d28d540979501fec2dd5091747873085df1a3fb') {
+        exclude group: 'com.github.hyperledger.iroha-java', module: 'client'
     }
     // Chain adapter
     compile('com.github.d3ledger.chain-adapter:chain-adapter-client:e27b242699c776a92797efa1522f59ab20b737d8') {
-        exclude group:  'com.github.hyperledger.iroha-java', module: 'client'
+        exclude group: 'com.github.hyperledger.iroha-java', module: 'client'
     }
     // MongoDB
     compile('org.mongodb:mongodb-driver-sync:3.10.1')

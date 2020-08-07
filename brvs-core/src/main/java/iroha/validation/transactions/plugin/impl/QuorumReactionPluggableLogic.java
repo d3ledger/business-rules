@@ -12,7 +12,7 @@ import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.plugin.PluggableLogic;
-import iroha.validation.transactions.provider.impl.AccountManager;
+import iroha.validation.transactions.core.provider.impl.AccountManager;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -55,7 +55,6 @@ public class QuorumReactionPluggableLogic extends PluggableLogic<Map<String, Col
     }
 
     final Set<String> userDomains = accountManager.getUserDomains();
-    final Set<String> registeredAccounts = accountManager.getRegisteredAccounts();
     final List<Command> commands = transactions.stream()
         .map(blockTransaction -> {
               final String creatorAccountId = getTxAccountId(blockTransaction);
@@ -63,7 +62,7 @@ public class QuorumReactionPluggableLogic extends PluggableLogic<Map<String, Col
                 return Collections.<Command>emptyList();
               }
 
-              if (!registeredAccounts.contains(creatorAccountId)) {
+              if (!accountManager.isRegistered(creatorAccountId)) {
                 return Collections.<Command>emptyList();
               }
 
@@ -77,13 +76,11 @@ public class QuorumReactionPluggableLogic extends PluggableLogic<Map<String, Col
         .collect(Collectors.toList());
 
     final Map<String, Set<String>> accountRemovedSignatories = constructRemovedSignatoriesByAccountId(
-        commands,
-        registeredAccounts
+        commands
     );
 
     final Map<String, Set<String>> accountAddedSignatories = constructAddedSignatoriesByAccountId(
-        commands,
-        registeredAccounts
+        commands
     );
 
     if (accountAddedSignatories.isEmpty() && accountRemovedSignatories.isEmpty()) {
@@ -134,15 +131,14 @@ public class QuorumReactionPluggableLogic extends PluggableLogic<Map<String, Col
   }
 
   private Map<String, Set<String>> constructRemovedSignatoriesByAccountId(
-      Collection<Command> commands,
-      Set<String> registeredAccounts) {
+      Collection<Command> commands) {
     final Map<String, Set<String>> accountRemovedSignatories = new HashMap<>();
 
     commands
         .stream()
         .filter(Command::hasRemoveSignatory)
         .map(Command::getRemoveSignatory)
-        .filter(command -> registeredAccounts.contains(command.getAccountId()))
+        .filter(command -> accountManager.isRegistered(command.getAccountId()))
         .forEach(removeSignatory -> {
           final String signatoryAccountId = removeSignatory.getAccountId();
           if (!accountRemovedSignatories.containsKey(signatoryAccountId)) {
@@ -155,15 +151,14 @@ public class QuorumReactionPluggableLogic extends PluggableLogic<Map<String, Col
   }
 
   private Map<String, Set<String>> constructAddedSignatoriesByAccountId(
-      Collection<Command> commands,
-      Set<String> registeredAccounts) {
+      Collection<Command> commands) {
     final Map<String, Set<String>> accountAddedSignatories = new HashMap<>();
 
     commands
         .stream()
         .filter(Command::hasAddSignatory)
         .map(Command::getAddSignatory)
-        .filter(command -> registeredAccounts.contains(command.getAccountId()))
+        .filter(command -> accountManager.isRegistered(command.getAccountId()))
         .forEach(addSignatory -> {
           final String signatoryAccountId = addSignatory.getAccountId();
           if (!accountAddedSignatories.containsKey(signatoryAccountId)) {

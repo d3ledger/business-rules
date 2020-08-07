@@ -16,11 +16,11 @@ import iroha.validation.config.ValidationServiceContext;
 import iroha.validation.rules.RuleMonitor;
 import iroha.validation.service.ValidationService;
 import iroha.validation.transactions.TransactionBatch;
-import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.provider.TransactionProvider;
-import iroha.validation.transactions.provider.impl.AccountManager;
-import iroha.validation.transactions.provider.impl.util.BrvsData;
-import iroha.validation.transactions.signatory.TransactionSigner;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
+import iroha.validation.transactions.core.provider.TransactionProvider;
+import iroha.validation.transactions.core.provider.impl.AccountManager;
+import iroha.validation.transactions.core.provider.impl.util.BrvsData;
+import iroha.validation.transactions.core.signatory.TransactionSigner;
 import iroha.validation.validators.Validator;
 import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
@@ -28,7 +28,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,18 +112,22 @@ public class ValidationServiceImpl implements ValidationService, Closeable {
    * Reads Iroha details containing a list of accounts that should be checked by BRVS
    */
   private void registerExistentAccounts() {
-    logger.info("Going to register existent user accounts in BRVS: {}", brvsData.getHostname());
-    final Set<String> userAccounts;
+    logger.info(
+        "Going to register existent unregistered user accounts in BRVS: {}",
+        brvsData.getHostname()
+    );
     try {
-      userAccounts = registrationProvider.getUserAccounts();
+      registrationProvider.processUnregisteredUserAccounts(
+          accountIds -> {
+            try {
+              registrationProvider.register(accountIds);
+            } catch (InterruptedException e) {
+              logger.error("Couldn't register some of existing accounts", e);
+            }
+            return true;
+          });
     } catch (Exception e) {
       logger.warn("Couldn't query existing accounts. Please add them manually", e);
-      return;
-    }
-    try {
-      registrationProvider.register(userAccounts);
-    } catch (Exception e) {
-      logger.error("Couldn't register some of existing accounts", e);
     }
   }
 

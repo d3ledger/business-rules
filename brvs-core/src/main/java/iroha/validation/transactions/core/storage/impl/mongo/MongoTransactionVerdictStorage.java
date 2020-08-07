@@ -3,47 +3,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.storage.impl.mongo;
+package iroha.validation.transactions.core.storage.impl.mongo;
 
 import static com.mongodb.client.model.Filters.eq;
-import static org.bson.codecs.configuration.CodecRegistries.fromProviders;
-import static org.bson.codecs.configuration.CodecRegistries.fromRegistries;
 
-import com.google.common.base.Strings;
-import com.mongodb.MongoClientSettings;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.ReplaceOptions;
-import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.core.archetype.mongo.MongoBasedStorage;
+import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
 import iroha.validation.verdict.ValidationResult;
-import org.bson.codecs.configuration.CodecRegistry;
-import org.bson.codecs.pojo.PojoCodecProvider;
 
-public class MongoTransactionVerdictStorage implements TransactionVerdictStorage {
+public class MongoTransactionVerdictStorage extends MongoBasedStorage<MongoVerdict>
+    implements TransactionVerdictStorage {
 
   private static final ReplaceOptions optionsToReplace = new ReplaceOptions().upsert(true);
   private static final ReplaceOptions optionsToKeep = new ReplaceOptions().upsert(false);
   private static final String TX_HASH_ATTRIBUTE = "txHash";
-
-  private final MongoClient mongoClient;
-  private final MongoCollection<MongoVerdict> collection;
+  private static final String DEFAULT_DB_NAME = "verdictStorage";
+  private static final String DEFAULT_COLLECTION_NAME = "verdicts";
 
   public MongoTransactionVerdictStorage(String mongoHost, int mongoPort) {
-    if (Strings.isNullOrEmpty(mongoHost)) {
-      throw new IllegalArgumentException("MongoDB host must not be neither null nor empty");
-    }
-    if (mongoPort < 1 || mongoPort > 65535) {
-      throw new IllegalArgumentException("MongoDB port must be valid");
-    }
-    mongoClient = MongoClients.create(String.format("mongodb://%s:%d", mongoHost, mongoPort));
-    CodecRegistry mongoVerdictCodecRegistry = fromRegistries(
-        MongoClientSettings.getDefaultCodecRegistry(),
-        fromProviders(PojoCodecProvider.builder().automatic(true).build()));
-    collection = mongoClient
-        .getDatabase("verdictStorage")
-        .getCollection("verdicts", MongoVerdict.class)
-        .withCodecRegistry(mongoVerdictCodecRegistry);
+    super(mongoHost, mongoPort, DEFAULT_DB_NAME, DEFAULT_COLLECTION_NAME, MongoVerdict.class);
   }
 
   /**
@@ -94,10 +73,5 @@ public class MongoTransactionVerdictStorage implements TransactionVerdictStorage
         new MongoVerdict(upperCaseHash, result),
         options
     );
-  }
-
-  @Override
-  public void close() {
-    mongoClient.close();
   }
 }

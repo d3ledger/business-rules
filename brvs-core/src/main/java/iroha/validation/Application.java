@@ -7,13 +7,11 @@ package iroha.validation;
 
 import iroha.validation.filter.CrossDomainFilter;
 import iroha.validation.service.ValidationService;
-import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
+import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
 import java.net.PortUnreachableException;
 import java.net.URI;
-import java.security.KeyPair;
 import java.util.logging.LogManager;
-import jp.co.soramitsu.iroha.java.IrohaAPI;
 import org.glassfish.hk2.utilities.binding.AbstractBinder;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.server.ResourceConfig;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.provider.impl;
+package iroha.validation.transactions.core.provider.impl;
 
 import static com.d3.commons.util.ThreadUtilKt.createPrettyScheduledThreadPool;
 import static com.d3.commons.util.ThreadUtilKt.createPrettySingleThreadPool;
@@ -17,18 +17,17 @@ import io.reactivex.subjects.PublishSubject;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.listener.BrvsIrohaChainListener;
 import iroha.validation.transactions.TransactionBatch;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
+import iroha.validation.transactions.core.provider.TransactionProvider;
+import iroha.validation.transactions.core.provider.UserQuorumProvider;
+import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
 import iroha.validation.transactions.plugin.PluggableLogic;
-import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.provider.TransactionProvider;
-import iroha.validation.transactions.provider.UserQuorumProvider;
-import iroha.validation.transactions.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
 import iroha.validation.verdict.Verdict;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -46,6 +45,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final RegistrationProvider registrationProvider;
   private final BrvsIrohaChainListener irohaReliableChainListener;
   private final List<PluggableLogic<?>> pluggableLogicList;
+  private final int pendingPollingPeriod;
   private final ScheduledExecutorService executor = createPrettyScheduledThreadPool(
       "brvs", "pending-processor"
   );
@@ -61,7 +61,8 @@ public class BasicTransactionProvider implements TransactionProvider {
       UserQuorumProvider userQuorumProvider,
       RegistrationProvider registrationProvider,
       BrvsIrohaChainListener irohaReliableChainListener,
-      List<PluggableLogic<?>> pluggableLogicList) {
+      List<PluggableLogic<?>> pluggableLogicList,
+      String pendingPollingPeriod) {
     Objects.requireNonNull(
         transactionVerdictStorage,
         "TransactionVerdictStorage must not be null"
@@ -88,6 +89,7 @@ public class BasicTransactionProvider implements TransactionProvider {
     this.registrationProvider = registrationProvider;
     this.pluggableLogicList = pluggableLogicList;
     this.irohaReliableChainListener = irohaReliableChainListener;
+    this.pendingPollingPeriod = Integer.parseInt(pendingPollingPeriod);
   }
 
   /**
@@ -97,7 +99,12 @@ public class BasicTransactionProvider implements TransactionProvider {
   public synchronized Observable<TransactionBatch> getPendingTransactionsStreaming() {
     if (!isStarted) {
       logger.info("Starting pending transactions streaming");
-      executor.scheduleAtFixedRate(this::monitorIrohaPending, 4, 2, TimeUnit.SECONDS);
+      executor.scheduleAtFixedRate(
+          this::monitorIrohaPending,
+          5,
+          pendingPollingPeriod,
+          TimeUnit.SECONDS
+      );
       processBlockTransactions(blockScheduler);
       isStarted = true;
     }
@@ -106,12 +113,10 @@ public class BasicTransactionProvider implements TransactionProvider {
 
   private void monitorIrohaPending() {
     try {
-      final Set<String> accounts = registrationProvider.getRegisteredAccounts();
-      irohaReliableChainListener
-          .getAllPendingTransactions(accounts)
+      irohaReliableChainListener.getAllPendingTransactions()
           .forEach(transactionBatch -> {
                 // if only BRVS signatory remains
-                if (isBatchSignedByUsers(transactionBatch, accounts)) {
+                if (isBatchSignedByUsers(transactionBatch)) {
                   if (savedMissingInStorage(transactionBatch)) {
                     logger.info("Publishing {} transactions for validation", hexHash(transactionBatch));
                     subject.onNext(transactionBatch);
@@ -125,11 +130,10 @@ public class BasicTransactionProvider implements TransactionProvider {
     }
   }
 
-  private boolean isBatchSignedByUsers(TransactionBatch transactionBatch,
-      Set<String> userAccounts) {
+  private boolean isBatchSignedByUsers(TransactionBatch transactionBatch) {
     return transactionBatch
         .stream()
-        .filter(transaction -> userAccounts.contains(getTxAccountId(transaction)))
+        .filter(transaction -> registrationProvider.isRegistered(getTxAccountId(transaction)))
         .allMatch(transaction ->
             transaction.getSignaturesCount() >= getSignatoriesToPresentNum(transaction)
         );

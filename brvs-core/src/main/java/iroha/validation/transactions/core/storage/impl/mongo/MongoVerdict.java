@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.storage.impl.mongo;
+package iroha.validation.transactions.core.storage.impl.mongo;
 
 import iroha.validation.verdict.ValidationResult;
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.provider.impl.util;
+package iroha.validation.transactions.core.provider.impl.util;
 
 import java.util.concurrent.CountDownLatch;
 

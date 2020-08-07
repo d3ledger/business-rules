@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.storage;
+package iroha.validation.transactions.core.storage;
 
 import iroha.validation.verdict.ValidationResult;
 import java.io.Closeable;

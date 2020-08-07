@@ -9,6 +9,7 @@ import static iroha.validation.rules.impl.sora.XorWithdrawalLimitRule.ASSET_ID;
 import static iroha.validation.transactions.plugin.impl.sora.XorWithdrawalLimitReactionPluggableLogic.LIMIT_AMOUNT_KEY;
 import static iroha.validation.transactions.plugin.impl.sora.XorWithdrawalLimitReactionPluggableLogic.LIMIT_TIME_KEY;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -28,8 +29,8 @@ import iroha.protocol.Endpoint.ToriiResponse;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.rules.impl.sora.XorWithdrawalLimitRule.XorWithdrawalLimitRemainder;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
 import iroha.validation.transactions.plugin.impl.sora.XorWithdrawalLimitReactionPluggableLogic;
-import iroha.validation.transactions.provider.RegistrationProvider;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
@@ -109,8 +110,7 @@ public class XorLimitsReactionTest {
         .thenReturn(Optional.empty());
 
     RegistrationProvider registrationProvider = mock(RegistrationProvider.class);
-    when(registrationProvider.getRegisteredAccounts())
-        .thenReturn(new HashSet<>(Collections.singletonList(USER_ID)));
+    when(registrationProvider.isRegistered(eq(USER_ID))).thenReturn(true);
     when(block.getBlockV1().getPayload().getTransactionsList())
         .thenReturn(Collections.singletonList(transaction));
 

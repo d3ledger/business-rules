@@ -3,47 +3,41 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.provider.impl;
+package iroha.validation.transactions.core.provider.impl;
 
 import static iroha.validation.exception.BrvsErrorCode.REGISTRATION_FAILED;
 import static iroha.validation.exception.BrvsErrorCode.REGISTRATION_TIMEOUT;
 import static iroha.validation.exception.BrvsErrorCode.UNKNOWN_ACCOUNT;
 import static iroha.validation.exception.BrvsErrorCode.WRONG_DOMAIN;
 import static iroha.validation.utils.ValidationUtils.PROPORTION;
-import static iroha.validation.utils.ValidationUtils.REGISTRATION_BATCH_SIZE;
 import static iroha.validation.utils.ValidationUtils.fieldValidator;
 import static iroha.validation.utils.ValidationUtils.getDomain;
 import static iroha.validation.utils.ValidationUtils.sendWithLastResponseWaiting;
 import static jp.co.soramitsu.iroha.java.detail.Const.accountIdDelimiter;
 
 import com.d3.commons.sidechain.iroha.util.IrohaQueryHelper;
-import com.d3.commons.sidechain.iroha.util.impl.IrohaQueryHelperImpl;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.validation.exception.BrvsException;
-import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.provider.UserQuorumProvider;
-import iroha.validation.transactions.provider.impl.util.RegistrationAwaiterWrapper;
+import iroha.validation.transactions.core.provider.RegisteredUsersStorage;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
+import iroha.validation.transactions.core.provider.UserQuorumProvider;
+import iroha.validation.transactions.core.provider.impl.util.RegistrationAwaiterWrapper;
 import iroha.validation.utils.ValidationUtils;
 import java.io.Closeable;
 import java.lang.reflect.Type;
 import java.security.Key;
 import java.security.KeyPair;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,6 +49,7 @@ import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.Transaction;
 import jp.co.soramitsu.iroha.java.TransactionBuilder;
 import jp.co.soramitsu.iroha.java.Utils;
+import kotlin.Unit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
@@ -71,7 +66,6 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   }.getType();
 
   private final ExecutorService executorService = Executors.newCachedThreadPool();
-  private final Set<String> registeredAccounts = ConcurrentHashMap.newKeySet();
 
   private final String brvsAccountId;
   private final KeyPair brvsAccountKeyPair;
@@ -83,6 +77,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   private final List<KeyPair> keyPairs;
   private final Set<String> pubKeys;
   private final IrohaQueryHelper irohaQueryHelper;
+  private final RegisteredUsersStorage registeredUsersStorage;
 
   public AccountManager(QueryAPI queryAPI,
       String userSignatoriesAttribute,
@@ -90,7 +85,8 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       String userAccountsHolderAccount,
       String userAccountsSetterAccount,
       List<KeyPair> keyPairs,
-      IrohaQueryHelper irohaQueryHelper) {
+      IrohaQueryHelper irohaQueryHelper,
+      RegisteredUsersStorage registeredUsersStorage) {
 
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     if (Strings.isNullOrEmpty(userSignatoriesAttribute)) {
@@ -112,6 +108,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
       throw new IllegalArgumentException("Keypairs must not be neither null nor empty");
     }
     Objects.requireNonNull(irohaQueryHelper, "IrohaQueryHelper must not be null");
+    Objects.requireNonNull(registeredUsersStorage, "Users storage must not be null");
 
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsAccountKeyPair = queryAPI.getKeyPair();
@@ -129,6 +126,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
         .map(String::toLowerCase)
         .collect(Collectors.toSet());
     this.irohaQueryHelper = irohaQueryHelper;
+    this.registeredUsersStorage = registeredUsersStorage;
   }
 
   /**
@@ -258,37 +256,28 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    */
   @Override
   public void register(Collection<String> accounts) throws InterruptedException {
-    final List<List<String>> partitions = Lists
-        .partition(
-            new ArrayList<>(accounts),
-            REGISTRATION_BATCH_SIZE
-        );
-    for (List<String> partition : partitions) {
-      final int size = Iterables.size(partition);
-      final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
-          new CountDownLatch(size)
-      );
+    final int size = Iterables.size(accounts);
+    final RegistrationAwaiterWrapper registrationAwaiterWrapper = new RegistrationAwaiterWrapper(
+        new CountDownLatch(size)
+    );
 
-      // TODO after XNET-96 try replacing with fixed thread pool
-      partition.forEach(account -> executorService
-          .submit(new RegistrationRunnable(account, registrationAwaiterWrapper))
-      );
+    accounts.forEach(account -> executorService
+        .submit(new RegistrationRunnable(account, registrationAwaiterWrapper))
+    );
 
-      if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10L, TimeUnit.SECONDS)) {
-        throw new BrvsException(
-            "Couldn't register accounts within a timeout",
-            REGISTRATION_TIMEOUT
-        );
-      }
-      final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper
-          .getException();
-      if (registrationAwaiterWrapperException != null) {
-        throw new BrvsException(
-            registrationAwaiterWrapperException.getMessage(),
-            registrationAwaiterWrapperException,
-            REGISTRATION_FAILED
-        );
-      }
+    if (!registrationAwaiterWrapper.getCountDownLatch().await(size * 10L, TimeUnit.SECONDS)) {
+      throw new BrvsException(
+          "Couldn't register accounts within a timeout",
+          REGISTRATION_TIMEOUT
+      );
+    }
+    final Exception registrationAwaiterWrapperException = registrationAwaiterWrapper.getException();
+    if (registrationAwaiterWrapperException != null) {
+      throw new BrvsException(
+          registrationAwaiterWrapperException.getMessage(),
+          registrationAwaiterWrapperException,
+          REGISTRATION_FAILED
+      );
     }
   }
 
@@ -346,51 +335,38 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     return queryAPI.getSignatories(targetAccountId).getKeysList();
   }
 
-  /**
-   * {@inheritDoc}
-   */
   @Override
-  public Set<String> getRegisteredAccounts() {
-    //TODO XNET-96: Persist
-    return registeredAccounts;
-  }
-
-  private <T> Set<T> getAccountsFrom(
-      String accountsHolderAccount,
-      String accountsSetterAccount,
-      Function<Entry, T> processor) {
-    logger.info("Going to read accounts data from {}", accountsHolderAccount);
-    Set<T> resultSet = new HashSet<>();
+  public boolean isUserAccount(String userAccountId) {
     try {
-      final Map<String, String> map = irohaQueryHelper
-          .getAccountDetails(accountsHolderAccount, accountsSetterAccount)
-          .get();
-
-      map.entrySet().forEach(entry -> {
-            T candidate = processor.apply(entry);
-            if (candidate != null) {
-              resultSet.add(candidate);
-            }
-          }
-      );
-      return resultSet;
-    } catch (ErrorResponseException e) {
-      throw new IllegalStateException(
-          "There is no valid response from Iroha about accounts in " + accountsHolderAccount, e);
+      final int delimiterIndex = userAccountId.indexOf(accountIdDelimiter);
+      final String suffix = userAccountId.substring(delimiterIndex + 1);
+      final String replacedSuffix = suffix.replace(".", "_");
+      return irohaQueryHelper.getAccountDetails(
+          userAccountsHolderAccount,
+          userAccountsSetterAccount,
+          userAccountId.substring(0, delimiterIndex) + replacedSuffix
+      ).get().orElse("").equals(replacedSuffix);
+    } catch (Exception e) {
+      logger.error("Error during checking user account: " + userAccountId, e);
+      return false;
     }
   }
 
-  private String userAccountProcessor(Entry<String, String> entry) {
+  private String recoverAccountIdFromDetailsEntry(Entry<String, String> entry) {
     String key = entry.getKey();
     String suffix = entry.getValue();
     if (!key.endsWith(suffix)) {
       return null;
     }
+    return recoverAccountIdFromDetails(key, suffix);
+  }
+
+  private String recoverAccountIdFromDetails(String key, String value) {
     // since accounts stored as key-value pairs of
     // usernamedomain -> domain
     // we need to extract username from the key and add the domain to it separated with @
-    final String recoveredSuffix = suffix.replace('_', '.');
-    return key.substring(0, key.lastIndexOf(suffix))
+    final String recoveredSuffix = value.replace('_', '.');
+    return key.substring(0, key.lastIndexOf(value))
         .concat(accountIdDelimiter)
         .concat(recoveredSuffix);
   }
@@ -399,12 +375,29 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
    * {@inheritDoc}
    */
   @Override
-  public Set<String> getUserAccounts() {
-    return getAccountsFrom(
-        userAccountsHolderAccount,
-        userAccountsSetterAccount,
-        this::userAccountProcessor
-    );
+  public void processUnregisteredUserAccounts(Function<Set<String>, Object> method) {
+    logger.info("Going to read accounts data from {}", userAccountsHolderAccount);
+    try {
+      irohaQueryHelper
+          .processAccountDetails(
+              userAccountsHolderAccount,
+              userAccountsSetterAccount,
+              detailsSet -> {
+                final Set<String> filteredAccounts = detailsSet.stream()
+                    .map(this::recoverAccountIdFromDetailsEntry)
+                    .filter(accountId -> accountId != null && !registeredUsersStorage
+                        .contains(accountId))
+                    .collect(Collectors.toSet());
+                method.apply(filteredAccounts);
+                // Kotlin interop
+                return Unit.INSTANCE;
+              }
+          );
+    } catch (ErrorResponseException e) {
+      throw new IllegalStateException(
+          "There is no valid response from Iroha about accounts in " + userAccountsSetterAccount,
+          e);
+    }
   }
 
   /**
@@ -413,6 +406,11 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
   @Override
   public Set<String> getUserDomains() {
     return Collections.unmodifiableSet(userDomains);
+  }
+
+  @Override
+  public boolean isRegistered(String accountId) {
+    return registeredUsersStorage.contains(accountId);
   }
 
   @Override
@@ -436,7 +434,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
     private void doRegister(String accountId) {
       logger.info("Going to register {}", accountId);
       fieldValidator.checkAccountId(accountId);
-      if (registeredAccounts.contains(accountId)) {
+      if (registeredUsersStorage.contains(accountId)) {
         logger.warn("Account {} has already been registered, omitting", accountId);
         return;
       }
@@ -458,7 +456,7 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
             CollectionUtils.isEmpty(userSignatories) ? INITIAL_KEYS_AMOUNT : userSignatories.size()
         );
         modifyQuorumOnRegistration(accountId);
-        registeredAccounts.add(accountId);
+        registeredUsersStorage.add(accountId);
         logger.info("Successfully registered {}", accountId);
       } catch (Exception e) {
         throw new BrvsException(

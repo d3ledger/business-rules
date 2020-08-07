@@ -15,7 +15,7 @@ import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.CreateAccount;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.plugin.impl.RegistrationReactionPluggableLogic;
-import iroha.validation.transactions.provider.RegistrationProvider;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
 import java.util.Collections;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,8 +41,7 @@ public class RegistrationReactionTest {
         registrationProvider
     );
     when(registrationProvider.getUserDomains()).thenReturn(Collections.singleton(DOMAIN));
-    when(registrationProvider.getUserAccounts())
-        .thenReturn(Collections.singleton(USER_ID));
+    when(registrationProvider.isUserAccount(USER_ID)).thenReturn(true);
     final Command command = mock(Command.class);
     final CreateAccount createAccount = mock(CreateAccount.class);
     when(createAccount.getAccountName()).thenReturn(USERNAME);

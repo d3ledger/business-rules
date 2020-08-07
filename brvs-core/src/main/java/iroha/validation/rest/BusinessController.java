@@ -12,8 +12,8 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import iroha.validation.exception.BrvsException;
 import iroha.validation.rest.dto.GenericStatusedResponse;
-import iroha.validation.transactions.provider.RegistrationProvider;
-import iroha.validation.transactions.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.core.provider.RegistrationProvider;
+import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
 import javax.inject.Inject;
@@ -68,9 +68,7 @@ public class BusinessController {
         .fromJson(jsonBody, AccountIdJsonWrapper.class)
         .getAccountId();
     fieldValidator.checkAccountId(accountId);
-    final boolean isRegistered = registrationProvider.getRegisteredAccounts()
-        .stream()
-        .anyMatch(registeredAccount -> registeredAccount.equals(accountId));
+    final boolean isRegistered = registrationProvider.isRegistered(accountId);
     return Response.ok(new AccountRegisteredResponse(isRegistered)).build();
   }
 

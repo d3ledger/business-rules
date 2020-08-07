@@ -19,7 +19,7 @@ import iroha.protocol.Commands.AddSignatory;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.plugin.impl.QuorumReactionPluggableLogic;
-import iroha.validation.transactions.provider.impl.AccountManager;
+import iroha.validation.transactions.core.provider.impl.AccountManager;
 import java.util.Collections;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,8 +43,7 @@ public class QuorumReactionTest {
     accountManager = mock(AccountManager.class);
     quorumReactionPluggableLogic = new QuorumReactionPluggableLogic(accountManager);
     when(accountManager.getUserDomains()).thenReturn(Collections.singleton(DOMAIN));
-    when(accountManager.getRegisteredAccounts())
-        .thenReturn(Collections.singleton(USER_ID));
+    when(accountManager.isRegistered(eq(USER_ID))).thenReturn(true);
     final Command command = mock(Command.class);
     final AddSignatory addSignatory = mock(AddSignatory.class);
     when(addSignatory.getAccountId()).thenReturn(USER_ID);

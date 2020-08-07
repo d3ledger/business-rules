@@ -13,6 +13,7 @@ import iroha.protocol.QryResponses.ErrorResponse;
 import iroha.protocol.QryResponses.QueryResponse;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.TransactionBatch;
+import iroha.validation.transactions.core.provider.RegisteredUsersStorage;
 import iroha.validation.utils.ValidationUtils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -47,35 +48,37 @@ public class BrvsIrohaChainListener implements Closeable {
   private final String brvsAccountId;
   private final KeyPair userKeyPair;
   private final ReliableIrohaChainListener4J irohaChainListener;
+  private final RegisteredUsersStorage registeredUsersStorage;
 
   public BrvsIrohaChainListener(
       RMQConfig rmqConfig,
       QueryAPI queryAPI,
-      KeyPair userKeyPair) {
+      KeyPair userKeyPair,
+      RegisteredUsersStorage registeredUsersStorage) {
     Objects.requireNonNull(queryAPI, "RMQ config must not be null");
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     Objects.requireNonNull(userKeyPair, "User Keypair must not be null");
+    Objects.requireNonNull(registeredUsersStorage, "Users storage must not be null");
 
     irohaChainListener = new ReliableIrohaChainListener4J(rmqConfig, BRVS_QUEUE_RMQ_NAME, false);
     this.irohaAPI = queryAPI.getApi();
     this.brvsAccountId = queryAPI.getAccountId();
     this.brvsKeyPair = queryAPI.getKeyPair();
     this.userKeyPair = userKeyPair;
+    this.registeredUsersStorage = registeredUsersStorage;
   }
 
   /**
    * Queries pending transactions for specific users
    *
-   * @param accountsToMonitor users that transactions should be queried for
    * @return set of transactions that are in pending state
    */
-  public Set<TransactionBatch> getAllPendingTransactions(Iterable<String> accountsToMonitor) {
+  public Set<TransactionBatch> getAllPendingTransactions() {
     Set<TransactionBatch> pendingTransactions = new HashSet<>(
         getPendingTransactions(brvsAccountId, brvsKeyPair)
     );
-    accountsToMonitor.forEach(account ->
-        pendingTransactions.addAll(getPendingTransactions(account, userKeyPair))
-    );
+    pendingTransactions
+        .addAll(registeredUsersStorage.process(this::getPendingTransactionsForManyAccounts));
     logger.info("Got {} pending batches from Iroha", pendingTransactions.size());
     logger.debug("Hashes: {}", pendingTransactions
         .stream()
@@ -88,12 +91,29 @@ public class BrvsIrohaChainListener implements Closeable {
   /**
    * Queries pending transactions for a specified account and keypair
    *
-   * @param accountId user that transactions should be queried for
+   * @param accountId user whose transactions should be queried for
    * @param keyPair user keypair
    * @return list of user transactions that are in pending state
    */
-  private List<TransactionBatch> getPendingTransactions(String accountId, KeyPair keyPair) {
+  private List<TransactionBatch> getPendingTransactions(
+      String accountId,
+      KeyPair keyPair) {
     return constructBatches(executeQueryFor(accountId, keyPair));
+  }
+
+  /**
+   * Queries pending transactions for a specified iterable of accounts and the keypair
+   *
+   * @param accountIds users whose transactions should be queried for
+   * @return list of user transactions that are in pending state
+   */
+  private List<TransactionBatch> getPendingTransactionsForManyAccounts(
+      Iterable<String> accountIds) {
+    final List<TransactionBatch> transactionBatches = new ArrayList<>();
+    accountIds.forEach(
+        accountId -> transactionBatches.addAll(getPendingTransactions(accountId, userKeyPair))
+    );
+    return transactionBatches;
   }
 
   /**

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package iroha.validation.transactions.signatory;
+package iroha.validation.transactions.core.signatory;
 
 import iroha.validation.transactions.TransactionBatch;
 
