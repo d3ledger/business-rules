@@ -152,7 +152,7 @@
   <bean id="transactionProvider"
     class="iroha.validation.transactions.core.provider.impl.BasicTransactionProvider">
     <constructor-arg name="transactionVerdictStorage" ref="mongoVerdictStorage"/>
-    <constructor-arg name="userQuorumProdvider" ref="accountManager"/>
+    <constructor-arg name="userQuorumProvider" ref="accountManager"/>
     <constructor-arg name="registrationProvider" ref="accountManager"/>
     <constructor-arg name="irohaReliableChainListener" ref="irohaReliableChainListener"/>
     <constructor-arg name="pluggableLogicList" ref="logicList"/>
