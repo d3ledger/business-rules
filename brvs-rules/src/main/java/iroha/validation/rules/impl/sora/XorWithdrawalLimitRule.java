@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.util.StringUtils;
 
+@Deprecated
 public class XorWithdrawalLimitRule implements Rule {
 
   public static final String ASSET_ID = "xor#sora";

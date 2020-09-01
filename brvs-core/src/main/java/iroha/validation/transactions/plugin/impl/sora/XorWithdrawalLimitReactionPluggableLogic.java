@@ -40,6 +40,7 @@ import org.springframework.util.StringUtils;
 /**
  * Newly withdrawn assets must be accounted
  */
+@Deprecated
 public class XorWithdrawalLimitReactionPluggableLogic extends
     PluggableLogic<Pair<Map<String, String>, BigDecimal>> {
 
