@@ -140,6 +140,10 @@ public class BillingInfo {
     return accountId.split(Const.accountIdDelimiter)[1];
   }
 
+  /* default */ static String getAssetDomain(String assetId) {
+    return assetId.split(Const.assetIdDelimiter)[1];
+  }
+
   /* default */ static String getName(String accountId) {
     return accountId.split(Const.accountIdDelimiter)[0];
   }

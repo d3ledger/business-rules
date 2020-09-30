@@ -5,7 +5,8 @@
 
 package iroha.validation.rules.impl;
 
-import static iroha.validation.rules.impl.billing.BillingRule.ASSET_ID;
+import static iroha.validation.rules.impl.billing.BillingRule.FIAT_DOMAIN;
+import static iroha.validation.rules.impl.billing.BillingRule.XOR_ASSET_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -33,7 +34,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.security.KeyPair;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import jp.co.soramitsu.crypto.ed25519.Ed25519Sha3;
@@ -53,7 +53,7 @@ class RulesTest {
   private KeyPair keyPair;
 
   private void init() {
-    init("asset", "destination@users");
+    init("asset#domain", "destination@users");
   }
 
   private void init(String assetToSave, String destAccountId) {
@@ -139,7 +139,11 @@ class RulesTest {
   }
 
   private void initBillingExchangerTest(boolean withFee) throws IOException {
-    initBillingTest(withFee, ASSET_ID, "exchanger@notary");
+    initBillingExchangerTest(withFee, XOR_ASSET_ID);
+  }
+
+  private void initBillingExchangerTest(boolean withFee, String assetToSave) throws IOException {
+    initBillingTest(withFee, assetToSave, "exchanger@notary");
 
     final BillingRule billingRule = spy(new BillingRule("http://url",
         "rmqHost",
@@ -156,12 +160,12 @@ class RulesTest {
       protected void runCacheUpdater() {
       }
     });
-    when(billingRule.getBillingInfoFor(any(), eq(ASSET_ID), eq(BillingTypeEnum.EXCHANGE)))
+    when(billingRule.getBillingInfoFor(any(), eq(XOR_ASSET_ID), eq(BillingTypeEnum.EXCHANGE)))
         .thenReturn(
             new BillingInfo(
                 "users",
                 BillingTypeEnum.EXCHANGE,
-                ASSET_ID,
+                XOR_ASSET_ID,
                 FeeTypeEnum.FIXED,
                 new BigDecimal("0.1"),
                 0
@@ -354,6 +358,19 @@ class RulesTest {
   @Test
   void incorrectExchangerGoodRuleTest() throws IOException {
     initBillingExchangerTest(false);
+
+    assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
+  }
+
+  /**
+   * @given {@link BillingRule} instance with billing data
+   * @when {@link Transaction} with the proper {@link Command TransferAsset} command of 100 a fiat
+   * passed and {@link Command SubtractAssetQty} paid in the same asset
+   * @then {@link BillingRule} is rejected by such {@link Transaction}
+   */
+  @Test
+  void incorrectAssetFeeExchangerRuleTest() throws IOException {
+    initBillingExchangerTest(true, "asset#" + FIAT_DOMAIN);
 
     assertEquals(Verdict.REJECTED, rule.isSatisfiedBy(transaction).getStatus());
   }
