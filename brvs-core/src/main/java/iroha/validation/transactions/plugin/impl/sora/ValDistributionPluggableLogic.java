@@ -43,6 +43,7 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
   public static final String VAL_ASSET_ID = "val#" + SORA_DOMAIN;
   private static final String VAL_AIRDROP_DESCRIPTION = "VAL airdrop";
   private static final int VAL_PRECISION = 18;
+  private static final int PROPORTION_PRECISION = 64;
   private static final MathContext VAL_MATH_CONTEXT = new MathContext(
       Integer.MAX_VALUE,
       RoundingMode.DOWN
@@ -149,7 +150,7 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
 
   private BigDecimal getUserProportion(String userAccount) {
     return new BigDecimal(irohaQueryHelper.getAccountAsset(userAccount, XOR_ASSET_ID).get())
-        .divide(totalProportionPool, VAL_PRECISION, RoundingMode.DOWN);
+        .divide(totalProportionPool, PROPORTION_PRECISION, RoundingMode.DOWN);
   }
 
   private void constructAndSendDistributions(
