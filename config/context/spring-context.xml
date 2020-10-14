@@ -127,7 +127,7 @@
   <bean id="valDistributionLogic"
     class="iroha.validation.transactions.plugin.impl.sora.ValDistributionPluggableLogic">
     <constructor-arg name="queryAPI" ref="queryAPI"/>
-    <constructor-arg name="infoSetterAccount" value="${SORA_DISTRIBUTION_SETTER}"/>
+    <constructor-arg name="infoSetterAccount" value="${VAL_DISTRIBUTION_SETTER}"/>
     <constructor-arg name="irohaQueryHelper" ref="queryHelper"/>
     <constructor-arg name="registeredUsersStorage" ref="userStorage"/>
     <constructor-arg name="totalProportionPool" value="${VAL_DISTRIBUTION_XOR_POOL}"/>
