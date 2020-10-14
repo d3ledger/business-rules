@@ -13,6 +13,7 @@ import iroha.protocol.BlockOuterClass.Block;
 import iroha.protocol.Commands.Command;
 import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.Endpoint.TxStatus;
+import iroha.protocol.TransactionOuterClass;
 import iroha.validation.transactions.core.provider.RegisteredUsersStorage;
 import iroha.validation.transactions.plugin.PluggableLogic;
 import java.math.BigDecimal;
@@ -112,6 +113,15 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
     if (amountToDistribute.signum() != 1) {
       return;
     }
+    final BigDecimal brvsValBalance = new BigDecimal(
+        irohaQueryHelper
+            .getAccountAsset(brvsAccountId, VAL_ASSET_ID)
+            .get()
+    );
+    if (brvsValBalance.compareTo(amountToDistribute) < 0) {
+      logger.warn("BRVS balance is insufficient for the distribution");
+      return;
+    }
     logger.info("Triggered VAL distribution of {} VALs", amountToDistribute.toPlainString());
     final Set<DistributionEntry> transactionsContext =
         registeredUsersStorage.process((userAccounts) ->
@@ -126,7 +136,7 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
                 )
                 .collect(Collectors.toList()));
 
-    constructAndSendDistributions(transactionsContext, amountToDistribute);
+    constructAndSendDistributions(transactionsContext, brvsValBalance);
   }
 
   private BigDecimal calculateAmountToDistributeFromTotal(
@@ -136,21 +146,20 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
         .setScale(VAL_PRECISION, RoundingMode.DOWN);
   }
 
-  private BigDecimal getUserProportion(
-      String userAccount) {
+  private BigDecimal getUserProportion(String userAccount) {
     return new BigDecimal(irohaQueryHelper.getAccountAsset(userAccount, XOR_ASSET_ID).get())
         .divide(totalProportionPool, VAL_PRECISION, RoundingMode.DOWN);
   }
 
   private void constructAndSendDistributions(
       Set<DistributionEntry> distributionEntries,
-      BigDecimal amountToDistribute) {
+      BigDecimal brvsValBalance) {
     if (distributionEntries.isEmpty()) {
       return;
     }
-
     final TransactionBuilder transactionBuilder = Transaction.builder(brvsAccountId);
-    final AtomicReference<BigDecimal> toBurn = new AtomicReference<>(amountToDistribute);
+    final AtomicReference<BigDecimal> toBurn = new AtomicReference<>(brvsValBalance);
+
     distributionEntries
         .forEach(entry -> {
               toBurn.set(toBurn.get().subtract(entry.amount));
@@ -164,14 +173,23 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
                   );
             }
         );
-    transactionBuilder.subtractAssetQuantity(
-        VAL_ASSET_ID,
-        toBurn.get()
-    );
+    final BigDecimal toBurnValue = toBurn.get();
+    if (toBurnValue.signum() == 1) {
+      transactionBuilder.subtractAssetQuantity(
+          VAL_ASSET_ID,
+          toBurnValue
+      );
+    }
+
+    final TransactionOuterClass.Transaction transaction = transactionBuilder
+        .sign(brvsKeypair)
+        .build();
+
+    logger.debug("Constructed transaction: {}", transaction);
 
     final TxStatus txStatus = sendWithLastResponseWaiting(
         irohaAPI,
-        transactionBuilder.sign(brvsKeypair).build()
+        transaction
     ).getTxStatus();
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       throw new IllegalStateException(
