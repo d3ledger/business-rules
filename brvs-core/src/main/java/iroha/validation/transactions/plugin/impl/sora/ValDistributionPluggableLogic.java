@@ -134,6 +134,7 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
                         )
                     )
                 )
+                .filter(entry -> entry.amount.signum() == 1)
                 .collect(Collectors.toList()));
 
     constructAndSendDistributions(transactionsContext, brvsValBalance);
@@ -154,9 +155,6 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
   private void constructAndSendDistributions(
       Set<DistributionEntry> distributionEntries,
       BigDecimal brvsValBalance) {
-    if (distributionEntries.isEmpty()) {
-      return;
-    }
     final TransactionBuilder transactionBuilder = Transaction.builder(brvsAccountId);
     final AtomicReference<BigDecimal> toBurn = new AtomicReference<>(brvsValBalance);
 
