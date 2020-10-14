@@ -123,12 +123,23 @@
     <constructor-arg name="projectAccountProvider" ref="soraProjectsProvider"/>
   </bean>
 
+  <!--  VAL DISTRIBUTION CONFIG-->
+  <bean id="valDistributionLogic"
+    class="iroha.validation.transactions.plugin.impl.sora.ValDistributionPluggableLogic">
+    <constructor-arg name="queryAPI" ref="queryAPI"/>
+    <constructor-arg name="infoSetterAccount" value="${SORA_DISTRIBUTION_SETTER}"/>
+    <constructor-arg name="irohaQueryHelper" ref="queryHelper"/>
+    <constructor-arg name="registeredUsersStorage" ref="userStorage"/>
+    <constructor-arg name="totalProportionPool" value="${VAL_DISTRIBUTION_XOR_POOL}"/>
+  </bean>
+
   <util:list id="logicList" list-class="java.util.ArrayList"
     value-type="iroha.validation.transactions.plugin.PluggableLogic">
     <ref bean="registrationReactionLogic"/>
     <ref bean="quorumReactionLogic"/>
     <ref bean="projectAccountsReactionLogic"/>
     <ref bean="soraDistributionLogic"/>
+    <ref bean="valDistributionLogic"/>
   </util:list>
 
   <!-- PROVIDER CONFIG -->

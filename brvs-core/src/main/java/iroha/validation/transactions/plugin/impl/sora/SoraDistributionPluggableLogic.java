@@ -5,6 +5,7 @@
 
 package iroha.validation.transactions.plugin.impl.sora;
 
+import static iroha.validation.rules.impl.billing.BillingRule.XOR_ASSET_ID;
 import static iroha.validation.utils.ValidationUtils.advancedQueryAccountDetails;
 import static iroha.validation.utils.ValidationUtils.gson;
 import static iroha.validation.utils.ValidationUtils.trackHashWithLastResponseWaiting;
@@ -51,7 +52,6 @@ public class SoraDistributionPluggableLogic extends PluggableLogic<SoraDistribut
   public static final String DISTRIBUTION_FINISHED_KEY = "distribution_finished";
   public static final String DISTRIBUTION_BLOCK = "distribution_block";
   private static final String SORA_DOMAIN = "sora";
-  private static final String XOR_ASSET_ID = "xor#" + SORA_DOMAIN;
   private static final int XOR_PRECISION = 18;
   private static final MathContext XOR_MATH_CONTEXT = new MathContext(
       Integer.MAX_VALUE,
