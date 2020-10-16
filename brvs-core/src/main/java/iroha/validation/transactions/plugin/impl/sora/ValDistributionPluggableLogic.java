@@ -15,6 +15,7 @@ import iroha.protocol.Commands.TransferAsset;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass;
 import iroha.validation.transactions.core.provider.RegisteredUsersStorage;
+import iroha.validation.transactions.filter.sora.XorTransfersTemporaryIgnoringFilter;
 import iroha.validation.transactions.plugin.PluggableLogic;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -55,13 +56,15 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
   private final IrohaQueryHelper irohaQueryHelper;
   private final RegisteredUsersStorage registeredUsersStorage;
   private final BigDecimal totalProportionPool;
+  private final XorTransfersTemporaryIgnoringFilter xorTransfersTemporaryIgnoringFilter;
 
   public ValDistributionPluggableLogic(
       QueryAPI queryAPI,
       String infoSetterAccount,
       IrohaQueryHelper irohaQueryHelper,
       RegisteredUsersStorage registeredUsersStorage,
-      String totalProportionPool) {
+      String totalProportionPool,
+      XorTransfersTemporaryIgnoringFilter xorTransfersTemporaryIgnoringFilter) {
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     if (StringUtils.isEmpty(infoSetterAccount)) {
       throw new IllegalArgumentException("Info setter account must not be neither null nor empty");
@@ -71,6 +74,10 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
     if (StringUtils.isEmpty(totalProportionPool)) {
       throw new IllegalArgumentException("TotalProportionPool must not be neither null nor empty");
     }
+    Objects.requireNonNull(
+        xorTransfersTemporaryIgnoringFilter,
+        "XorTransfersTemporaryIgnoringFilter must not be null"
+    );
 
     this.irohaAPI = queryAPI.getApi();
     this.brvsAccountId = queryAPI.getAccountId();
@@ -79,6 +86,7 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
     this.irohaQueryHelper = irohaQueryHelper;
     this.registeredUsersStorage = registeredUsersStorage;
     this.totalProportionPool = new BigDecimal(totalProportionPool);
+    this.xorTransfersTemporaryIgnoringFilter = xorTransfersTemporaryIgnoringFilter;
   }
 
   /**
@@ -123,6 +131,7 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
       logger.warn("BRVS balance is insufficient for the distribution");
       return;
     }
+    xorTransfersTemporaryIgnoringFilter.enable();
     logger.info("Triggered VAL distribution of {} VALs", amountToDistribute.toPlainString());
     final Set<DistributionEntry> transactionsContext =
         registeredUsersStorage.process((userAccounts) ->
@@ -190,6 +199,7 @@ public class ValDistributionPluggableLogic extends PluggableLogic<BigDecimal> {
         irohaAPI,
         transaction
     ).getTxStatus();
+    xorTransfersTemporaryIgnoringFilter.disable();
     if (!txStatus.equals(TxStatus.COMMITTED)) {
       throw new IllegalStateException(
           "Could not send VAL distribution. Got transaction status: " + txStatus.name()

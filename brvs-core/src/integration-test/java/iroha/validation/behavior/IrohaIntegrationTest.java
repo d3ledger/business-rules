@@ -42,6 +42,7 @@ import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.core.provider.RegisteredUsersStorage;
 import iroha.validation.transactions.core.provider.impl.RegisteredUsersStorageImpl;
+import iroha.validation.transactions.filter.sora.XorTransfersTemporaryIgnoringFilter;
 import iroha.validation.transactions.plugin.impl.QuorumReactionPluggableLogic;
 import iroha.validation.transactions.plugin.impl.RegistrationReactionPluggableLogic;
 import iroha.validation.transactions.plugin.impl.sora.ProjectAccountProvider;
@@ -376,6 +377,9 @@ public class IrohaIntegrationTest {
                     projectAccountProvider,
                     irohaQueryHelper
                 )
+            ),
+            Collections.singletonList(
+                new XorTransfersTemporaryIgnoringFilter()
             ),
             "2"
         ),

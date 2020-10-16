@@ -21,6 +21,7 @@ import iroha.validation.transactions.core.provider.RegistrationProvider;
 import iroha.validation.transactions.core.provider.TransactionProvider;
 import iroha.validation.transactions.core.provider.UserQuorumProvider;
 import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.filter.TransactionBatchFilter;
 import iroha.validation.transactions.plugin.PluggableLogic;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.verdict.ValidationResult;
@@ -45,6 +46,7 @@ public class BasicTransactionProvider implements TransactionProvider {
   private final RegistrationProvider registrationProvider;
   private final BrvsIrohaChainListener irohaReliableChainListener;
   private final List<PluggableLogic<?>> pluggableLogicList;
+  private final List<TransactionBatchFilter> transactionFilterList;
   private final int pendingPollingPeriod;
   private final ScheduledExecutorService executor = createPrettyScheduledThreadPool(
       "brvs", "pending-processor"
@@ -62,6 +64,7 @@ public class BasicTransactionProvider implements TransactionProvider {
       RegistrationProvider registrationProvider,
       BrvsIrohaChainListener irohaReliableChainListener,
       List<PluggableLogic<?>> pluggableLogicList,
+      List<TransactionBatchFilter> transactionFilterList,
       String pendingPollingPeriod) {
     Objects.requireNonNull(
         transactionVerdictStorage,
@@ -81,13 +84,18 @@ public class BasicTransactionProvider implements TransactionProvider {
     );
     Objects.requireNonNull(
         pluggableLogicList,
-        "Pluggable logics List must not be null"
+        "Pluggable logics list must not be null"
+    );
+    Objects.requireNonNull(
+        transactionFilterList,
+        "Transaction filter list List must not be null"
     );
 
     this.transactionVerdictStorage = transactionVerdictStorage;
     this.userQuorumProvider = userQuorumProvider;
     this.registrationProvider = registrationProvider;
     this.pluggableLogicList = pluggableLogicList;
+    this.transactionFilterList = transactionFilterList;
     this.irohaReliableChainListener = irohaReliableChainListener;
     this.pendingPollingPeriod = Integer.parseInt(pendingPollingPeriod);
   }
@@ -114,20 +122,23 @@ public class BasicTransactionProvider implements TransactionProvider {
   private void monitorIrohaPending() {
     try {
       irohaReliableChainListener.getAllPendingTransactions()
+          .stream()
+          .filter(this::filter)
+          .filter(this::isBatchSignedByUsers)
+          .filter(this::savedMissingInStorage)
           .forEach(transactionBatch -> {
-                // if only BRVS signatory remains
-                if (isBatchSignedByUsers(transactionBatch)) {
-                  if (savedMissingInStorage(transactionBatch)) {
-                    logger.info("Publishing {} transactions for validation", hexHash(transactionBatch));
-                    subject.onNext(transactionBatch);
-                  }
-                }
+                logger.info("Publishing {} transactions for validation", hexHash(transactionBatch));
+                subject.onNext(transactionBatch);
               }
           );
     } catch (Exception e) {
       logger.error("Pending transactions monitor encountered an error", e);
       System.exit(1);
     }
+  }
+
+  private boolean filter(TransactionBatch transactionBatch) {
+    return transactionFilterList.stream().allMatch(filter -> filter.filter(transactionBatch));
   }
 
   private boolean isBatchSignedByUsers(TransactionBatch transactionBatch) {

@@ -23,6 +23,7 @@ import iroha.protocol.Endpoint.ToriiResponse;
 import iroha.protocol.Endpoint.TxStatus;
 import iroha.protocol.TransactionOuterClass.Transaction;
 import iroha.validation.transactions.core.provider.RegisteredUsersStorage;
+import iroha.validation.transactions.filter.sora.XorTransfersTemporaryIgnoringFilter;
 import iroha.validation.transactions.plugin.impl.sora.ValDistributionPluggableLogic;
 import iroha.validation.utils.ValidationUtils;
 import java.math.BigDecimal;
@@ -100,7 +101,8 @@ public class ValDistributionReactionTest {
             return new HashSet<>(method.apply(Collections.singleton(USER_ID)));
           }
         },
-        TOTAL_AMOUNT
+        TOTAL_AMOUNT,
+        new XorTransfersTemporaryIgnoringFilter()
     );
   }
 
