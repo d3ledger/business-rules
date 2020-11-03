@@ -73,6 +73,7 @@
     class="iroha.validation.transactions.core.provider.impl.RegisteredUsersStorageImpl">
     <constructor-arg name="mongoHost" value="${MONGO_HOST}"/>
     <constructor-arg name="mongoPort" value="${MONGO_PORT}"/>
+    <constructor-arg name="userDomains" value="${BRVS_USERDOMAINS}"/>
   </bean>
 
   <!-- USER ACCOUNTS MANAGER CONFIG -->

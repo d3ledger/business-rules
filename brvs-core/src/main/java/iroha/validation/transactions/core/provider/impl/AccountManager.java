@@ -385,8 +385,9 @@ public class AccountManager implements UserQuorumProvider, RegistrationProvider,
               detailsSet -> {
                 final Set<String> filteredAccounts = detailsSet.stream()
                     .map(this::recoverAccountIdFromDetailsEntry)
-                    .filter(accountId -> accountId != null && !registeredUsersStorage
-                        .contains(accountId))
+                    .filter(accountId -> accountId != null &&
+                        userDomains.contains(ValidationUtils.getDomain(accountId)) &&
+                        !registeredUsersStorage.contains(accountId))
                     .collect(Collectors.toSet());
                 method.apply(filteredAccounts);
                 // Kotlin interop

@@ -14,6 +14,7 @@ import static iroha.validation.utils.ValidationUtils.gson;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -41,7 +42,13 @@ import iroha.validation.rules.impl.core.SampleRule;
 import iroha.validation.service.ValidationService;
 import iroha.validation.service.impl.ValidationServiceImpl;
 import iroha.validation.transactions.core.provider.RegisteredUsersStorage;
+import iroha.validation.transactions.core.provider.impl.AccountManager;
+import iroha.validation.transactions.core.provider.impl.BasicTransactionProvider;
 import iroha.validation.transactions.core.provider.impl.RegisteredUsersStorageImpl;
+import iroha.validation.transactions.core.provider.impl.util.BrvsData;
+import iroha.validation.transactions.core.signatory.impl.TransactionSignerImpl;
+import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
+import iroha.validation.transactions.core.storage.impl.mongo.MongoTransactionVerdictStorage;
 import iroha.validation.transactions.filter.sora.XorTransfersTemporaryIgnoringFilter;
 import iroha.validation.transactions.plugin.impl.QuorumReactionPluggableLogic;
 import iroha.validation.transactions.plugin.impl.RegistrationReactionPluggableLogic;
@@ -49,12 +56,6 @@ import iroha.validation.transactions.plugin.impl.sora.ProjectAccountProvider;
 import iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic;
 import iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.SoraDistributionFinished;
 import iroha.validation.transactions.plugin.impl.sora.SoraDistributionPluggableLogic.SoraDistributionProportions;
-import iroha.validation.transactions.core.provider.impl.AccountManager;
-import iroha.validation.transactions.core.provider.impl.BasicTransactionProvider;
-import iroha.validation.transactions.core.provider.impl.util.BrvsData;
-import iroha.validation.transactions.core.signatory.impl.TransactionSignerImpl;
-import iroha.validation.transactions.core.storage.TransactionVerdictStorage;
-import iroha.validation.transactions.core.storage.impl.mongo.MongoTransactionVerdictStorage;
 import iroha.validation.utils.ValidationUtils;
 import iroha.validation.validators.impl.SimpleAggregationValidator;
 import iroha.validation.verdict.Verdict;
@@ -99,6 +100,7 @@ public class IrohaIntegrationTest {
   private static final KeyPair projectSetterKeypair = crypto.generateKeypair();
   private static final String serviceDomainName = "sora";
   private static final String userDomainName = "user";
+  private static final String fakeUserDomainName = "fake";
   private static final String roleName = "user";
   private static final String senderName = "sender";
   private static final String projectOwnerOne = "owner1";
@@ -125,6 +127,7 @@ public class IrohaIntegrationTest {
   private static final String senderId = String.format("%s@%s", senderName, userDomainName);
   private static final String receiverName = "receiver";
   private static final String receiverId = String.format("%s@%s", receiverName, userDomainName);
+  private static final String fakeReceiverId = String.format("%s@%s", receiverName, fakeUserDomainName);
   private static final String validatorName = "brvs";
   private static final String validatorConfigName = "brvssettings";
   private static final String validatorId = String
@@ -189,6 +192,7 @@ public class IrohaIntegrationTest {
                 )
                 .createDomain(serviceDomainName, roleName)
                 .createDomain(userDomainName, roleName)
+                .createDomain(fakeUserDomainName, roleName)
                 // brvs accounts
                 .createAccount(validatorName, serviceDomainName, validatorKeypair.getPublic())
                 .createAccount(validatorConfigName, serviceDomainName, validatorKeypair.getPublic())
@@ -232,6 +236,10 @@ public class IrohaIntegrationTest {
                     projectSetterKeypair.getPublic()
                 )
                 .addAssetQuantity(assetId, "1")
+                // create fake receiver acc
+                .createAccount(receiverName, fakeUserDomainName, receiverKeypair.getPublic())
+                .setAccountDetail(String.format("%s@%s", serviceDomainName, serviceDomainName),
+                    receiverName + fakeUserDomainName, userDomainName)
                 // transactions in genesis block can be unsigned
                 .build()
                 .build()
@@ -310,7 +318,11 @@ public class IrohaIntegrationTest {
     );
     queryAPI = new QueryAPI(irohaAPI, validatorId, validatorKeypair);
     final IrohaQueryHelper irohaQueryHelper = new IrohaQueryHelperImpl(queryAPI);
-    final RegisteredUsersStorage usersStorage = new RegisteredUsersStorageImpl(mongoHost, mongoPort);
+    final RegisteredUsersStorage usersStorage = new RegisteredUsersStorageImpl(
+        mongoHost,
+        mongoPort,
+        userDomainName
+    );
     accountManager = new AccountManager(queryAPI,
         "uq",
         userDomainName,
@@ -445,6 +457,12 @@ public class IrohaIntegrationTest {
         .build()
     );
     irohaAPI.transactionSync(Transaction.builder(receiverId)
+        .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
+        .grantPermission(validatorId, GrantablePermission.can_set_my_quorum)
+        .sign(receiverKeypair)
+        .build()
+    );
+    irohaAPI.transactionSync(Transaction.builder(fakeReceiverId)
         .grantPermission(validatorId, GrantablePermission.can_add_my_signatory)
         .grantPermission(validatorId, GrantablePermission.can_set_my_quorum)
         .sign(receiverKeypair)
@@ -1108,5 +1126,40 @@ public class IrohaIntegrationTest {
     return new BigDecimal(queryAPI.getAccountAssets(accountId)
         .getAccountAssetsList().stream().filter(result -> result.getAssetId().equals(assetId))
         .findAny().get().getBalance());
+  }
+
+  /**
+   * @given {@link ValidationService} instance with "user" user domain configured
+   * @when {@link Transaction} created by receiver@fake
+   * @then the tx is not checked by BRVS
+   */
+  @Test
+  void createTransactionFromUserNotInBrvsControlledDomain() throws InterruptedException {
+    String newAccountName = "abcdefg";
+    TransactionOuterClass.Transaction transaction = Transaction.builder(fakeReceiverId)
+        .createAccount(
+            newAccountName,
+            serviceDomainName,
+            crypto.generateKeypair().getPublic()
+        )
+        .setQuorum(2)
+        .sign(receiverKeypair)
+        .build();
+
+    final String txHash = ValidationUtils.hexHash(transaction);
+    irohaAPI.transactionSync(transaction);
+
+    Thread.sleep(6000);
+
+    assertNull(transactionVerdictStorage.getTransactionVerdict(txHash));
+
+    // query Iroha and check
+    String newAccountId = String.format("%s@%s", newAccountName, serviceDomainName);
+    Account accountResponse = irohaAPI.query(new QueryBuilder(fakeReceiverId, Instant.now(), 1)
+        .getAccount(newAccountId)
+        .buildSigned(receiverKeypair))
+        .getAccountResponse()
+        .getAccount();
+    assertEquals("", accountResponse.getAccountId());
   }
 }
