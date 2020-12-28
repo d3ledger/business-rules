@@ -18,12 +18,14 @@ import iroha.validation.utils.ValidationUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.security.KeyPair;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import jp.co.soramitsu.iroha.java.ErrorResponseException;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
@@ -49,16 +51,19 @@ public class BrvsIrohaChainListener implements Closeable {
   private final KeyPair userKeyPair;
   private final ReliableIrohaChainListener4J irohaChainListener;
   private final RegisteredUsersStorage registeredUsersStorage;
+  private final AtomicReference<Instant> lastQueryingTimestamp;
 
   public BrvsIrohaChainListener(
       RMQConfig rmqConfig,
       QueryAPI queryAPI,
       KeyPair userKeyPair,
-      RegisteredUsersStorage registeredUsersStorage) {
+      RegisteredUsersStorage registeredUsersStorage,
+      AtomicReference<Instant> lastQueryingTimestamp) {
     Objects.requireNonNull(queryAPI, "RMQ config must not be null");
     Objects.requireNonNull(queryAPI, "Query API must not be null");
     Objects.requireNonNull(userKeyPair, "User Keypair must not be null");
     Objects.requireNonNull(registeredUsersStorage, "Users storage must not be null");
+    Objects.requireNonNull(lastQueryingTimestamp, "Last Querying Timestamp must not be null");
 
     irohaChainListener = new ReliableIrohaChainListener4J(rmqConfig, BRVS_QUEUE_RMQ_NAME, false);
     this.irohaAPI = queryAPI.getApi();
@@ -66,6 +71,7 @@ public class BrvsIrohaChainListener implements Closeable {
     this.brvsKeyPair = queryAPI.getKeyPair();
     this.userKeyPair = userKeyPair;
     this.registeredUsersStorage = registeredUsersStorage;
+    this.lastQueryingTimestamp = lastQueryingTimestamp;
   }
 
   /**
@@ -85,6 +91,7 @@ public class BrvsIrohaChainListener implements Closeable {
         .map(ValidationUtils::hexHash)
         .collect(Collectors.toList())
     );
+    lastQueryingTimestamp.set(Instant.now());
     return pendingTransactions;
   }
 

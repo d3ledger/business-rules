@@ -69,6 +69,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import jp.co.soramitsu.iroha.java.IrohaAPI;
 import jp.co.soramitsu.iroha.java.QueryAPI;
 import jp.co.soramitsu.iroha.java.QueryBuilder;
@@ -355,7 +356,8 @@ public class IrohaIntegrationTest {
         },
         queryAPI,
         validatorKeypair,
-        usersStorage
+        usersStorage,
+        new AtomicLong()
     );
     final BillingInfo billingInfo = mock(BillingInfo.class);
     when(billingInfo.getFeeFraction()).thenReturn(new BigDecimal("0.1"));

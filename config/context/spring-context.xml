@@ -24,6 +24,12 @@
     </property>
   </bean>
 
+  <!-- TIMESTAMP FOR QUERIES -->
+  <bean id="instant" class="java.time.Instant" factory-method="now"/>
+  <bean id="timestampForQueries" name="timestampForQueries" class="java.util.concurrent.atomic.AtomicReference">
+    <constructor-arg name="initialValue" ref="instant"/>
+  </bean>
+
   <!-- BRVS PORT -->
   <bean id="port" name="brvsPort" class="java.lang.String">
     <constructor-arg name="original" value="${BRVS_PORT}"/>
